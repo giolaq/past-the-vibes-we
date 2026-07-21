@@ -94,8 +94,8 @@ const modules = [
       <h3>Bring-your-own-app safety check</h3>
       <div class="checklist">${["The app runs before the workshop","Git status is clean","It contains no production secrets or private data","It contains no protected media","It can be shared with the chosen model provider"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
 
-      <h2>2. Install both workshop packages</h2>
-      ${command("Install the mini-harness and workshop harness","installWorkshop")}
+      <h2>2. Install the workshop workspace</h2>
+      ${command("Install all workshop packages","installWorkshop")}
 
       <h2>3. Run the setup check</h2>
       ${command("Check the key-free replay path","doctor")}
@@ -163,7 +163,85 @@ const modules = [
     lead: "Review scope, checks, ADBT context, seed, and cost before approving a port. The source app stays untouched.",
     objective: "Follow the complete port boundary from plan approval to a checked, committed app copy.",
     evidence: "The report links approved ADBT context, a typed patch, check results, cost, and Git commits.",
-    body: `${concept("The production loop","The plan is the human approval boundary. ADBT supplies approved Vega knowledge. Strands proposes a typed patch from read-only project tools. The harness applies it, checks it, retries once, and commits only verified work.")}${flow([["ADBT MCP","Load approved workflows"],["Context","Inject into vega_port"],["Model","Propose a typed patch"],["Checks","Write, commit, or retry"]])}${predict("Which phase needs ADBT context, and why should the model not receive every document the MCP server can expose?")}${command("Plan the Pocket Cinema port","plan")}<h2>Review the plan before approval</h2>${steps(["Confirm the source app and target flow.","Read the portability findings.","Check that ADBT is assigned only to <code>vega_port</code>.","Check the six-stage plan, fixed seed, and $3 cap.","Notice that the sixth stage is the separate Vega lifecycle in lesson 8."])}${command("Run with recorded model and ADBT context","port")}<h2>Build an evidence chain</h2>${steps(["Copy the <code>runId</code> from the output.","Open <code>out/&lt;runId&gt;/adbt-port-context.json</code> and find the workflow names and hashes.","Open <code>port-result.json</code> and confirm <code>adbt.mode: replay</code>.","Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.","Inspect the guarded app, report, and Git log.","Confirm <code>apps/pocket-cinema</code> is unchanged."])}${knowledgeCheck("Why does the harness choose the ADBT documents instead of giving the model unrestricted MCP access?","Selection keeps context relevant, reviewable, and reproducible. It also prevents a tool-capable model from fetching unrelated instructions or changing the evidence set between runs.")}<h2>Optional: use ADBT MCP live</h2>${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}${note("What changes","The harness uses Strands <code>McpClient</code> to discover and call two named tools, records approved excerpts and hashes, then disconnects. The model remains replayed.")}${done("You can trace each MCP construct from connection through approved context, a typed proposal, checks, a verified commit, and the final report.")}${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
+    body: `${concept("The production loop","Porting is not one large prompt. The harness separates deterministic inspection, selected platform knowledge, bounded model proposals, protected writes, mechanical checks, and platform execution.")}
+      ${flow([["Inspect","Discover and audit"],["Specify","Preserve one TV flow"],["Port","Use selected ADBT guidance"],["Prove","Check, retry, and commit"]])}
+      ${predict("Which parts of this run should remain deterministic even when you change the model provider?")}
+
+      <h2>The six stages</h2>
+      ${table(["Stage","Owner","Result"],[
+        ["source_discovery","Harness","Reads metadata and creates a guarded copy"],
+        ["vega_portability_audit","Harness","Classifies portable, replacement, manual, and out-of-scope work"],
+        ["tv_product_spec","Model + harness","Writes and verifies the TV flow to preserve"],
+        ["vega_port","ADBT + model + harness","Creates the Vega package boundary and records gaps"],
+        ["tv_behavior","Model + harness","Connects focus state and proves remote transitions"],
+        ["production_vega_run","Vega adapter","Builds and gathers device evidence in lesson 8"]
+      ])}
+      ${note("Keep the claims separate","The first five stages produce a checked port. They do not prove that the app built, installed, or ran on a Vega device. The separate lifecycle owns those claims.")}
+
+      <h2>Before the model is allowed to act</h2>
+      ${steps([
+        "<code>plan</code> reads project metadata, scripts, dependencies, approved context, and portability findings without changing the app.",
+        "You review the target SDK, executor, phase order, ADBT mode, fixed seed, and $3 cost cap.",
+        "After <code>--yes</code>, the harness copies the app into <code>out/&lt;runId&gt;/app</code> without Git history, dependencies, build output, caches, or environment files.",
+        "The harness initializes a new Git repository in that guarded copy. The source app is never the model's workspace."
+      ])}
+      ${command("Plan the Pocket Cinema port","plan")}
+      <h3>Review the plan before approval</h3>
+      ${steps(["Confirm the source app and target flow.","Separate portable findings from replacement and manual work.","Check that ADBT is assigned only to <code>vega_port</code>.","Check the six-stage plan, fixed seed, and $3 cap.","Notice that device work remains in lesson 8."])}
+
+      <h2>Inside one edit phase</h2>
+      ${flow([["Snapshot","Save phase-start commit"],["Propose","Return typed files"],["Guard","Validate paths and cost"],["Verify","Commit or retry once"]])}
+      ${steps([
+        "The prompt combines the phase goal, domain rule, fixed seed, approved context, portability findings, and exact checks.",
+        "The executor may list, read, and search only the guarded app. It has no shell or write tool.",
+        "The response must match <code>PortOutputSchema</code>: a summary plus complete contents for relative file paths.",
+        "The harness rejects absolute paths, traversal, <code>.git</code>, dependencies, and environment files before writing anything.",
+        "The harness writes the files, adds the turn cost, and runs the phase checks.",
+        "On failure, it resets to the phase-start commit and retries once with the exact check failures.",
+        "A passing phase gets one commit. A second failure restores the clean state and stops with exit 2."
+      ])}
+
+      <h2>What each edit phase proves</h2>
+      ${table(["Phase","Model-assisted change","Mechanical gate"],[
+        ["tv_product_spec","Describe preserved behavior and migration scope","<code>VEGA_PORT.md</code> contains <code>## TV Flow</code>"],
+        ["vega_port","Create manifest, app registration, Metro boundary, build script, focus adapter, and NextSteps","Eight file and content checks confirm the expected Vega package shape"],
+        ["tv_behavior","Use shared focus state and document Back restoration","An executable check writes a passing <code>tv-focus-result.json</code>"]
+      ])}
+
+      <h2>Why ADBT is used only for <code>vega_port</code></h2>
+      <p>The product spec does not need Vega APIs, and the behavior phase already has a concrete focus contract. The Vega structure phase needs current migration guidance, so the harness starts pinned ADBT, discovers its tools, lists Vega workflows, and reads only <code>port_tv_app_to_vega.md</code> and <code>port_tv_app_to_vega_fos_rn_app.md</code>.</p>
+      ${steps([
+        "Keep only the relevant workflow sections.",
+        "Hash every excerpt and save it in <code>adbt-port-context.json</code>.",
+        "Inject the selected text into <code>vega_port</code>; do not expose unrestricted MCP tools to the model.",
+        "Disconnect in <code>finally</code>. If live ADBT is missing or incomplete, stop with exit 3."
+      ])}
+
+      <h2>The executor can change; the guarantees do not</h2>
+      ${table(["Path","Model boundary","Unchanged harness controls"],[
+        ["Replay","Recorded response for the named phase","Schema, path safety, checks, retry, cost, and commit"],
+        ["Claude Code","Prompt over stdin with Read, Glob, and Grep","Schema, path safety, checks, retry, cost, and commit"],
+        ["Strands","Agent with typed list, read, and search tools plus structured output","Schema, path safety, checks, retry, cost, and commit"]
+      ])}
+
+      ${command("Run with recorded model and ADBT context","port")}
+      <h2>Follow the evidence after the run</h2>
+      ${steps([
+        "Copy the <code>runId</code> from the output.",
+        "Open <code>portability-report.json</code> and review what was kept, replaced, deferred, or excluded.",
+        "Open <code>adbt-port-context.json</code> and find both workflow names, excerpts, and hashes.",
+        "Open <code>port-result.json</code> and review ADBT mode, phase attempts, checks, and cost.",
+        "Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.",
+        "Inspect <code>report.md</code> and the guarded app's Git log. Match one commit to each passing edit phase.",
+        "Confirm <code>apps/pocket-cinema</code> is unchanged."
+      ])}
+      ${knowledgeCheck("Who is allowed to write files during the port, and why?","Only the harness writes. The model proposes typed file contents after read-only inspection. This lets the harness reject unsafe paths, restore failed work, enforce cost, and commit only checked changes.")}
+
+      <h2>Optional: use ADBT MCP live</h2>
+      ${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}
+      ${note("What changes","The harness uses Strands <code>McpClient</code> to discover and call two named tools, records approved excerpts and hashes, then disconnects. The model remains replayed.")}
+      ${done("You can explain every port stage, trace the guarded write-and-verify loop, and distinguish a checked port from real Vega device evidence.")}
+      ${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
   },
   {
     id: "tv", number: "07", nav: "Test remote behavior", time: "20 minutes", title: "Test the flow, not one screenshot",
