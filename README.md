@@ -29,6 +29,17 @@ If you do not want to start a server, open `workshop/index.html` directly.
 
 Push `main` to GitHub and enable Pages with **GitHub Actions** as its source to publish the same site. The included workflow deploys only `workshop/`.
 
+### Yarn reports that this directory is not part of another project
+
+Run commands from this repository's root, the directory containing this README and the root `yarn.lock`:
+
+```sh
+cd "$(git rev-parse --show-toplevel)"
+yarn verify
+```
+
+The root lockfile marks this clone as an independent Yarn project, even when you clone it inside another directory that also contains a `package.json` or `yarn.lock`.
+
 ## Useful commands
 
 ```sh

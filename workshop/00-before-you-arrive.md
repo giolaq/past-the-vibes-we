@@ -21,6 +21,15 @@ Replay uses the same phase and evidence contracts without contacting a model or 
 
 Install Node.js 20 or newer, Yarn 1.22, and Git. Clone the repository and open a terminal at its root.
 
+Confirm that you are in the workshop repository, not its parent directory:
+
+```sh
+cd "$(git rev-parse --show-toplevel)"
+test -f package.json && test -f yarn.lock
+```
+
+The root `yarn.lock` keeps the workshop independent when it is cloned inside another Yarn project.
+
 If you bring your own React Native app, check that it:
 
 - runs before the workshop;
