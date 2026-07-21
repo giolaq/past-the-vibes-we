@@ -11,15 +11,14 @@ Skip this lesson if Bee is not configured or participants have not consented to 
 1. Search for relevant conversations:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts context bee search \
+yarn --cwd packages/workshop-harness tsx src/index.ts context bee search \
   "Pocket Cinema product decisions" --json
 ```
 
 2. Choose one result and create a local snapshot:
 
 ```sh
-yarn tsx src/index.ts context bee snapshot <conversationId> \
+yarn --cwd packages/workshop-harness tsx src/index.ts context bee snapshot <conversationId> \
   --out candidate-context.json --json
 ```
 

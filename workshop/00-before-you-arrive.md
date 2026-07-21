@@ -21,10 +21,10 @@ Replay uses the same phase and evidence contracts without contacting a model or 
 
 Install Node.js 20 or newer, Yarn 1.22, and Git. Clone the repository and open a terminal at its root. Enable Corepack so the repository's `packageManager` field selects the pinned Yarn version.
 
-Confirm that you are in the workshop repository, not its parent directory:
+After cloning, enter the repository once and keep this terminal at its root:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)"
+cd past-the-vibes-we
 test -f package.json && test -f yarn.lock
 corepack enable
 ```
@@ -43,7 +43,6 @@ If you bring your own React Native app, check that it:
 ## 2. Install the workshop packages
 
 ```sh
-cd "$(git rev-parse --show-toplevel)"
 unset NODE_TLS_REJECT_UNAUTHORIZED
 yarn setup
 ```
@@ -53,7 +52,6 @@ If `NODE_TLS_REJECT_UNAUTHORIZED` was already unset, the command is harmless. Ne
 ## 3. Run the setup check
 
 ```sh
-cd "$(git rev-parse --show-toplevel)"
 yarn doctor
 ```
 
@@ -62,7 +60,7 @@ You are ready when the output reports success. If model or device checks fail, c
 To rehearse live ADBT context with the model and Vega device still replayed:
 
 ```sh
-yarn tsx src/index.ts doctor --replay --adbt-live --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
 ```
 
 ## 4. Choose one execution path
@@ -70,8 +68,7 @@ yarn tsx src/index.ts doctor --replay --adbt-live --json
 Replay needs no credentials:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/01-single-agent/index.ts run \
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
   steps/01-single-agent/fixtures/phases.json \
   --replay steps/01-single-agent/fixtures/demo-recording.json
 ```
@@ -79,15 +76,13 @@ yarn tsx steps/01-single-agent/index.ts run \
 For local Claude Code:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --executor claude-cli --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json
 ```
 
 For Strands with Bedrock:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --executor strands --provider bedrock --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands --provider bedrock --json
 ```
 
 ## 5. Optional Vega setup
@@ -95,8 +90,7 @@ yarn tsx src/index.ts doctor --executor strands --provider bedrock --json
 Install Vega SDK `0.22.5875` and create a Vega Virtual Device. The harness starts pinned ADBT `1.0.5` as an MCP server during a live `vega_port` phase. It discovers the MCP tools, calls `list_documents`, reads the two approved port workflows, and disconnects. You do not need to run `init-context` because the harness owns this connection. Replay uses a committed ADBT context snapshot.
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --replay --adbt-live --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
 vega --version
 vega virtual-device start --gui
 ```

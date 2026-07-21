@@ -10,10 +10,9 @@ Check whether a user can complete one flow with a remote, not just whether the a
 2. In `packages/workshop-harness`, run the executable focus check against your guarded app:
 
 ```sh
-REPO="$(git rev-parse --show-toplevel)"
-cd "$REPO/packages/workshop-harness/out/<runId>/app"
-node --import tsx tests/verify-tv-focus.ts
-cat tv-focus-result.json
+(cd packages/workshop-harness/out/<runId>/app && \
+  node --import tsx tests/verify-tv-focus.ts)
+cat packages/workshop-harness/out/<runId>/app/tv-focus-result.json
 ```
 
 3. Open `TV_VERIFICATION.md` in the guarded app.

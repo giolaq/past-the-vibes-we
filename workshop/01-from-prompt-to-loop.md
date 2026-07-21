@@ -9,8 +9,7 @@ Run the smallest possible agent program against a React Native app, then identif
 1. Run Step 1 with the committed recording:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/01-single-agent/index.ts run \
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
   steps/01-single-agent/fixtures/phases.json \
   --replay steps/01-single-agent/fixtures/demo-recording.json
 ```

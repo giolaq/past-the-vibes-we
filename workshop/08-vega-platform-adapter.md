@@ -11,15 +11,14 @@ ADBT already supplied the migration context through Strands `McpClient` during l
 1. Use the `runId` from lesson 6 and print the lifecycle plan:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts vega-run <runId> --plan --json
+yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --plan --json
 ```
 
 2. Read the plan before continuing. Check the app path, SDK, eight commands, and confirmation requirement.
 3. Run the key-free replay:
 
 ```sh
-yarn tsx src/index.ts vega-run <runId> \
+yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --yes --json
 ```
@@ -38,8 +37,7 @@ yarn tsx src/index.ts vega-run <runId> \
 The harness owns the ADBT MCP connection, so it does not change Claude Code configuration. Check ADBT through the same runtime path used in lesson 6, then check Vega SDK:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --replay --adbt-live --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
 vega --version
 ```
 
@@ -59,11 +57,8 @@ vega exec vda devices -l
 Install the pinned Vega package dependencies in the guarded copy, then run the same approved lifecycle without the replay flag:
 
 ```sh
-REPO="$(git rev-parse --show-toplevel)"
-cd "$REPO/packages/workshop-harness/out/<runId>/app/apps/vega"
-npm install
-cd "$REPO/packages/workshop-harness"
-yarn tsx src/index.ts vega-run <runId> \
+npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
+yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \
   --yes --json
 ```
 

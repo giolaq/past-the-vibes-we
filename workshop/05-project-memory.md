@@ -9,23 +9,21 @@ Review proposed project facts before saving them for later runs.
 1. Make a disposable copy of the input fixture:
 
 ```sh
-REPO="$(git rev-parse --show-toplevel)"
 WORKSHOP_INPUTS="$(mktemp -d)/pocket-cinema-inputs"
-cp -R "$REPO/workshop/fixtures/pocket-cinema-inputs" \
+cp -R workshop/fixtures/pocket-cinema-inputs \
   "$WORKSHOP_INPUTS"
-cd "$REPO/packages/workshop-harness"
 ```
 
 2. Show the current project memory:
 
 ```sh
-yarn tsx src/index.ts memory show "$WORKSHOP_INPUTS" --json
+yarn --cwd packages/workshop-harness tsx src/index.ts memory show "$WORKSHOP_INPUTS" --json
 ```
 
 3. Build a proposal from the synthetic context snapshot:
 
 ```sh
-yarn tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
+yarn --cwd packages/workshop-harness tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
   --from ../../workshop/fixtures/bee-context/snapshot.json \
   --json
 ```
@@ -34,7 +32,7 @@ yarn tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
 5. Apply it only after review:
 
 ```sh
-yarn tsx src/index.ts memory apply "$WORKSHOP_INPUTS" \
+yarn --cwd packages/workshop-harness tsx src/index.ts memory apply "$WORKSHOP_INPUTS" \
   --from ../../workshop/fixtures/bee-context/snapshot.json \
   --yes --json
 ```

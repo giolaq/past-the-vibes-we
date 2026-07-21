@@ -32,10 +32,9 @@ Push `main` to GitHub and enable Pages with **GitHub Actions** as its source to 
 
 ### Yarn reports that this directory is not part of another project
 
-Run commands from this repository's root, the directory containing this README and the root `yarn.lock`:
+Run commands from the `past-the-vibes-we` directory, which contains this README and the root `yarn.lock`:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)"
 yarn verify
 ```
 

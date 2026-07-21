@@ -5,7 +5,6 @@
 The workshop dependencies are not installed in the package's `node_modules`, or Yarn used Plug'n'Play. Do not accept the `npx` download. From the repository root, run:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)"
 unset NODE_TLS_REJECT_UNAUTHORIZED
 corepack enable
 yarn setup

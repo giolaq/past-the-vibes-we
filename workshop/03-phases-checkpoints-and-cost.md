@@ -9,8 +9,7 @@ Split a larger task into phases and see how the harness resumes without repeatin
 1. Run the phased example:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/03-phases/index.ts run \
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
   --stop-after content
@@ -21,7 +20,7 @@ yarn tsx steps/03-phases/index.ts run \
 4. Resume from the checkpoint:
 
 ```sh
-yarn tsx steps/03-phases/index.ts run \
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
   --resume

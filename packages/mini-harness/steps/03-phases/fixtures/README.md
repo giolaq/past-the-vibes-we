@@ -3,5 +3,5 @@
 The committed recording runs this step without a key:
 
 ```sh
-yarn tsx steps/03-phases/index.ts run steps/03-phases/fixtures/phases.json --replay steps/03-phases/fixtures/demo-recording.json
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run steps/03-phases/fixtures/phases.json --replay steps/03-phases/fixtures/demo-recording.json
 ```

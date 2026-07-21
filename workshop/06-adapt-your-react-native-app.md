@@ -11,8 +11,7 @@ Use Pocket Cinema unless your own app already runs and passes the setup checks.
 1. Create a read-only plan:
 
 ```sh
-cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts plan ../../apps/pocket-cinema \
+yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --seed workshop-v1 --max-cost 3 --json
 ```
@@ -21,7 +20,7 @@ yarn tsx src/index.ts plan ../../apps/pocket-cinema \
 3. Run the key-free port. The harness automatically loads the recorded ADBT context beside the model recording:
 
 ```sh
-yarn tsx src/index.ts run ../../apps/pocket-cinema \
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --yes --seed workshop-v1 --max-cost 3 --json
@@ -39,11 +38,11 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 Check the native MCP connection, then run the same port with `--adbt-live`. The model output still comes from the recording, but the harness starts pinned ADBT `1.0.5` over stdio before `vega_port`:
 
 ```sh
-yarn tsx src/index.ts doctor --replay --adbt-live --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
 ```
 
 ```sh
-yarn tsx src/index.ts run ../../apps/pocket-cinema \
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --adbt-live --yes --seed workshop-v1 --max-cost 3 --json

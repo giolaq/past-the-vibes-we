@@ -1,84 +1,62 @@
 const commands = {
-  installWorkshop: `cd "$(git rev-parse --show-toplevel)"
-unset NODE_TLS_REJECT_UNAUTHORIZED
+  installWorkshop: `unset NODE_TLS_REJECT_UNAUTHORIZED
 corepack enable
 yarn setup`,
-  doctor: `cd "$(git rev-parse --show-toplevel)"
-yarn doctor`,
-  claudeDoctor: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --executor claude-cli --json`,
-  strandsDoctor: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --executor strands --provider bedrock --json`,
-  adbtDoctor: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --replay --adbt-live --json`,
-  step1: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/01-single-agent/index.ts run \\
+  doctor: `yarn doctor`,
+  claudeDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json`,
+  strandsDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands --provider bedrock --json`,
+  adbtDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json`,
+  step1: `yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \\
   steps/01-single-agent/fixtures/phases.json \\
   --replay steps/01-single-agent/fixtures/demo-recording.json`,
-  step2: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/02-verify-loop/index.ts run \\
+  step2: `yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \\
   steps/02-verify-loop/fixtures/phases.json \\
   --replay steps/02-verify-loop/fixtures/retry-recording.json`,
-  step3: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/03-phases/index.ts run \\
+  step3: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
   steps/03-phases/fixtures/phases.json \\
   --replay steps/03-phases/fixtures/demo-recording.json \\
   --stop-after content`,
-  step3Resume: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/03-phases/index.ts run \\
+  step3Resume: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
   steps/03-phases/fixtures/phases.json \\
   --replay steps/03-phases/fixtures/demo-recording.json \\
   --resume`,
-  step4: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/04-skills/index.ts run \\
+  step4: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
   steps/04-skills/fixtures/phases.json \\
   --replay steps/04-skills/fixtures/demo-recording.json`,
-  step4Local: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/04-skills/index.ts run \\
+  step4Local: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
   steps/04-skills/fixtures/phases.json \\
   --executor claude-cli --model sonnet`,
-  step4Remote: `cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-yarn tsx steps/04-skills/index.ts run \\
+  step4Remote: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
   steps/04-skills/fixtures/phases.json \\
   --executor strands --provider bedrock \\
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \\
   --region us-west-2`,
-  memoryPrep: `REPO="$(git rev-parse --show-toplevel)"
-WORKSHOP_INPUTS="/tmp/past-the-vibes-pocket-cinema-inputs"
+  memoryPrep: `WORKSHOP_INPUTS="/tmp/past-the-vibes-pocket-cinema-inputs"
 rm -rf "$WORKSHOP_INPUTS"
-cp -R "$REPO/workshop/fixtures/pocket-cinema-inputs" \\
-  "$WORKSHOP_INPUTS"
-cd "$REPO/packages/workshop-harness"`,
-  memory: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts memory propose /tmp/past-the-vibes-pocket-cinema-inputs \\
+cp -R workshop/fixtures/pocket-cinema-inputs \\
+  "$WORKSHOP_INPUTS"`,
+  memory: `yarn --cwd packages/workshop-harness tsx src/index.ts memory propose /tmp/past-the-vibes-pocket-cinema-inputs \\
   --from ../../workshop/fixtures/bee-context/snapshot.json \\
   --json`,
-  applyMemory: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts memory apply /tmp/past-the-vibes-pocket-cinema-inputs \\
+  applyMemory: `yarn --cwd packages/workshop-harness tsx src/index.ts memory apply /tmp/past-the-vibes-pocket-cinema-inputs \\
   --from ../../workshop/fixtures/bee-context/snapshot.json \\
   --yes --json`,
-  plan: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts plan ../../apps/pocket-cinema \\
+  plan: `yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --seed workshop-v1 --max-cost 3 --json`,
-  port: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts run ../../apps/pocket-cinema \\
+  port: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --replay ../../workshop/fixtures/port-recording.json \\
   --yes --seed workshop-v1 --max-cost 3 --json`,
-  portAdbtLive: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts run ../../apps/pocket-cinema \\
+  portAdbtLive: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --replay ../../workshop/fixtures/port-recording.json \\
   --adbt-live --yes --seed workshop-v1 --max-cost 3 --json`,
-focusCheck: `REPO="$(git rev-parse --show-toplevel)"
-cd "$REPO/packages/workshop-harness/out/<runId>/app"
-node --import tsx tests/verify-tv-focus.ts
-cat tv-focus-result.json`,
-  adbt: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --replay --adbt-live --json`,
-  vegaSetup: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts doctor --replay --adbt-live --json
+focusCheck: `(cd packages/workshop-harness/out/<runId>/app && \\
+  node --import tsx tests/verify-tv-focus.ts)
+cat packages/workshop-harness/out/<runId>/app/tv-focus-result.json`,
+  adbt: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json`,
+  vegaSetup: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
 vega --version
 vega virtual-device start --gui`,
   vdaStart: `# Run this in a system terminal and leave it open.
@@ -87,22 +65,15 @@ vega virtual-device start --gui`,
 vega --version
 vega virtual-device status
 vega exec vda devices -l`,
-  vegaPlan: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts vega-run <runId> --plan --json`,
-  vegaRun: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts vega-run <runId> \\
+  vegaPlan: `yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --plan --json`,
+  vegaRun: `yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \\
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \\
   --yes --json`,
-  vegaLive: `REPO="$(git rev-parse --show-toplevel)"
-cd "$REPO/packages/workshop-harness/out/<runId>/app/apps/vega"
-npm install
-cd "$REPO/packages/workshop-harness"
-yarn tsx src/index.ts vega-run <runId> --yes --json`,
-  beeSearch: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts context bee search \\
+  vegaLive: `npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
+yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --json`,
+  beeSearch: `yarn --cwd packages/workshop-harness tsx src/index.ts context bee search \\
   "Pocket Cinema product decisions" --json`,
-  beeSnapshot: `cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-yarn tsx src/index.ts context bee snapshot <conversationId> \\
+  beeSnapshot: `yarn --cwd packages/workshop-harness tsx src/index.ts context bee snapshot <conversationId> \\
   --out candidate-context.json --json`,
 };
 
@@ -118,7 +89,7 @@ const modules = [
       <p>The port agent can only list, read, and search the guarded app. The harness calls ADBT MCP itself, selects two migration workflows, and injects that context only into <code>vega_port</code>. The model gets no shell or write tool. Replay uses the same phase and evidence contracts without contacting a model or MCP server.</p>
 
       <h2>1. Check the basics</h2>
-      ${steps(["Install Node.js 20 or newer, Yarn 1.22, and Git.","Clone this repository and open a terminal anywhere inside it.","Choose Pocket Cinema unless your own React Native app already runs."])}
+      ${steps(["Install Node.js 20 or newer, Yarn 1.22, and Git.","Clone this repository, run <code>cd past-the-vibes-we</code>, and keep the terminal at that root.","Choose Pocket Cinema unless your own React Native app already runs."])}
       <div class="grid"><article><h3>Pocket Cinema</h3><p>Recommended. Every exercise, recording, and checkpoint supports this app.</p><code>apps/pocket-cinema</code></article><article><h3>Your app</h3><p>Use one working flow: launch → screen → action → back. Switch to Pocket Cinema if discovery takes more than 10 minutes.</p><code>launch → screen → action → back</code></article></div>
       <h3>Bring-your-own-app safety check</h3>
       <div class="checklist">${["The app runs before the workshop","Git status is clean","It contains no production secrets or private data","It contains no protected media","It can be shared with the chosen model provider"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
