@@ -89,7 +89,7 @@ const modules = [
       <p>The port agent can only list, read, and search the guarded app. The harness calls ADBT MCP itself, selects two migration workflows, and injects that context only into <code>vega_port</code>. The model gets no shell or write tool. Replay uses the same phase and evidence contracts without contacting a model or MCP server.</p>
 
       <h2>1. Check the basics</h2>
-      ${steps(["Install Node.js 20 or newer, Yarn 1.22, and Git.","Clone this repository, run <code>cd past-the-vibes-we</code>, and keep the terminal at that root.","Choose Pocket Cinema unless your own React Native app already runs."])}
+      ${steps(["Install Node.js 20 or newer and Git. Corepack supplies Yarn 4.12.","Clone this repository, run <code>cd past-the-vibes-we</code>, and keep the terminal at that root.","Choose Pocket Cinema unless your own React Native app already runs."])}
       <div class="grid"><article><h3>Pocket Cinema</h3><p>Recommended. Every exercise, recording, and checkpoint supports this app.</p><code>apps/pocket-cinema</code></article><article><h3>Your app</h3><p>Use one working flow: launch → screen → action → back. Switch to Pocket Cinema if discovery takes more than 10 minutes.</p><code>launch → screen → action → back</code></article></div>
       <h3>Bring-your-own-app safety check</h3>
       <div class="checklist">${["The app runs before the workshop","Git status is clean","It contains no production secrets or private data","It contains no protected media","It can be shared with the chosen model provider"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
@@ -119,9 +119,9 @@ const modules = [
       ${fallback("Try one repair for no more than 10 minutes. Then use replay. Do not spend workshop time repairing a model account or device.")}
 
       <h2>Setup complete</h2>
-      <div class="checklist">${["Node 20+, Yarn 1.22, and Git are installed","Both workshop packages are installed","One replay run completed","I chose replay, Claude Code, or Strands","I chose Pocket Cinema or checked my own app","I understand that Vega device work is optional","I can explain what Strands supplies and what the harness owns"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
+      <div class="checklist">${["Node 20+, Git, and Corepack are available","All three workspace packages are installed","One replay run completed","I chose replay, Claude Code, or Strands","I chose Pocket Cinema or checked my own app","I understand that Vega device work is optional","I can explain what Strands supplies and what the harness owns"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
       ${knowledgeCheck("What is the most important boundary in this workshop?","The model can inspect and propose, but the harness controls approval, protected writes, verification, retries, cost, commits, and reports. ADBT supplies selected platform knowledge; it does not take over the run.")}
-      ${done("Both packages are installed, one replay succeeds, one execution path is chosen, and you know which app you will use.")}`
+      ${done("The workspace is installed, one replay succeeds, one execution path is chosen, and you know which app you will use.")}`
   },
   {
     id: "single-agent", number: "01", nav: "One model call", time: "15 minutes", title: "Start with one model call",

@@ -19,7 +19,7 @@ Spend no more than 10 minutes on a live dependency. Try the listed repair once, 
 
 ## Setup or typecheck fails
 
-Run `yarn install --frozen-lockfile` inside the package used by the lesson. Run the command again. If it still fails, use replay.
+From the repository root, run `yarn setup`, then repeat the lesson command. If it still fails, use replay.
 
 ## The app is not found
 
@@ -35,7 +35,7 @@ Stop. Do not raise the cap without the participant's approval. Continue from the
 
 ## ADBT is unavailable
 
-The live port stops with exit `3` before `vega_port`; it does not continue without platform context. Run `yarn tsx src/index.ts doctor --replay --adbt-live --json` once from `packages/workshop-harness`. The harness starts pinned ADBT through Strands `McpClient`, requires the two documentation tools, and closes the connection after capture. It does not require or modify agent configuration.
+The live port stops with exit `3` before `vega_port`; it does not continue without platform context. From the repository root, run `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json` once. The harness starts pinned ADBT through Strands `McpClient`, requires the two documentation tools, and closes the connection after capture. It does not require or modify agent configuration.
 
 If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
 

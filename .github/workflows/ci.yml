@@ -13,10 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: yarn
-          cache-dependency-path: |
-            packages/mini-harness/yarn.lock
-            packages/workshop-harness/yarn.lock
-            apps/pocket-cinema/yarn.lock
+      - run: corepack enable
       - run: yarn setup
       - run: yarn verify

@@ -2,8 +2,12 @@
   "name": "past-the-vibes-we",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "setup": "yarn --cwd packages/mini-harness install --frozen-lockfile && yarn --cwd packages/workshop-harness install --frozen-lockfile && yarn --cwd apps/pocket-cinema install --frozen-lockfile",
+    "setup": "yarn install --immutable",
     "typecheck": "yarn --cwd packages/mini-harness typecheck && yarn --cwd packages/workshop-harness typecheck && yarn --cwd apps/pocket-cinema typecheck",
     "test": "yarn --cwd packages/mini-harness test && yarn --cwd packages/workshop-harness test && yarn --cwd apps/pocket-cinema test",
     "check:workshop": "yarn --cwd packages/workshop-harness tsx ../../scripts/check-workshop.ts",
@@ -12,6 +16,6 @@
     "doctor": "yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --json",
     "site": "node scripts/serve-workshop.mjs"
   },
-  "packageManager": "yarn@1.22.21",
+  "packageManager": "yarn@4.12.0",
   "license": "MIT-0"
 }

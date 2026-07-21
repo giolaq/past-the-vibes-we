@@ -19,7 +19,7 @@ Replay uses the same phase and evidence contracts without contacting a model or 
 
 ## 1. Check the basics
 
-Install Node.js 20 or newer, Yarn 1.22, and Git. Clone the repository and open a terminal at its root. Enable Corepack so the repository's `packageManager` field selects the pinned Yarn version.
+Install Node.js 20 or newer and Git. Clone the repository and open a terminal at its root. Enable Corepack so the repository's `packageManager` field selects Yarn 4.12.
 
 After cloning, enter the repository once and keep this terminal at its root:
 
@@ -108,7 +108,7 @@ You are ready for the live Vega exercise when the SDK prints `0.22.5875`, virtua
 
 Before the workshop, you should have:
 
-- installed both packages;
+- installed all three workspace packages;
 - completed one replay run;
 - chosen replay, Claude Code, or Strands;
 - decided whether you will use Pocket Cinema or your own app.

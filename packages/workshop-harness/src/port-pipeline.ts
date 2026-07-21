@@ -1,14 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 import { renderAdbtPrompt, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
 import { PortOutputSchema } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
 import { verifyPort, type PortCheck } from "./port-verification.js";
 
-const tsxLoader = pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), "../node_modules/tsx/dist/loader.mjs")).href;
+const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 export type PortPhase = { name: string; goal: string; skill: string; checks: PortCheck[] };
 export type PortResult = {
   phases: { name: string; summary: string; attempts: number; checks: string[] }[];

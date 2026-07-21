@@ -13,7 +13,7 @@ The standard path uses committed recordings. You do not need a model account, AP
 
 ## Start here
 
-Install Node.js 20 or newer, Yarn 1.22, and Git. Then run:
+Install Node.js 20 or newer and Git. Corepack installs the repository's pinned Yarn 4.12 version. Then run:
 
 ```sh
 git clone https://github.com/giolaq/past-the-vibes-we.git
