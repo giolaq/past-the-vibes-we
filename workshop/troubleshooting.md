@@ -1,5 +1,21 @@
 # Troubleshooting
 
+## `npx` asks to install `tsx`, or `@strands-agents/sdk` is missing
+
+The workshop dependencies are not installed in the package's `node_modules`, or Yarn used Plug'n'Play. Do not accept the `npx` download. From the repository root, run:
+
+```sh
+cd "$(git rev-parse --show-toplevel)"
+unset NODE_TLS_REJECT_UNAUTHORIZED
+corepack enable
+yarn setup
+yarn doctor
+```
+
+The repository sets `nodeLinker: node-modules`, and lesson commands use `yarn tsx` so they always select the package-local executable.
+
+If Node warned about `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove that setting from your shell profile. It disables HTTPS certificate verification and is not a valid dependency-installation fix.
+
 Spend no more than 10 minutes on a live dependency. Try the listed repair once, then use replay or a checkpoint and continue.
 
 ## Setup or typecheck fails
@@ -20,7 +36,7 @@ Stop. Do not raise the cap without the participant's approval. Continue from the
 
 ## ADBT is unavailable
 
-The live port stops with exit `3` before `vega_port`; it does not continue without platform context. Run `npx tsx src/index.ts doctor --replay --adbt-live --json` once from `packages/workshop-harness`. The harness starts pinned ADBT through Strands `McpClient`, requires the two documentation tools, and closes the connection after capture. It does not require or modify agent configuration.
+The live port stops with exit `3` before `vega_port`; it does not continue without platform context. Run `yarn tsx src/index.ts doctor --replay --adbt-live --json` once from `packages/workshop-harness`. The harness starts pinned ADBT through Strands `McpClient`, requires the two documentation tools, and closes the connection after capture. It does not require or modify agent configuration.
 
 If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
 

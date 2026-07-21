@@ -12,14 +12,14 @@ ADBT already supplied the migration context through Strands `McpClient` during l
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-npx tsx src/index.ts vega-run <runId> --plan --json
+yarn tsx src/index.ts vega-run <runId> --plan --json
 ```
 
 2. Read the plan before continuing. Check the app path, SDK, eight commands, and confirmation requirement.
 3. Run the key-free replay:
 
 ```sh
-npx tsx src/index.ts vega-run <runId> \
+yarn tsx src/index.ts vega-run <runId> \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --yes --json
 ```
@@ -39,7 +39,7 @@ The harness owns the ADBT MCP connection, so it does not change Claude Code conf
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-npx tsx src/index.ts doctor --replay --adbt-live --json
+yarn tsx src/index.ts doctor --replay --adbt-live --json
 vega --version
 ```
 
@@ -63,7 +63,7 @@ REPO="$(git rev-parse --show-toplevel)"
 cd "$REPO/packages/workshop-harness/out/<runId>/app/apps/vega"
 npm install
 cd "$REPO/packages/workshop-harness"
-npx tsx src/index.ts vega-run <runId> \
+yarn tsx src/index.ts vega-run <runId> \
   --yes --json
 ```
 

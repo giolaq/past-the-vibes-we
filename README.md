@@ -18,6 +18,7 @@ Install Node.js 20 or newer, Yarn 1.22, and Git. Then run:
 ```sh
 git clone https://github.com/giolaq/past-the-vibes-we.git
 cd past-the-vibes-we
+corepack enable
 yarn setup
 yarn verify
 yarn site
@@ -49,6 +50,16 @@ yarn replay         # run the first key-free mini-harness exercise
 yarn doctor         # check the key-free workshop path
 yarn site           # serve the workshop web app on port 4173
 ```
+
+Run `yarn setup` before any lesson command. If `npx` asks to download `tsx`, stop: the workshop uses its pinned local copy and the package dependencies are not ready yet.
+
+If Node warns that `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove that unsafe override before installing anything:
+
+```sh
+unset NODE_TLS_REJECT_UNAUTHORIZED
+```
+
+Do not disable TLS certificate verification to work around a network or proxy problem.
 
 Live model and Vega device paths are optional. Read [Before You Arrive](workshop/00-before-you-arrive.md) before configuring them.
 

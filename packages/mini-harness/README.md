@@ -17,7 +17,7 @@ yarn install --frozen-lockfile
 The program sends a prompt and writes files. It does not check the result.
 
 ```sh
-npx tsx steps/01-single-agent/index.ts run \
+yarn tsx steps/01-single-agent/index.ts run \
   steps/01-single-agent/fixtures/phases.json \
   --replay steps/01-single-agent/fixtures/demo-recording.json
 ```
@@ -29,7 +29,7 @@ Done when `out/` contains a React Native catalog screen and you can name three c
 This step adds `file_exists` and `grep` checks. One recorded response fails, and the exact failure is sent into one retry.
 
 ```sh
-npx tsx steps/02-verify-loop/index.ts run \
+yarn tsx steps/02-verify-loop/index.ts run \
   steps/02-verify-loop/fixtures/phases.json \
   --replay steps/02-verify-loop/fixtures/retry-recording.json
 ```
@@ -41,7 +41,7 @@ Done when you see `Pattern "Kitchen Stories" not found` followed by a successful
 This step adds phase config, checkpoints, cost tracking, reports, and one Git commit per passing phase.
 
 ```sh
-npx tsx steps/03-phases/index.ts run \
+yarn tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
   --stop-after content
@@ -50,7 +50,7 @@ npx tsx steps/03-phases/index.ts run \
 Inspect `out/checkpoint.json`, then resume without deleting `out/`:
 
 ```sh
-npx tsx steps/03-phases/index.ts run \
+yarn tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
   --resume
@@ -63,7 +63,7 @@ Done when the second command runs `focus` instead of repeating `screen` or `cont
 This step adds phase-scoped skills, prompt assembly, a model interface, and recording/replay. Claude CLI receives the full selected skill text in its prompt. Strands receives the same skills through the `AgentSkills` plugin and activates them through its `skills` tool.
 
 ```sh
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --replay steps/04-skills/fixtures/demo-recording.json
 ```
@@ -75,7 +75,7 @@ Done when you can trace a skill from `phases.json` to both delivery paths and sh
 Use local Claude Code:
 
 ```sh
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --executor claude-cli --model sonnet
 ```
@@ -83,7 +83,7 @@ npx tsx steps/04-skills/index.ts run \
 Use Strands with Bedrock:
 
 ```sh
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --executor strands --provider bedrock \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \

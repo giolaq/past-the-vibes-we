@@ -10,7 +10,7 @@ See a check fail, then see the harness send the exact failure into one retry.
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-npx tsx steps/02-verify-loop/index.ts run \
+yarn tsx steps/02-verify-loop/index.ts run \
   steps/02-verify-loop/fixtures/phases.json \
   --replay steps/02-verify-loop/fixtures/retry-recording.json
 ```

@@ -10,7 +10,7 @@ Separate domain instructions, system capabilities, and model access.
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --replay steps/04-skills/fixtures/demo-recording.json
 ```
@@ -31,7 +31,7 @@ npx tsx steps/04-skills/index.ts run \
 Optional live run with Claude Code:
 
 ```sh
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --executor claude-cli --model sonnet
 ```
@@ -39,7 +39,7 @@ npx tsx steps/04-skills/index.ts run \
 Optional live run with Strands and Bedrock:
 
 ```sh
-npx tsx steps/04-skills/index.ts run \
+yarn tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
   --executor strands --provider bedrock \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \

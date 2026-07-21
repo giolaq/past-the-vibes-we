@@ -10,7 +10,7 @@ Run the smallest possible agent program against a React Native app, then identif
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/mini-harness"
-npx tsx steps/01-single-agent/index.ts run \
+yarn tsx steps/01-single-agent/index.ts run \
   steps/01-single-agent/fixtures/phases.json \
   --replay steps/01-single-agent/fixtures/demo-recording.json
 ```

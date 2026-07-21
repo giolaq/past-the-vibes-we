@@ -19,13 +19,13 @@ cd "$REPO/packages/workshop-harness"
 2. Show the current project memory:
 
 ```sh
-npx tsx src/index.ts memory show "$WORKSHOP_INPUTS" --json
+yarn tsx src/index.ts memory show "$WORKSHOP_INPUTS" --json
 ```
 
 3. Build a proposal from the synthetic context snapshot:
 
 ```sh
-npx tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
+yarn tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
   --from ../../workshop/fixtures/bee-context/snapshot.json \
   --json
 ```
@@ -34,7 +34,7 @@ npx tsx src/index.ts memory propose "$WORKSHOP_INPUTS" \
 5. Apply it only after review:
 
 ```sh
-npx tsx src/index.ts memory apply "$WORKSHOP_INPUTS" \
+yarn tsx src/index.ts memory apply "$WORKSHOP_INPUTS" \
   --from ../../workshop/fixtures/bee-context/snapshot.json \
   --yes --json
 ```

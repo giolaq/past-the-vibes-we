@@ -19,14 +19,14 @@ cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
 yarn install --frozen-lockfile
 yarn typecheck
 yarn test
-npx tsx src/index.ts doctor --replay --json
+yarn tsx src/index.ts doctor --replay --json
 ```
 
 ## Run the key-free workshop path
 
 ```sh
 cd "$(git rev-parse --show-toplevel)/packages/workshop-harness"
-npx tsx src/index.ts plan ../../apps/pocket-cinema \
+yarn tsx src/index.ts plan ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --seed workshop-v1 --max-cost 3 --json
 ```
@@ -34,7 +34,7 @@ npx tsx src/index.ts plan ../../apps/pocket-cinema \
 Read the plan. Then run the recorded port:
 
 ```sh
-npx tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --yes --seed workshop-v1 --max-cost 3 --json
@@ -67,7 +67,7 @@ The provider requires those two tool names and always disconnects in `finally`. 
 The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
 
 ```sh
-npx tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --adbt-live --yes --seed workshop-v1 --max-cost 3 --json
@@ -80,20 +80,20 @@ A fully live model run calls ADBT automatically. If ADBT cannot supply the workf
 Replay is the workshop default because it needs no account:
 
 ```sh
-npx tsx src/index.ts run <app> --replay <recording.json> --yes --json
+yarn tsx src/index.ts run <app> --replay <recording.json> --yes --json
 ```
 
 Use local Claude Code:
 
 ```sh
-npx tsx src/index.ts run <app> \
+yarn tsx src/index.ts run <app> \
   --executor claude-cli --model sonnet --yes --json
 ```
 
 Use a remote model through Strands Agents SDK:
 
 ```sh
-npx tsx src/index.ts run <app> \
+yarn tsx src/index.ts run <app> \
   --executor strands --provider bedrock \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
   --region us-west-2 --yes --json
@@ -106,7 +106,7 @@ Strands supports `bedrock`, `openai`, and `openrouter`. Configure the provider c
 Use the run id from the port:
 
 ```sh
-npx tsx src/index.ts vega-run <runId> --plan --json
+yarn tsx src/index.ts vega-run <runId> --plan --json
 # Read the plan before choosing replay or live execution.
 ```
 
@@ -115,7 +115,7 @@ The workshop pins ADBT `1.0.5` and Vega SDK `0.22.5875`. The live lifecycle chec
 Use the key-free lifecycle in the workshop:
 
 ```sh
-npx tsx src/index.ts vega-run <runId> \
+yarn tsx src/index.ts vega-run <runId> \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --yes --json
 ```
@@ -139,7 +139,7 @@ Then install the generated app's pinned dependencies and run the live lifecycle:
 cd out/<runId>/app/apps/vega
 npm install
 cd ../../../..
-npx tsx src/index.ts vega-run <runId> --yes --json
+yarn tsx src/index.ts vega-run <runId> --yes --json
 ```
 
 An empty VDA device list stops the lifecycle even if the command exits `0`. A live claim requires install, launch, device logs, a pulled screenshot, and `evidenceMode: "live"`.
