@@ -2,7 +2,7 @@
 
 ## Goal
 
-Check whether a user can complete one flow with a remote, not just whether the app builds.
+A passing build says the app compiles. Check whether a user can complete one flow with a remote.
 
 ## Do this
 
