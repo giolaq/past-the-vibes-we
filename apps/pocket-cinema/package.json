@@ -9,11 +9,14 @@
   },
   "main": "index.js",
   "dependencies": {
+    "@babel/runtime": "^7.29.0",
     "react": "19.1.0",
     "react-native": "0.80.1"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
+    "@react-native-community/cli": "^18.0.0",
+    "@react-native/metro-config": "0.80.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "tsx": "^4.19.0",
