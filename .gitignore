@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+*.tsbuildinfo
+.yarn/
+*.pkg
+.thumbnails/

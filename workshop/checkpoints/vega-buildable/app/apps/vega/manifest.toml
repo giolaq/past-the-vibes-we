@@ -1,0 +1,13 @@
+schema-version = 1
+
+[package]
+title = "Pocket Cinema"
+version = "0.1.0"
+id = "com.tvbuild.pocketcinema"
+
+[components]
+[[components.interactive]]
+id = "com.tvbuild.pocketcinema.main"
+runtime-module = "/com.amazon.kepler.keplerscript.runtime.loader_2@IKeplerScript_2_0"
+launch-type = "singleton"
+categories = ["com.amazon.category.main"]
