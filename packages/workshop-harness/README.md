@@ -4,6 +4,20 @@ This package is used in the **Past the Vibes** workshop. It inspects a React Nat
 
 It never edits the source app. Generated work goes to `packages/workshop-harness/out/<runId>/app`. Run every command below from the repository root.
 
+## What happens during a port
+
+The port has five stages before the separate Vega device lifecycle:
+
+1. `source_discovery` reads project metadata and copies the app without Git history, dependencies, builds, caches, or environment files.
+2. `vega_portability_audit` classifies reusable code, replacement work, manual decisions, and out-of-scope integrations.
+3. `tv_product_spec` records the product flow that the port must preserve.
+4. `vega_port` loads two selected ADBT workflows and creates the Vega package boundary, focus adapter, and unsupported-work record.
+5. `tv_behavior` connects the app to the focus adapter and runs an executable remote-navigation check.
+
+For each of the last three phases, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
+
+The model can inspect and propose. It cannot write files or run shell commands. `production_vega_run` remains a separate command because package-shape checks are not proof of a successful build or device session.
+
 ## How Strands is used
 
 [Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the in-process agent runtime for `--executor strands`. This package pins TypeScript SDK `1.10.0`. It supplies model providers, the agent loop, Zod-typed tools, structured output, MCP, limits, cancellation, and metrics.

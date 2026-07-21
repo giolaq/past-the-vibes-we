@@ -6,6 +6,72 @@ Inspect an app, review the plan, and change only a guarded copy.
 
 Use Pocket Cinema unless your own app already runs and passes the setup checks.
 
+## What the port command actually does
+
+The port is a pipeline, not one large prompt. It separates inspection, platform knowledge, model proposals, file writes, and verification so each part can be reviewed.
+
+| Stage | Owner | What happens | Evidence |
+| --- | --- | --- | --- |
+| `source_discovery` | Harness | Reads `package.json`, scripts, dependencies, and Git state. | Source details in `portability-report.json` |
+| `vega_portability_audit` | Harness | Classifies reusable React Native code, navigation, native dependencies, focus work, and out-of-scope services. | Findings and recommendations in `portability-report.json` |
+| `tv_product_spec` | Model + harness | Describes the flow to preserve before changing code. | `VEGA_PORT.md` and a verified commit |
+| `vega_port` | ADBT + model + harness | Loads two approved Vega workflows, proposes the Vega package boundary, and records unsupported mappings. | Generated Vega package files, `NextSteps.md`, ADBT evidence, and a verified commit |
+| `tv_behavior` | Model + harness | Connects the shared focus state to the app and adds an executable remote-navigation check. | `tv-focus-result.json`, `TV_VERIFICATION.md`, and a verified commit |
+| `production_vega_run` | Vega adapter, lesson 8 | Builds, installs, launches, collects logs, and captures device evidence. It does not run during this lesson. | `vega-run-result.json` |
+
+The first two stages are deterministic. The next three are model-assisted edit phases. The last stage is a separate platform lifecycle, so a successful port does not claim that a device run happened.
+
+## Before any model call
+
+`plan` discovers and audits the source without writing to it. It shows the target SDK, selected executor, portability findings, approved project context, ADBT mode, phase order, creative seed, and cost cap.
+
+After you approve with `--yes`, `run` creates `out/<runId>/app`. It copies the source while excluding `.git`, dependencies, build output, caches, and environment files. The harness initializes a new Git repository in that guarded copy. The original app remains untouched.
+
+## Inside each edit phase
+
+Every edit phase follows the same bounded loop:
+
+1. Save the guarded app's current Git commit.
+2. Assemble a prompt from the phase goal, its domain rule, the fixed seed, approved project context, portability findings, and exact checks.
+3. For `vega_port` only, load the selected ADBT workflows and add their relevant excerpts and hashes.
+4. Ask the selected executor for a typed proposal: a short summary and complete contents for relative file paths.
+5. Validate the response with `PortOutputSchema`.
+6. Reject absolute paths, path traversal, `.git`, `node_modules`, and environment files.
+7. Let the harness write the proposed files. The model has no write or shell tool.
+8. Add the model turn's cost to the run total. If it exceeds the cap, restore the phase start and abort.
+9. Run the phase's mechanical checks.
+10. If checks pass, commit the phase. If they fail, reset to the phase-start commit and retry once with the exact failure text.
+11. If the retry also fails, reset again and stop with exit code `2`. Failed work does not remain in the guarded app.
+
+## What changes between executors
+
+| Executor | How it inspects the app | How output is constrained |
+| --- | --- | --- |
+| Replay | Uses the next recorded response for the named phase. | The same schema, path checks, verification, retry, and commit logic still run. |
+| Claude Code | Receives the prompt over stdin with only `Read`, `Glob`, and `Grep`. | It returns stream JSON; the harness extracts the result and usage. |
+| Strands | Creates an `Agent` with typed list, read, and search tools scoped to the guarded app. | `structuredOutputSchema` requires `PortOutputSchema`; turns, tokens, and time are bounded. |
+
+Changing the executor does not change the pipeline's authority. The harness always owns writes, checks, retries, budgets, commits, and reports.
+
+## Why ADBT appears only in `vega_port`
+
+The product-spec phase does not need platform APIs, and the behavior phase already has a concrete focus contract. Only `vega_port` needs current Vega migration guidance.
+
+The harness starts pinned ADBT as an MCP server, confirms that `list_documents` and `read_document` exist, lists Vega workflow documents, and reads only:
+
+- `port_tv_app_to_vega.md`;
+- `port_tv_app_to_vega_fos_rn_app.md`.
+
+It keeps the relevant sections, computes a SHA-256 hash for each excerpt, saves the context, injects it into `vega_port`, and disconnects in `finally`. If live ADBT cannot provide this evidence, the run stops with exit code `3` instead of letting the model invent Vega APIs.
+
+## What each phase must prove
+
+`tv_product_spec` must create `VEGA_PORT.md` with a `## TV Flow` section.
+
+`vega_port` must create the Vega manifest and interactive component, the Vega build script, app registration, Metro boundary, focus-state adapter, and `NextSteps.md` with ADBT sources. These checks prove the expected package shape; they do not replace a real Vega build.
+
+`tv_behavior` must connect the app to the shared focus-state module, run the executable focus-transition check, write a passing `tv-focus-result.json`, and document focus restoration after Back.
+
 ## Do this
 
 1. Create a read-only plan:
@@ -27,11 +93,12 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 ```
 
 4. Copy the `runId` from the output. You will use it in the Vega lesson.
-5. Open `out/<runId>/adbt-port-context.json`. Find the two ADBT workflows and their hashes.
-6. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `replay` and the context belongs to `vega_port`.
-7. Open `out/<runId>/app/NextSteps.md`. Find the ADBT sources and the section for unsupported mappings.
-8. Inspect `out/<runId>/app` and its Git log.
-9. Check that `apps/pocket-cinema` is still clean and unchanged.
+5. Open `out/<runId>/portability-report.json`. Separate portable, replace, manual, and out-of-scope findings.
+6. Open `out/<runId>/adbt-port-context.json`. Find the two ADBT workflows, selected excerpts, and hashes.
+7. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `replay`, review phase attempts and cost, and check that the context belongs to `vega_port`.
+8. Open `out/<runId>/app/NextSteps.md`. Find the ADBT sources and the section for unsupported mappings.
+9. Inspect `out/<runId>/app`, `report.md`, and the guarded app's Git log. Match one commit to each passing edit phase.
+10. Check that `apps/pocket-cinema` is still clean and unchanged.
 
 ## Optional: call ADBT MCP live without a model account
 
