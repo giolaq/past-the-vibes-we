@@ -126,8 +126,8 @@ guarded app copy   --->  read-only tools (list/read/search) --+--> Strands Agent
       <h3>Bring-your-own-app safety check</h3>
       <div class="checklist">${["The app runs before the workshop","Git status is clean","It contains no production secrets or private data","It contains no protected media","It can be shared with the chosen model provider"].map(item => `<label><input type="checkbox">${item}</label>`).join("")}</div>
 
-      <h2>2. Install both workshop packages</h2>
-      ${command("Install the mini-harness and workshop harness","installWorkshop")}
+      <h2>2. Install the workshop workspace</h2>
+      ${command("Install all workshop packages","installWorkshop")}
 
       <h2>3. Run the setup check</h2>
       ${command("Check the key-free replay path","doctor")}
