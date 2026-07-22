@@ -62,17 +62,28 @@ Copy the returned `runId`. Inspect:
 
 ## ADBT during the port
 
-ADBT is runtime context the model gathers itself, not setup the harness pre-picks. During `analyze` (feasibility) and `plan`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient` and hands the model two read tools:
+ADBT is runtime context the model gathers itself, not setup the harness pre-picks. How the model reaches ADBT depends on the executor:
+
+**Strands (live)** — the harness builds the ADBT `McpClient` (`createAdbtMcpClient`) and passes it straight into the agent's `tools`, the standard Strands MCP pattern. Strands discovers the server's tools dynamically; the model calls them:
 
 ```text
-harness: connect -> expose adbt_list_documents + adbt_read_document to the agent
-model:   adbt_list_documents(WORKFLOW, vega_os)
-         -> adbt_read_document(<whichever workflows it judges relevant>)
-harness: record each read (name, excerpt, sha256) -> adbt-port-context.json
-         -> disconnect in finally
+harness: Agent({ tools: [...projectTools, adbtClient] })   // Strands lists ADBT tools itself
+model:   list_documents(WORKFLOW, vega_os)
+         -> read_document(<whichever workflows it judges relevant>)
+harness: extractAdbtProvenance(agent.messages) -> hash each read -> adbt-port-context.json
+         -> disconnect the client
 ```
 
-The harness exposes only those two read tools (not the full MCP tool box), requires them to exist, and always disconnects in `finally`. It does not run `init-context` or change Claude configuration. Because the model chooses what to read, the hashed record is the run's proof of the knowledge it used.
+The harness never hardcodes tool names or pre-selects documents. Because the model chooses what to read, the hashed record reconstructed from the message history is the run's proof of the knowledge it used.
+
+**Claude Code CLI** — the CLI has its own MCP client, so ADBT is registered with it once, up front, using Amazon's installer (see below). The harness allows the `mcp__amazon-devices-buildertools__*` tools; the CLI owns the connection.
+
+Set up ADBT for the CLI (run in a real system terminal; it completes silently):
+
+```sh
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
+```
 
 The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
 

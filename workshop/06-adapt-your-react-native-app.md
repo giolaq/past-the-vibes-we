@@ -54,7 +54,7 @@ Changing the executor does not change the pipeline's authority. The harness alwa
 
 The `analyze` phase needs current Vega compatibility guidance to judge feasibility, and `plan` needs current migration workflows to describe the port. `build_test` already has a concrete focus contract and the plan to work from, so it does not query ADBT.
 
-In a live run the harness starts pinned ADBT as an MCP server and hands the model two read tools: `adbt_list_documents` and `adbt_read_document`. The model discovers the Vega workflows and reads whichever ones it needs — the harness pre-selects nothing. It wraps those tools so every read is saved with a SHA-256 hash to `adbt-port-context.json`, and disconnects in `finally`. If ADBT is unavailable, the run stops with exit code `3` instead of letting the model invent Vega APIs. (Replay reads a recorded `adbt-port-context.json` instead of a live server.)
+In a live Strands run the harness builds the ADBT `McpClient` and passes it into the agent's tools; Strands discovers ADBT's tools dynamically and the model calls `list_documents`, then `read_document` for whichever workflows it needs — the harness pre-selects nothing. After the phase the harness reconstructs those reads from the agent's messages and saves each with a SHA-256 hash to `adbt-port-context.json`. If ADBT is unavailable the run stops with exit code `3` instead of letting the model invent Vega APIs. (The Claude Code CLI reaches ADBT through its own MCP config from `init-context`; replay reads a recorded `adbt-port-context.json`.)
 
 ## What each phase must prove
 
@@ -124,7 +124,7 @@ Trace the MCP lifecycle in `src/context-providers/adbt.ts`:
 
 `JSONValue` is the Strands type used to keep MCP arguments and results JSON-compatible. The native `AbortSignal` and MCP SDK stdio transport are passed into Strands; they are not Strands constructs themselves.
 
-The model drives ADBT, but not without limits. The harness exposes only the two read tools (`adbt_list_documents`, `adbt_read_document`) — not the full MCP tool box — and only during `analyze` and `plan`. It records every read with a hash, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch. Replay reruns from that recorded context with no live server.
+The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch. Replay reruns from that recorded context with no live server.
 
 See [Strands Constructs Used in This Workshop](strands-constructs.md) for the complete agent, tool, structured-output, invocation, metrics, and MCP reference.
 
