@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtAgentTools, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
+import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtMcpClient, extractAdbtProvenance, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
 
 test("discovers ADBT MCP tools before calling the workflow catalog", async () => {
   const fixture = fakeAdbtClient();
@@ -63,35 +63,40 @@ test("replay provider validates the recorded ADBT context", async () => {
   await assert.rejects(() => new AdbtReplayContextProvider(path).load());
 });
 
-test("model-driven ADBT tools record only what the model reads, with hashes", async () => {
-  const fixture = fakeAdbtClient();
-  const agentTools = createAdbtAgentTools({ clientFactory: () => fixture.client, timeoutMs: 2_000 });
-  const [list, read] = agentTools.tools;
+test("provenance is reconstructed from the agent's read_document tool calls, with hashes", () => {
+  // Simulated Strands message history: the model listed docs, then read one.
+  const messages = [
+    { role: "assistant", content: [
+      { toolUse: { toolUseId: "u1", name: "list_documents", input: { documentType: "WORKFLOW" } } },
+      { toolUse: { toolUseId: "u2", name: "read_document", input: { document_uri: "port_tv_app_to_vega_fos_rn_app.md" } } },
+    ] },
+    { role: "user", content: [
+      { toolResult: { toolUseId: "u1", status: "success", content: [{ text: "[{\"name\":\"port_tv_app_to_vega.md\"}]" }] } },
+      { toolResult: { toolUseId: "u2", status: "success", content: [{ text: "## Purpose\nPreserve portable JS." }] } },
+    ] },
+  ];
 
-  assert.deepEqual(agentTools.tools.map((t) => t.name), ["adbt_list_documents", "adbt_read_document"]);
-
-  // The model discovers documents, then reads exactly one of them.
-  await list.invoke({ documentType: "WORKFLOW" });
-  await read.invoke({ document_uri: "port_tv_app_to_vega.md" });
-
-  const context = agentTools.context();
+  const context = extractAdbtProvenance(messages);
   assert.equal(context.mode, "live");
-  assert.deepEqual(context.documents.map((d) => d.name), ["port_tv_app_to_vega.md"]);
+  // Only read_document is recorded (not list_documents), and its result is hashed.
+  assert.deepEqual(context.documents.map((d) => d.name), ["port_tv_app_to_vega_fos_rn_app.md"]);
   assert.match(context.documents[0].sha256, /^[a-f0-9]{64}$/);
-  assert.equal(fixture.calls.filter((c) => c.name === "read_document").length, 1);
-
-  await agentTools.disconnect();
-  assert.equal(fixture.calls.at(-1)?.name, "disconnect");
+  assert.match(context.documents[0].excerpt, /Preserve portable JS/);
 });
 
-test("model-driven ADBT tools require the read tools to exist", async () => {
-  const client: AdbtToolClient = {
-    async listTools() { return ["list_documents"]; },
-    async callTool() { return {}; },
-    async disconnect() {},
-  };
-  const agentTools = createAdbtAgentTools({ clientFactory: () => client });
-  await assert.rejects(() => agentTools.tools[1].invoke({ document_uri: "x.md" }), /read_document/);
+test("provenance handles prefixed MCP tool names and empty histories", () => {
+  assert.deepEqual(extractAdbtProvenance([]).documents, []);
+  const prefixed = [
+    { content: [{ toolUse: { toolUseId: "u1", name: "amazon-devices-buildertools___read_document", input: { document_uri: "x.md" } } }] },
+    { content: [{ toolResult: { toolUseId: "u1", status: "success", content: [{ text: "body" }] } }] },
+  ];
+  assert.deepEqual(extractAdbtProvenance(prefixed).documents.map((d) => d.name), ["x.md"]);
+});
+
+test("createAdbtMcpClient builds a client without connecting", () => {
+  const client = createAdbtMcpClient({ cwd: "/tmp" });
+  assert.ok(client);
+  assert.equal(typeof client.disconnect, "function");
 });
 
 async function liveFixture() {

@@ -1,4 +1,4 @@
-import { Agent, StructuredOutputError, type InvokableTool, type JSONValue } from "@strands-agents/sdk";
+import { Agent, StructuredOutputError, McpClient, type Tool } from "@strands-agents/sdk";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import type { ZodTypeAny } from "zod";
@@ -7,13 +7,17 @@ import { PortOutputSchema } from "./port-contract.js";
 import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
 
-export type PortModelResult = { text: string; costUsd: number };
-export type ExtraTools = InvokableTool<unknown, JSONValue>[];
+/** messages carries the agent's turn history so the pipeline can reconstruct ADBT provenance. */
+export type PortModelResult = { text: string; costUsd: number; messages?: unknown[] };
+/**
+ * Extra tools/providers for a phase. An McpClient can be passed here (e.g. the ADBT MCP client
+ * during analyze/plan); Strands discovers its tools dynamically. Only the Strands executor uses
+ * this — replay and the Claude CLI ignore it (the CLI gets ADBT via its own MCP config).
+ */
+export type ExtraTools = (Tool | McpClient)[];
 /**
  * Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict).
- * Optional extraTools give the model additional agent tools for the phase (e.g. the ADBT MCP
- * read tools during analyze/plan) so it can fetch platform knowledge itself. Only the Strands
- * executor uses extraTools; replay and the Claude CLI ignore them.
+ * Optional extraTools give the model additional tool providers for the phase.
  */
 export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult>; }
 export type ExecutorConfig = { kind: "claude-cli"; command: string; model: string } | { kind: "strands"; model: ModelConfig };
@@ -67,7 +71,9 @@ class StrandsPortExecutor implements PortExecutor {
     const usage = { input_tokens: raw?.inputTokens ?? 0, output_tokens: raw?.outputTokens ?? 0 };
     const costUsd = estimateCost(usage);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `${this.config.provider}:${this.config.modelId}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: text }], usage, costUsd });
-    return { text, costUsd };
+    // Return the turn history so the pipeline can reconstruct ADBT provenance from tool calls.
+    const messages = agent.messages.map((message) => (typeof (message as { toJSON?: () => unknown }).toJSON === "function" ? (message as { toJSON: () => unknown }).toJSON() : message));
+    return { text, costUsd, messages };
   }
 }
 
@@ -95,7 +101,9 @@ function estimateCost(usage: { input_tokens: number; output_tokens: number }): n
 
 function invokeClaude(command: string, cwd: string, prompt: string, model: string): Promise<{ text: string; costUsd: number; usage: { input_tokens: number; output_tokens: number } }> {
   return new Promise((resolve, reject) => {
-    const tools = ["Read", "Glob", "Grep"].join(",");
+    // Read-only project tools, plus any ADBT MCP tools the attendee configured via
+    // `init-context --agent claude-code-cli`. The CLI owns the MCP connection; we just allow it.
+    const tools = ["Read", "Glob", "Grep", "mcp__amazon-devices-buildertools__*"].join(",");
     const child = spawn(command, ["-p", "-", "--allowedTools", tools, "--output-format", "stream-json", "--verbose", "--model", model], { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
     let buffer = "", stderr = "", text = "", costUsd = 0, usage = { input_tokens: 0, output_tokens: 0 };
     child.stdout.on("data", (chunk) => { buffer += chunk.toString(); const lines = buffer.split("\n"); buffer = lines.pop() ?? ""; lines.forEach(consume); });

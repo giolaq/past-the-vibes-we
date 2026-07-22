@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { McpClient, tool, type InvokableTool, type JSONValue } from "@strands-agents/sdk";
+import { McpClient, type JSONValue } from "@strands-agents/sdk";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
 import { ADBT_PACKAGE } from "../platform/vega.js";
@@ -92,67 +92,67 @@ export function renderAdbtPrompt(context: AdbtPortContext): string {
 }
 
 /**
- * Model-driven ADBT access. Instead of the harness pre-selecting workflows and injecting
- * them, this exposes the ADBT MCP read tools as agent tools so the model discovers and reads
- * whatever it needs. Every read is recorded with a SHA-256 hash so the run stays auditable.
+ * Model-driven ADBT access, the Strands way. The harness does NOT pre-select or wrap tools:
+ * it hands the ADBT McpClient straight to the Agent (`tools: [...projectTools, mcpClient]`),
+ * and Strands discovers `list_documents`, `read_document`, `search_documentation`, etc.
+ * dynamically. The model decides what to call. Provenance is reconstructed after the run from
+ * the agent's messages (see extractAdbtProvenance), so the run stays auditable without the
+ * harness sitting between the model and each MCP call.
  */
-export interface AdbtAgentTools {
-  tools: InvokableTool<unknown, JSONValue>[];
-  /** Provenance of exactly what the model fetched, in call order. */
-  context(): AdbtPortContext;
-  disconnect(): Promise<void>;
+export function createAdbtMcpClient(options: { command?: string; commandArgs?: string[]; cwd?: string } = {}): McpClient {
+  return new McpClient({
+    applicationName: "Past the Vibes Workshop",
+    applicationVersion: "0.1.0",
+    transport: new StdioClientTransport({
+      command: options.command ?? "npx",
+      args: options.commandArgs ?? ["-y", ADBT_PACKAGE],
+      cwd: options.cwd,
+      stderr: "pipe",
+    }),
+  });
 }
 
-export function createAdbtAgentTools(options: { command?: string; commandArgs?: string[]; cwd?: string; timeoutMs?: number; clientFactory?: () => AdbtToolClient } = {}): AdbtAgentTools {
-  const client = options.clientFactory?.() ?? createAdbtClient(options);
-  const timeoutMs = options.timeoutMs ?? 60_000;
-  const reads = new Map<string, { name: string; sha256: string; excerpt: string }>();
-  let ready: Promise<void> | undefined;
+/** Names of ADBT MCP tools that return document content worth recording as provenance. */
+const ADBT_READ_TOOLS = new Set(["read_document", "read_asset", "search_documentation"]);
 
-  const ensure = async () => {
-    if (!ready) ready = (async () => {
-      const available = await bounded(client.listTools(), timeoutMs, "tool discovery");
-      for (const name of ["list_documents", "read_document"]) {
-        if (!available.includes(name)) throw new AdbtContextError(`ADBT MCP tool missing: ${name}`);
+/**
+ * Reconstruct ADBT provenance from the agent's message history. Walks tool-use blocks for ADBT
+ * read calls, pairs each with its tool-result content, and hashes the result. This is how the
+ * live run stays reproducible even though the model — not the harness — chose what to read.
+ */
+export function extractAdbtProvenance(messages: unknown[]): AdbtPortContext {
+  const uses = new Map<string, string>(); // toolUseId -> label (tool name + args)
+  const documents: Array<{ name: string; sha256: string; excerpt: string }> = [];
+
+  for (const message of messages) {
+    const content = (message as { content?: unknown[] } | null)?.content ?? [];
+    for (const block of content) {
+      const use = (block as { toolUse?: { toolUseId: string; name: string; input?: unknown } }).toolUse;
+      if (use && ADBT_READ_TOOLS.has(stripPrefix(use.name))) {
+        const arg = (use.input as { document_uri?: string; query?: string } | undefined);
+        uses.set(use.toolUseId, arg?.document_uri ?? arg?.query ?? use.name);
       }
-    })();
-    return ready;
-  };
-
-  const call = async (name: string, args: Record<string, JSONValue>) => {
-    await ensure();
-    return mcpText(await bounded(client.callTool(name, args, AbortSignal.timeout(timeoutMs)), timeoutMs, name));
-  };
+      const res = (block as { toolResult?: { toolUseId: string; content?: unknown[] } }).toolResult;
+      if (res && uses.has(res.toolUseId)) {
+        const text = resultText(res.content ?? []);
+        if (text) documents.push({ name: uses.get(res.toolUseId)!, sha256: digest(text), excerpt: text.slice(0, 12_000) });
+      }
+    }
+  }
 
   return {
-    tools: [
-      tool({
-        name: "adbt_list_documents",
-        description: "List Amazon Device Build Tools (ADBT) migration documents for a platform. Call this first to discover which Vega workflows exist. Returns document names and descriptions.",
-        inputSchema: z.object({ documentType: z.string().default("WORKFLOW").describe("Document type, usually WORKFLOW") }),
-        callback: ({ documentType }) => call("list_documents", { documentType, target_platform: { device_os: ["vega_os"] } }),
-      }),
-      tool({
-        name: "adbt_read_document",
-        description: "Read one ADBT migration document by name (from adbt_list_documents). Use this to get authoritative Vega porting guidance instead of guessing Vega APIs.",
-        inputSchema: z.object({ document_uri: z.string().min(1).describe("Document name, e.g. port_tv_app_to_vega.md") }),
-        callback: async ({ document_uri }) => {
-          const excerpt = await call("read_document", { document_uri });
-          reads.set(document_uri, { name: document_uri, sha256: digest(excerpt), excerpt: excerpt.slice(0, 12_000) });
-          return excerpt;
-        },
-      }),
-    ],
-    context: () => ({
-      schemaVersion: 1,
-      mode: "live",
-      packageName: ADBT_PACKAGE,
-      targetPlatform: "vega_os",
-      capturedAt: new Date().toISOString(),
-      documents: [...reads.values()],
-    }),
-    disconnect: () => client.disconnect(),
+    schemaVersion: 1,
+    mode: "live",
+    packageName: ADBT_PACKAGE,
+    targetPlatform: "vega_os",
+    capturedAt: new Date().toISOString(),
+    documents,
   };
+}
+
+function stripPrefix(name: string): string { return name.includes("___") ? name.split("___").pop()! : name; }
+function resultText(content: unknown[]): string {
+  return content.flatMap((item) => (item && typeof item === "object" && "text" in item && typeof (item as { text: unknown }).text === "string" ? [(item as { text: string }).text] : [])).join("\n");
 }
 
 function parseCatalog(output: string): Array<{ name: string; description?: string }> {

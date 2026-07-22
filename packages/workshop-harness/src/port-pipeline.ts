@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { createRequire } from "node:module";
-import { type AdbtAgentTools, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
+import type { McpClient } from "@strands-agents/sdk";
+import { extractAdbtProvenance, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
 import { PortOutputSchema } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
@@ -18,7 +19,7 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; executor: PortExecutor; adbt?: AdbtContextProvider; adbtTools?: AdbtAgentTools; onPhase?: (phase: string) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; executor: PortExecutor; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
   mkdirSync(options.outDir, { recursive: true });
   initializeGit(options.appDir);
   const result: PortResult = { phases: [], costUsd: 0 };
@@ -26,23 +27,27 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
   try {
     for (const phase of phases()) {
       options.onPhase?.(phase.name);
-      // In the model-driven (live) path the model calls the ADBT MCP tools itself; the harness
-      // pre-selects nothing. In replay there is no live model, so we load the recorded context.
+      // Live: hand the ADBT McpClient to the agent so it discovers and calls the ADBT tools
+      // itself; provenance is reconstructed afterward from the agent's messages. Replay: no live
+      // model, so load the recorded context and inject it as prompt text.
       const usesAdbt = phase.name === ADBT_PHASE;
-      const replayContext = usesAdbt && !options.adbtTools && options.adbt ? await options.adbt.load() : undefined;
+      const replayContext = usesAdbt && !options.adbtClient && options.adbt ? await options.adbt.load() : undefined;
       const start = gitHead(options.appDir);
       let failures: string[] = [];
       try {
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (attempt > 1) reset(options.appDir, start);
-          const extraTools = usesAdbt && options.adbtTools ? options.adbtTools.tools : undefined;
+          const extraTools = usesAdbt && options.adbtClient ? [options.adbtClient] : undefined;
           const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), undefined, extraTools);
           result.costUsd += model.costUsd;
           if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
           const output = parseOutput(model.text);
           writeOutput(options.appDir, output.files);
-          // Record ADBT provenance: what the model fetched (live) or the recorded fixture (replay).
-          const adbtContext = usesAdbt ? (options.adbtTools?.context() ?? replayContext) : undefined;
+          // Record ADBT provenance: reconstructed from the model's tool calls (live) or the
+          // recorded fixture (replay).
+          const adbtContext = usesAdbt
+            ? (options.adbtClient ? extractAdbtProvenance(model.messages ?? []) : replayContext)
+            : undefined;
           if (adbtContext) {
             ensureAdbtNextSteps(options.appDir, adbtContext);
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
@@ -62,7 +67,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       }
     }
   } finally {
-    await options.adbtTools?.disconnect();
+    await options.adbtClient?.disconnect();
   }
   return result;
 }
