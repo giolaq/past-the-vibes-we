@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { createRequire } from "node:module";
-import { renderAdbtPrompt, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
+import { type AdbtAgentTools, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
 import { PortOutputSchema } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
@@ -18,42 +18,51 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; executor: PortExecutor; adbt: AdbtContextProvider; onPhase?: (phase: string) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; executor: PortExecutor; adbt?: AdbtContextProvider; adbtTools?: AdbtAgentTools; onPhase?: (phase: string) => void }): Promise<PortResult> {
   mkdirSync(options.outDir, { recursive: true });
   initializeGit(options.appDir);
   const result: PortResult = { phases: [], costUsd: 0 };
-  let adbtContext: AdbtPortContext | undefined;
-  for (const phase of phases()) {
-    options.onPhase?.(phase.name);
-    if (phase.name === ADBT_PHASE) {
-      adbtContext = await options.adbt.load();
-      const evidence = join(options.outDir, "adbt-port-context.json");
-      writeFileSync(evidence, JSON.stringify(adbtContext, null, 2));
-      result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence };
-    }
-    const start = gitHead(options.appDir);
-    let failures: string[] = [];
-    try {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        if (attempt > 1) reset(options.appDir, start);
-        if (phase.name === ADBT_PHASE && adbtContext) ensureAdbtNextSteps(options.appDir, adbtContext);
-        const model = await options.executor.call(phase.name, prompt(phase, options, failures, adbtContext));
-        result.costUsd += model.costUsd;
-        if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
-        const output = parseOutput(model.text);
-        writeOutput(options.appDir, output.files);
-        failures = verifyPort(options.appDir, phase.checks);
-        if (failures.length === 0) {
-          commit(options.appDir, `workshop(${phase.name}): ${output.summary.slice(0, 60)}`);
-          result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label) });
-          break;
+  const evidencePath = join(options.outDir, "adbt-port-context.json");
+  try {
+    for (const phase of phases()) {
+      options.onPhase?.(phase.name);
+      // In the model-driven (live) path the model calls the ADBT MCP tools itself; the harness
+      // pre-selects nothing. In replay there is no live model, so we load the recorded context.
+      const usesAdbt = phase.name === ADBT_PHASE;
+      const replayContext = usesAdbt && !options.adbtTools && options.adbt ? await options.adbt.load() : undefined;
+      const start = gitHead(options.appDir);
+      let failures: string[] = [];
+      try {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          if (attempt > 1) reset(options.appDir, start);
+          const extraTools = usesAdbt && options.adbtTools ? options.adbtTools.tools : undefined;
+          const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), undefined, extraTools);
+          result.costUsd += model.costUsd;
+          if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
+          const output = parseOutput(model.text);
+          writeOutput(options.appDir, output.files);
+          // Record ADBT provenance: what the model fetched (live) or the recorded fixture (replay).
+          const adbtContext = usesAdbt ? (options.adbtTools?.context() ?? replayContext) : undefined;
+          if (adbtContext) {
+            ensureAdbtNextSteps(options.appDir, adbtContext);
+            writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
+            result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence: evidencePath };
+          }
+          failures = verifyPort(options.appDir, phase.checks);
+          if (failures.length === 0) {
+            commit(options.appDir, `workshop(${phase.name}): ${output.summary.slice(0, 60)}`);
+            result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label) });
+            break;
+          }
+          if (attempt === 2) throw new Error(`${phase.name} failed after retry: ${failures.join("; ")}`);
         }
-        if (attempt === 2) throw new Error(`${phase.name} failed after retry: ${failures.join("; ")}`);
+      } catch (error) {
+        reset(options.appDir, start);
+        throw error;
       }
-    } catch (error) {
-      reset(options.appDir, start);
-      throw error;
     }
+  } finally {
+    await options.adbtTools?.disconnect();
   }
   return result;
 }
@@ -63,15 +72,19 @@ export const ADBT_PHASE = "plan";
 export function phases(): PortPhase[] {
   return [
     { name: "analyze", goal: "Read the guarded React Native app and write ANALYSIS.md describing its screens, components, data, and which parts are portable to Vega TV.", skill: "Discovery first. Keep facts and assumptions separate. Do not change app code during analysis.", checks: [{ type: "contains", path: "ANALYSIS.md", value: "## Portable", label: "Portability analysis documented" }] },
-    { name: "plan", goal: "Plan the Vega TV port. Write VEGA_PORT.md describing preserved product behavior, Vega replacements, and the exact remote flow, and record ADBT sources and gaps in NextSteps.md.", skill: "Follow the injected ADBT workflows before making Vega claims. Keep facts and assumptions separate, port one vertical slice, and record unsupported gaps instead of inventing APIs.", checks: [{ type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" }, { type: "contains", path: "NextSteps.md", value: "ADBT", label: "ADBT gaps and sources" }] },
+    { name: "plan", goal: "Plan the Vega TV port. Write VEGA_PORT.md describing preserved product behavior, Vega replacements, and the exact remote flow, and record ADBT sources and gaps in NextSteps.md.", skill: "Use the ADBT tools to discover and read the Vega migration workflows before making Vega claims. Keep facts and assumptions separate, port one vertical slice, and record unsupported gaps instead of inventing APIs.", checks: [{ type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" }, { type: "contains", path: "NextSteps.md", value: "ADBT", label: "ADBT gaps and sources" }] },
     { name: "build_test", goal: "Build the apps/vega package from the SDK shape, wire the remote-only home-to-details flow, and prove its focus transitions with an executable check.", skill: "Preserve portable JS/TSX, start from the Vega template shape, use one focus-state module from both the app and the verifier, and verify launch, movement boundaries, details, back, and restoration.", checks: [{ type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" }, { type: "contains", path: "apps/vega/manifest.toml", value: "[[components.interactive]]", label: "Interactive component" }, { type: "contains", path: "apps/vega/package.json", value: "build-vega", label: "Vega React Native build" }, { type: "file_exists", path: "apps/vega/app.json", label: "Vega app registration" }, { type: "file_exists", path: "apps/vega/metro.config.js", label: "Vega Metro boundary" }, { type: "contains", path: "package.json", value: "vega:build", label: "Vega build script" }, { type: "file_exists", path: "src/tv/focus-state.ts", label: "Focus state adapter" }, { type: "contains", path: "src/App.tsx", value: "./tv/focus-state", label: "App uses shared focus state" }, { type: "command", command: process.execPath, args: ["--import", tsxLoader, "tests/verify-tv-focus.ts"], label: "Executable focus transitions" }, { type: "contains", path: "tv-focus-result.json", value: "\"passed\": true", label: "Focus evidence report" }, { type: "contains", path: "TV_VERIFICATION.md", value: "originating card", label: "Focus restoration documented" }] },
   ];
 }
 
 function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], failures: string[], adbt?: AdbtPortContext): string {
   const checks = phase.checks.map((check) => check.type === "command" ? `- ${check.label}: ${check.command} ${check.args.join(" ")}` : `- ${check.label}: ${check.path}${check.value ? ` contains ${check.value}` : " exists"}`).join("\n");
-  const adbtGuidance = phase.name === ADBT_PHASE && adbt
-    ? `\n\n${renderAdbtPrompt(adbt)}\n\nUse these ADBT sources for Vega-specific decisions. Do not invent Vega APIs. Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents consulted.`
+  // Model-driven: instruct the agent to use the ADBT MCP tools itself. In replay (no live tools)
+  // the recorded context is shown so the offline path still has authoritative guidance.
+  const adbtGuidance = phase.name === ADBT_PHASE
+    ? adbt
+      ? `\n\n## ADBT sources (recorded)\n${adbt.documents.map((d) => `### ${d.name}\n${d.excerpt}`).join("\n\n")}\n\nUse these ADBT sources for Vega-specific decisions. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md and name the ADBT documents consulted.`
+      : `\n\nUse the adbt_list_documents and adbt_read_document tools to discover and read the Vega migration workflows you need. Do not invent Vega APIs. Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents you consulted.`
     : "";
   return `You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875. Read existing files before proposing edits. Preserve unrelated work.\n\nPhase: ${phase.name}\nGoal: ${phase.goal}\nSkill: ${phase.skill}\nCreative seed: ${options.seed}\n\nApproved context:\n${options.projectContext}\n\nPortability findings:\n${JSON.stringify(options.findings, null, 2)}${adbtGuidance}\n\nRequired checks:\n${checks}\n${failures.length ? `\nPrevious attempt failed:\n${failures.map((f) => `- ${f}`).join("\n")}\nFix these exact failures.` : ""}\n\nReturn ONLY JSON: {"summary":"short commit summary","files":{"relative/path":"complete file contents"}}. Paths are relative to the app root. Do not include .git, node_modules, .env, absolute paths, or files outside the app.`;
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { McpClient, type JSONValue } from "@strands-agents/sdk";
+import { McpClient, tool, type InvokableTool, type JSONValue } from "@strands-agents/sdk";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
 import { ADBT_PACKAGE } from "../platform/vega.js";
@@ -89,6 +89,70 @@ export function renderAdbtPrompt(context: AdbtPortContext): string {
   const sources = context.documents.map((document) => `- ${document.name} (sha256: ${document.sha256})`).join("\n");
   const guidance = context.documents.map((document) => `### ${document.name}\n${document.excerpt}`).join("\n\n");
   return `## ADBT Vega Port Guidance\n\nMode: ${context.mode}\nSources:\n${sources}\n\n${guidance}`;
+}
+
+/**
+ * Model-driven ADBT access. Instead of the harness pre-selecting workflows and injecting
+ * them, this exposes the ADBT MCP read tools as agent tools so the model discovers and reads
+ * whatever it needs. Every read is recorded with a SHA-256 hash so the run stays auditable.
+ */
+export interface AdbtAgentTools {
+  tools: InvokableTool<unknown, JSONValue>[];
+  /** Provenance of exactly what the model fetched, in call order. */
+  context(): AdbtPortContext;
+  disconnect(): Promise<void>;
+}
+
+export function createAdbtAgentTools(options: { command?: string; commandArgs?: string[]; cwd?: string; timeoutMs?: number; clientFactory?: () => AdbtToolClient } = {}): AdbtAgentTools {
+  const client = options.clientFactory?.() ?? createAdbtClient(options);
+  const timeoutMs = options.timeoutMs ?? 60_000;
+  const reads = new Map<string, { name: string; sha256: string; excerpt: string }>();
+  let ready: Promise<void> | undefined;
+
+  const ensure = async () => {
+    if (!ready) ready = (async () => {
+      const available = await bounded(client.listTools(), timeoutMs, "tool discovery");
+      for (const name of ["list_documents", "read_document"]) {
+        if (!available.includes(name)) throw new AdbtContextError(`ADBT MCP tool missing: ${name}`);
+      }
+    })();
+    return ready;
+  };
+
+  const call = async (name: string, args: Record<string, JSONValue>) => {
+    await ensure();
+    return mcpText(await bounded(client.callTool(name, args, AbortSignal.timeout(timeoutMs)), timeoutMs, name));
+  };
+
+  return {
+    tools: [
+      tool({
+        name: "adbt_list_documents",
+        description: "List Amazon Device Build Tools (ADBT) migration documents for a platform. Call this first to discover which Vega workflows exist. Returns document names and descriptions.",
+        inputSchema: z.object({ documentType: z.string().default("WORKFLOW").describe("Document type, usually WORKFLOW") }),
+        callback: ({ documentType }) => call("list_documents", { documentType, target_platform: { device_os: ["vega_os"] } }),
+      }),
+      tool({
+        name: "adbt_read_document",
+        description: "Read one ADBT migration document by name (from adbt_list_documents). Use this to get authoritative Vega porting guidance instead of guessing Vega APIs.",
+        inputSchema: z.object({ document_uri: z.string().min(1).describe("Document name, e.g. port_tv_app_to_vega.md") }),
+        callback: async ({ document_uri }) => {
+          const excerpt = await call("read_document", { document_uri });
+          reads.set(document_uri, { name: document_uri, sha256: digest(excerpt), excerpt: excerpt.slice(0, 12_000) });
+          return excerpt;
+        },
+      }),
+    ],
+    context: () => ({
+      schemaVersion: 1,
+      mode: "live",
+      packageName: ADBT_PACKAGE,
+      targetPlatform: "vega_os",
+      capturedAt: new Date().toISOString(),
+      documents: [...reads.values()],
+    }),
+    disconnect: () => client.disconnect(),
+  };
 }
 
 function parseCatalog(output: string): Array<{ name: string; description?: string }> {

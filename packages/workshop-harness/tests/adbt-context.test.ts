@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AdbtMcpContextProvider, AdbtReplayContextProvider, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
+import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtAgentTools, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
 
 test("discovers ADBT MCP tools before calling the workflow catalog", async () => {
   const fixture = fakeAdbtClient();
@@ -61,6 +61,37 @@ test("replay provider validates the recorded ADBT context", async () => {
   await assert.rejects(() => new AdbtReplayContextProvider(path).load(), /hash mismatch/);
   writeFileSync(path, JSON.stringify({ schemaVersion: 2 }));
   await assert.rejects(() => new AdbtReplayContextProvider(path).load());
+});
+
+test("model-driven ADBT tools record only what the model reads, with hashes", async () => {
+  const fixture = fakeAdbtClient();
+  const agentTools = createAdbtAgentTools({ clientFactory: () => fixture.client, timeoutMs: 2_000 });
+  const [list, read] = agentTools.tools;
+
+  assert.deepEqual(agentTools.tools.map((t) => t.name), ["adbt_list_documents", "adbt_read_document"]);
+
+  // The model discovers documents, then reads exactly one of them.
+  await list.invoke({ documentType: "WORKFLOW" });
+  await read.invoke({ document_uri: "port_tv_app_to_vega.md" });
+
+  const context = agentTools.context();
+  assert.equal(context.mode, "live");
+  assert.deepEqual(context.documents.map((d) => d.name), ["port_tv_app_to_vega.md"]);
+  assert.match(context.documents[0].sha256, /^[a-f0-9]{64}$/);
+  assert.equal(fixture.calls.filter((c) => c.name === "read_document").length, 1);
+
+  await agentTools.disconnect();
+  assert.equal(fixture.calls.at(-1)?.name, "disconnect");
+});
+
+test("model-driven ADBT tools require the read tools to exist", async () => {
+  const client: AdbtToolClient = {
+    async listTools() { return ["list_documents"]; },
+    async callTool() { return {}; },
+    async disconnect() {},
+  };
+  const agentTools = createAdbtAgentTools({ clientFactory: () => client });
+  await assert.rejects(() => agentTools.tools[1].invoke({ document_uri: "x.md" }), /read_document/);
 });
 
 async function liveFixture() {
