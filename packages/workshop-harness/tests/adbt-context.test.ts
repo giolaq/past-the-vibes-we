@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AdbtMcpContextProvider, AdbtReplayContextProvider, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
+import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtMcpClient, extractAdbtProvenance, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
 
 test("discovers ADBT MCP tools before calling the workflow catalog", async () => {
   const fixture = fakeAdbtClient();
@@ -61,6 +61,42 @@ test("replay provider validates the recorded ADBT context", async () => {
   await assert.rejects(() => new AdbtReplayContextProvider(path).load(), /hash mismatch/);
   writeFileSync(path, JSON.stringify({ schemaVersion: 2 }));
   await assert.rejects(() => new AdbtReplayContextProvider(path).load());
+});
+
+test("provenance is reconstructed from the agent's read_document tool calls, with hashes", () => {
+  // Simulated Strands message history: the model listed docs, then read one.
+  const messages = [
+    { role: "assistant", content: [
+      { toolUse: { toolUseId: "u1", name: "list_documents", input: { documentType: "WORKFLOW" } } },
+      { toolUse: { toolUseId: "u2", name: "read_document", input: { document_uri: "port_tv_app_to_vega_fos_rn_app.md" } } },
+    ] },
+    { role: "user", content: [
+      { toolResult: { toolUseId: "u1", status: "success", content: [{ text: "[{\"name\":\"port_tv_app_to_vega.md\"}]" }] } },
+      { toolResult: { toolUseId: "u2", status: "success", content: [{ text: "## Purpose\nPreserve portable JS." }] } },
+    ] },
+  ];
+
+  const context = extractAdbtProvenance(messages);
+  assert.equal(context.mode, "live");
+  // Only read_document is recorded (not list_documents), and its result is hashed.
+  assert.deepEqual(context.documents.map((d) => d.name), ["port_tv_app_to_vega_fos_rn_app.md"]);
+  assert.match(context.documents[0].sha256, /^[a-f0-9]{64}$/);
+  assert.match(context.documents[0].excerpt, /Preserve portable JS/);
+});
+
+test("provenance handles prefixed MCP tool names and empty histories", () => {
+  assert.deepEqual(extractAdbtProvenance([]).documents, []);
+  const prefixed = [
+    { content: [{ toolUse: { toolUseId: "u1", name: "amazon-devices-buildertools___read_document", input: { document_uri: "x.md" } } }] },
+    { content: [{ toolResult: { toolUseId: "u1", status: "success", content: [{ text: "body" }] } }] },
+  ];
+  assert.deepEqual(extractAdbtProvenance(prefixed).documents.map((d) => d.name), ["x.md"]);
+});
+
+test("createAdbtMcpClient builds a client without connecting", () => {
+  const client = createAdbtMcpClient({ cwd: "/tmp" });
+  assert.ok(client);
+  assert.equal(typeof client.disconnect, "function");
 });
 
 async function liveFixture() {

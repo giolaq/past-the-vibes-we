@@ -69,7 +69,7 @@ guarded app copy   --->  read-only tools (list/read/search) --+--> Strands Agent
 ```
 
 - **The model (via Strands Agent)** can only: list files, read files, search files — all inside one guarded copy of the app. It has **no write tool and no shell**. It returns a JSON patch. That is the ceiling of its power. (`src/port-tools.ts`, `src/port-executor.ts`)
-- **ADBT** supplies platform knowledge, but the *harness* chooses which documents to fetch and injects them only into the two phases that need them — the `analyze` feasibility check and the `plan` phase. The model never gets free rein over the MCP server. (`src/context-providers/adbt.ts`)
+- **ADBT** supplies platform knowledge. During `analyze` and `plan` the harness hands the ADBT `McpClient` to the Strands agent (`tools: [...projectTools, adbtClient]`); Strands discovers ADBT's tools (`list_documents`, `read_document`, `search_documentation`) dynamically and the model calls them itself. The harness does not pre-pick documents. Afterward it reconstructs which docs the model read from the agent's messages and hashes each into `adbt-port-context.json`. The model still has no write tool and no shell. (`src/context-providers/adbt.ts`)
 - **The harness** owns everything with consequences: writing to disk, running verification, committing to git, the cost cap, retries, and the final report. (`src/port-pipeline.ts`)
 
 Why so strict? Because a model that could write files or run shell commands could, on a confident wrong guess, corrupt your repo or run something destructive. Keeping irreversible actions in deterministic code means the worst a bad model answer can do is *fail a check and get rejected*.
@@ -106,23 +106,19 @@ Before the pipeline runs, `source_discovery` copies your RN app into the guarded
 **Runs at:** feasibility runs at `plan` time, so the verdict is part of the plan you approve. The live path calls the model + ADBT MCP; the key-free replay path reads recorded fixtures (`feasibility-recording.json`, `adbt-port-context.json`) so it needs no model, account, or network.
 **Inspect:** `out/<runId>/app/ANALYSIS.md`, `out/<runId>/feasibility-report.json` (the verdict), and `out/<runId>/portability-report.json` (the inventory).
 
-### Phase 2 — `plan` (model + live ADBT)
-This is where the AI-plus-platform-knowledge magic happens. Two things occur, in order:
+### Phase 2 — `plan` (model + model-driven ADBT over MCP)
+This is where the AI-plus-platform-knowledge magic happens — and here the model, not the harness, drives ADBT.
 
-**2a. The harness calls ADBT over MCP** (`src/context-providers/adbt.ts`). Concretely, for a live run it:
-1. Starts the pinned ADBT package as a child process over stdio (`StdioClientTransport` from the MCP SDK).
-2. Wraps it in a Strands `McpClient` and calls `listTools()`.
-3. Requires the tools `list_documents` and `read_document` to exist, or it aborts.
-4. Calls `list_documents` filtered to Vega WORKFLOW docs, then `read_document` for exactly two workflows:
-   - `port_tv_app_to_vega.md`
-   - `port_tv_app_to_vega_fos_rn_app.md`
-5. Extracts the relevant sections, hashes each with SHA-256, and disconnects.
-6. Writes the evidence to `out/<runId>/adbt-port-context.json` with `mode: "live"` and those hashes.
+**2a. The harness hands the ADBT `McpClient` to the agent** (`createAdbtMcpClient` in `src/context-providers/adbt.ts`). This follows the standard Strands MCP pattern — you pass the client into `Agent({ tools: [...] })` and Strands discovers its tools dynamically. For a live run:
+1. `createAdbtMcpClient` builds a Strands `McpClient` over `StdioClientTransport`, starting the pinned ADBT package as a child process.
+2. The pipeline puts that client in the agent's `tools` for the `plan` phase. Strands calls the server's `listTools` for us — the harness never hardcodes tool names.
+3. The **model** decides what to fetch: it calls ADBT's own `list_documents` to discover the Vega workflows, then `read_document` (or `search_documentation`) for whichever ones it judges relevant. The harness pre-selects nothing.
+4. When the phase ends the pipeline disconnects the client and calls `extractAdbtProvenance(agent.messages)`: it walks the model's tool calls, finds each ADBT read, pairs it with its result, and hashes it into `out/<runId>/adbt-port-context.json` with `mode: "live"`.
 
-Why hashes? So the exact knowledge the model was given is provable and reproducible later.
+Why reconstruct + hash afterward? Because the model chose what to read, the audit trail is the *only* proof of what knowledge it actually used — so the run stays provable and reproducible even though nothing was pre-picked. (The harness no longer sits between the model and each call, so provenance is derived from the message history, not a live wrapper.)
 
-**2b. The model writes the migration plan.** Only for this phase, the two ADBT documents are injected into the prompt. The instruction is blunt: *Follow the injected ADBT workflows. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md.* The model returns `VEGA_PORT.md` (preserved behavior, Vega replacements, the exact remote flow) and the harness records ADBT sources in `NextSteps.md`.
-**Skill injected:** discovery first, keep facts and assumptions separate, port one vertical slice, record gaps instead of inventing APIs.
+**2b. The model writes the migration plan.** Using what it read, it returns `VEGA_PORT.md` (preserved behavior, Vega replacements, the exact remote flow), and the harness records the ADBT sources it consulted in `NextSteps.md`. The instruction is blunt: *Use the ADBT tools to discover and read the workflows you need. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md.*
+**Skill injected:** use the ADBT tools to discover and read the workflows you need, keep facts and assumptions separate, port one vertical slice, record gaps instead of inventing APIs.
 **Checks:**
 - `VEGA_PORT.md` contains `## TV Flow`
 - `NextSteps.md` contains `ADBT` (names its sources)

@@ -30,7 +30,7 @@ Every edit phase follows the same bounded loop:
 
 1. Save the guarded app's current Git commit.
 2. Assemble a prompt from the phase goal, its domain rule, the fixed seed, approved project context, portability findings, and exact checks.
-3. For `plan` only, load the selected ADBT workflows and add their relevant excerpts and hashes.
+3. For `analyze` and `plan`, give the model the ADBT read tools so it can fetch Vega workflows itself; record each read with a hash.
 4. Ask the selected executor for a typed proposal: a short summary and complete contents for relative file paths.
 5. Validate the response with `PortOutputSchema`.
 6. Reject absolute paths, path traversal, `.git`, `node_modules`, and environment files.
@@ -54,12 +54,7 @@ Changing the executor does not change the pipeline's authority. The harness alwa
 
 The `analyze` phase needs current Vega compatibility guidance to judge feasibility, and `plan` needs current migration workflows to describe the port. `build_test` already has a concrete focus contract and the plan to work from, so it does not query ADBT.
 
-The harness starts pinned ADBT as an MCP server, confirms that `list_documents` and `read_document` exist, lists Vega workflow documents, and reads only:
-
-- `port_tv_app_to_vega.md`;
-- `port_tv_app_to_vega_fos_rn_app.md`.
-
-It keeps the relevant sections, computes a SHA-256 hash for each excerpt, saves the context, injects it into the `plan` prompt, and disconnects in `finally`. If live ADBT cannot provide this evidence, the run stops with exit code `3` instead of letting the model invent Vega APIs.
+In a live Strands run the harness builds the ADBT `McpClient` and passes it into the agent's tools; Strands discovers ADBT's tools dynamically and the model calls `list_documents`, then `read_document` for whichever workflows it needs — the harness pre-selects nothing. After the phase the harness reconstructs those reads from the agent's messages and saves each with a SHA-256 hash to `adbt-port-context.json`. If ADBT is unavailable the run stops with exit code `3` instead of letting the model invent Vega APIs. (The Claude Code CLI reaches ADBT through its own MCP config from `init-context`; replay reads a recorded `adbt-port-context.json`.)
 
 ## What each phase must prove
 
@@ -129,7 +124,7 @@ Trace the MCP lifecycle in `src/context-providers/adbt.ts`:
 
 `JSONValue` is the Strands type used to keep MCP arguments and results JSON-compatible. The native `AbortSignal` and MCP SDK stdio transport are passed into Strands; they are not Strands constructs themselves.
 
-ADBT is not handed to the model as an unrestricted tool box. The harness chooses the documents and injects their recorded context only into the `plan` phase. This gives replay a stable input and keeps crash or performance tools out of a migration phase that does not need them.
+The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch. Replay reruns from that recorded context with no live server.
 
 See [Strands Constructs Used in This Workshop](strands-constructs.md) for the complete agent, tool, structured-output, invocation, metrics, and MCP reference.
 

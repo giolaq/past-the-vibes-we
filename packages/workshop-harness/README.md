@@ -9,7 +9,7 @@ It never edits the source app. Generated work goes to `packages/workshop-harness
 Before the pipeline, `source_discovery` copies the app into a guarded directory without Git history, dependencies, builds, caches, or environment files. The port itself then has three phases:
 
 1. `analyze` reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict decide whether the port is possible; a `blocked` verdict stops the run at exit `5`.
-2. `plan` loads two selected ADBT workflows and writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
+2. `plan` gives the model the ADBT read tools so it discovers and reads the Vega workflows itself, then writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
 3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle and captures a launch screenshot.
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
@@ -55,26 +55,35 @@ Copy the returned `runId`. Inspect:
 - `packages/workshop-harness/out/<runId>/feasibility-report.json` for the feasibility verdict;
 - `packages/workshop-harness/out/<runId>/portability-report.json` for what can move to Vega;
 - `packages/workshop-harness/out/<runId>/port-result.json` for phases, checks, retries, and cost;
-- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows injected into the `plan` phase;
+- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows the model read during `analyze` and `plan`, with hashes;
 - `packages/workshop-harness/out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
 - `packages/workshop-harness/out/<runId>/01-launch.png` for the build_test launch screenshot;
 - `packages/workshop-harness/out/<runId>/app` for the generated app copy and phase commits.
 
 ## ADBT during the port
 
-ADBT is runtime context for the harness, not only setup for the final device command. During `analyze` (feasibility) and `plan`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient`:
+ADBT is runtime context the model gathers itself, not setup the harness pre-picks. How the model reaches ADBT depends on the executor:
+
+**Strands (live)** — the harness builds the ADBT `McpClient` (`createAdbtMcpClient`) and passes it straight into the agent's `tools`, the standard Strands MCP pattern. Strands discovers the server's tools dynamically; the model calls them:
 
 ```text
-connect -> discover tools
-  -> list_documents(WORKFLOW, vega_os)
-  -> read_document(port_tv_app_to_vega.md)
-  -> read_document(port_tv_app_to_vega_fos_rn_app.md)
-  -> inject context into the plan phase
-  -> save names, excerpts, and hashes
-  -> disconnect
+harness: Agent({ tools: [...projectTools, adbtClient] })   // Strands lists ADBT tools itself
+model:   list_documents(WORKFLOW, vega_os)
+         -> read_document(<whichever workflows it judges relevant>)
+harness: extractAdbtProvenance(agent.messages) -> hash each read -> adbt-port-context.json
+         -> disconnect the client
 ```
 
-The provider requires those two tool names and always disconnects in `finally`. It does not run `init-context` or change Claude configuration.
+The harness never hardcodes tool names or pre-selects documents. Because the model chooses what to read, the hashed record reconstructed from the message history is the run's proof of the knowledge it used.
+
+**Claude Code CLI** — the CLI has its own MCP client, so ADBT is registered with it once, up front, using Amazon's installer (see below). The harness invokes the CLI with `--allowedTools "*"` so whatever ADBT tools `init-context` configured are permitted without stalling on a permission prompt in non-interactive mode; the CLI owns the connection. The harness still ignores any file the model writes directly — only the returned typed patch is applied, verified, and committed.
+
+Set up ADBT for the CLI (run in a real system terminal; it completes silently):
+
+```sh
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
+```
 
 The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
 

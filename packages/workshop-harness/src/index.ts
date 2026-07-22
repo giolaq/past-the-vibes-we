@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { auditSource, summarize } from "./portability-audit.js";
 import { runFeasibility, type FeasibilityResult } from "./feasibility.js";
-import { ADBT_PORT_WORKFLOWS, AdbtMcpContextProvider, AdbtContextError, AdbtReplayContextProvider, type AdbtContextProvider } from "./context-providers/adbt.js";
+import { ADBT_PORT_WORKFLOWS, AdbtMcpContextProvider, AdbtContextError, AdbtReplayContextProvider, createAdbtMcpClient, type AdbtContextProvider } from "./context-providers/adbt.js";
 import { BeeContextProvider } from "./context-providers/bee.js";
 import { CliFailure, failure, json } from "./output.js";
 import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memory.js";
@@ -148,8 +148,14 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     writeFileSync(join(out, "tv-build-inputs.json"), JSON.stringify({ schemaVersion: 1, sourceApp: join(out, "app"), target: "firetv-vega", seed: plan.seed, maxCostUsd: plan.maxCostUsd }, null, 2));
     const replayPath = flag("--replay");
     const executor = createPortExecutor({ appDir, outDir: out, replayPath, config: plan.executor });
-    const adbt = resolveAdbtProvider(appDir);
-    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, executor, adbt, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: [] }, null, 2)) });
+    // Model-driven ADBT: with a live Strands model, hand the ADBT McpClient to the agent so it
+    // discovers and calls the ADBT tools itself (Strands lists them dynamically). With a replayed
+    // model there is no in-process agent loop, so fall back to the recorded context provider.
+    // (The claude-cli executor reaches ADBT through its own MCP config from `init-context`.)
+    const liveStrands = !replayPath && plan.executor.kind === "strands";
+    const adbtClient = liveStrands ? createAdbtMcpClient({ cwd: appDir }) : undefined;
+    const adbt = adbtClient ? undefined : resolveAdbtProvider(appDir);
+    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, executor, adbt, adbtClient, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: [] }, null, 2)) });
     port.costUsd += plan.feasibility.costUsd;
     writeFileSync(join(out, "port-result.json"), JSON.stringify({ schemaVersion: 1, ...port }, null, 2));
 

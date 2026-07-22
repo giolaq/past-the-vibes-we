@@ -87,7 +87,16 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands 
 
 ## 5. Optional Vega setup
 
-Install Vega SDK `0.22.5875` and create a Vega Virtual Device. The harness starts pinned ADBT `1.0.5` as an MCP server during the live `plan` phase (and the `analyze` feasibility check). It discovers the MCP tools, calls `list_documents`, reads the two approved port workflows, and disconnects. You do not need to run `init-context` because the harness owns this connection. Replay uses a committed ADBT context snapshot.
+Install Vega SDK `0.22.5875` and create a Vega Virtual Device. On the live Strands path the harness builds the ADBT `McpClient` and hands it to the agent during `analyze` and `plan`, so the model discovers ADBT's tools and calls `list_documents` / `read_document` itself; the harness then records what it read. Replay uses a committed ADBT context snapshot.
+
+If you run the **Claude Code CLI** executor, register ADBT with the CLI once, up front (run in a real system terminal; it completes silently):
+
+```sh
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
+```
+
+You do not need `init-context` for the replay or Strands paths — the harness owns the ADBT connection there. See the Vega docs: developer.amazon.com/docs/vega/0.22/mcp-server.html
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
