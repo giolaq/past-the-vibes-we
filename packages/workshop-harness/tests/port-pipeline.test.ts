@@ -23,12 +23,13 @@ test("ports three concerns and commits each verified phase", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor(successResponses());
   const result = await pipeline(app, executor);
-  assert.deepEqual(result.phases.map((phase) => phase.name), ["tv_product_spec", "vega_port", "tv_behavior"]);
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze", "plan", "build_test"]);
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
   assert.match(readFileSync(join(app, "src/App.tsx"), "utf8"), /focus-state/);
   assert.equal(JSON.parse(readFileSync(join(app, "tv-focus-result.json"), "utf8")).passed, true);
   assert.equal(result.adbt?.mode, "replay");
   assert.equal(JSON.parse(readFileSync(join(`${app}-out`, "adbt-port-context.json"), "utf8")).targetPlatform, "vega_os");
+  // ADBT guidance is injected only into the plan phase (index 1), not analyze (0) or build_test (2).
   assert.doesNotMatch(executor.calls[0].prompt, /ADBT Vega Port Guidance/);
   assert.match(executor.calls[1].prompt, /port_tv_app_to_vega_fos_rn_app\.md/);
   assert.match(executor.calls[1].prompt, /Do not invent Vega APIs/);
@@ -40,7 +41,7 @@ test("feeds exact verification failure into retry", async () => {
   const executor = new FakeExecutor([response({ "WRONG.md": "no" }), ...successResponses()]);
   const result = await pipeline(app, executor);
   assert.equal(result.phases[0].attempts, 2);
-  assert.match(executor.calls[1].prompt, /TV flow documented: missing VEGA_PORT.md/);
+  assert.match(executor.calls[1].prompt, /Portability analysis documented: missing ANALYSIS.md/);
 });
 
 test("budget abort restores a clean generated tree", async () => {
@@ -76,7 +77,11 @@ function fixtureApp(): string {
 
 function successResponses(): PortModelResult[] {
   return [
-    response({ "VEGA_PORT.md": "# Port\n\n## TV Flow\nremote" }),
+    response({ "ANALYSIS.md": "# Analysis\n\n## Portable\nShared RN logic ports to Vega." }),
+    response({
+      "VEGA_PORT.md": "# Port\n\n## TV Flow\nremote",
+      "NextSteps.md": "# Next Steps\n\n## ADBT sources\nport_tv_app_to_vega.md\n\nNo unsupported mappings in this fixture.",
+    }),
     response({
       "apps/vega/manifest.toml": "schema-version = 1\n[[components.interactive]]",
       "apps/vega/package.json": "{\"name\":\"vega-fixture\",\"scripts\":{\"build:debug\":\"react-native build-vega --build-type Debug\"}}",
@@ -84,9 +89,6 @@ function successResponses(): PortModelResult[] {
       "apps/vega/metro.config.js": "module.exports = {};",
       "package.json": "{\"type\":\"module\",\"scripts\":{\"vega:build\":\"cd apps/vega && npm run build:debug\"}}",
       "src/tv/focus-state.ts": "export const nextFocus = () => 'paper';",
-      "NextSteps.md": "# Next Steps\n\n## ADBT sources\nport_tv_app_to_vega.md\n\nNo unsupported mappings in this fixture.",
-    }),
-    response({
       "src/App.tsx": "import { nextFocus } from './tv/focus-state';\nexport const app = nextFocus();",
       "tests/verify-tv-focus.ts": "import fs from 'node:fs'; import assert from 'node:assert/strict'; import { nextFocus } from '../src/tv/focus-state.js'; assert.equal(nextFocus(), 'paper'); fs.writeFileSync('tv-focus-result.json', JSON.stringify({ passed: true }, null, 2));",
       "TV_VERIFICATION.md": "Back restores the originating card.",

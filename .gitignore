@@ -10,3 +10,4 @@ out/
 .yarn/
 *.pkg
 .thumbnails/
+.gstack/

@@ -10,16 +10,13 @@ Use Pocket Cinema unless your own app already runs and passes the setup checks.
 
 The port is a pipeline, not one large prompt. It separates inspection, platform knowledge, model proposals, file writes, and verification so each part can be reviewed.
 
-| Stage | Owner | What happens | Evidence |
+| Phase | Owner | What happens | Evidence |
 | --- | --- | --- | --- |
-| `source_discovery` | Harness | Reads `package.json`, scripts, dependencies, and Git state. | Source details in `portability-report.json` |
-| `vega_portability_audit` | Harness | Classifies reusable React Native code, navigation, native dependencies, focus work, and out-of-scope services. | Findings and recommendations in `portability-report.json` |
-| `tv_product_spec` | Model + harness | Describes the flow to preserve before changing code. | `VEGA_PORT.md` and a verified commit |
-| `vega_port` | ADBT + model + harness | Loads two approved Vega workflows, proposes the Vega package boundary, and records unsupported mappings. | Generated Vega package files, `NextSteps.md`, ADBT evidence, and a verified commit |
-| `tv_behavior` | Model + harness | Connects the shared focus state to the app and adds an executable remote-navigation check. | `tv-focus-result.json`, `TV_VERIFICATION.md`, and a verified commit |
-| `production_vega_run` | Vega adapter, lesson 8 | Builds, installs, launches, collects logs, and captures device evidence. It does not run during this lesson. | `vega-run-result.json` |
+| `analyze` | Model + ADBT + harness | Reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict judge whether the port is possible. | `ANALYSIS.md`, `feasibility-report.json`, `portability-report.json`, and a verified commit |
+| `plan` | ADBT + model + harness | Loads two approved Vega workflows, describes the flow to preserve and Vega replacements, and records unsupported mappings. | `VEGA_PORT.md`, `NextSteps.md`, ADBT evidence, and a verified commit |
+| `build_test` | Model + Vega adapter + harness | Creates the Vega package boundary, connects the shared focus state, runs the executable remote-navigation check, then builds, launches, and captures a device screenshot. | Vega package files, `tv-focus-result.json`, `TV_VERIFICATION.md`, `01-launch.png`, and a verified commit |
 
-The first two stages are deterministic. The next three are model-assisted edit phases. The last stage is a separate platform lifecycle, so a successful port does not claim that a device run happened.
+Before the pipeline, `source_discovery` copies the app into a guarded directory (no model). The feasibility part of `analyze` runs at `plan` time, so its verdict is in the plan you approve. `build_test` folds in the Vega device lifecycle from lesson 8: the run fails unless a launch screenshot is produced.
 
 ## Before any model call
 
@@ -33,7 +30,7 @@ Every edit phase follows the same bounded loop:
 
 1. Save the guarded app's current Git commit.
 2. Assemble a prompt from the phase goal, its domain rule, the fixed seed, approved project context, portability findings, and exact checks.
-3. For `vega_port` only, load the selected ADBT workflows and add their relevant excerpts and hashes.
+3. For `plan` only, load the selected ADBT workflows and add their relevant excerpts and hashes.
 4. Ask the selected executor for a typed proposal: a short summary and complete contents for relative file paths.
 5. Validate the response with `PortOutputSchema`.
 6. Reject absolute paths, path traversal, `.git`, `node_modules`, and environment files.
@@ -53,24 +50,24 @@ Every edit phase follows the same bounded loop:
 
 Changing the executor does not change the pipeline's authority. The harness always owns writes, checks, retries, budgets, commits, and reports.
 
-## Why ADBT appears only in `vega_port`
+## Why ADBT appears in `analyze` and `plan`
 
-The product-spec phase does not need platform APIs, and the behavior phase already has a concrete focus contract. Only `vega_port` needs current Vega migration guidance.
+The `analyze` phase needs current Vega compatibility guidance to judge feasibility, and `plan` needs current migration workflows to describe the port. `build_test` already has a concrete focus contract and the plan to work from, so it does not query ADBT.
 
 The harness starts pinned ADBT as an MCP server, confirms that `list_documents` and `read_document` exist, lists Vega workflow documents, and reads only:
 
 - `port_tv_app_to_vega.md`;
 - `port_tv_app_to_vega_fos_rn_app.md`.
 
-It keeps the relevant sections, computes a SHA-256 hash for each excerpt, saves the context, injects it into `vega_port`, and disconnects in `finally`. If live ADBT cannot provide this evidence, the run stops with exit code `3` instead of letting the model invent Vega APIs.
+It keeps the relevant sections, computes a SHA-256 hash for each excerpt, saves the context, injects it into the `plan` prompt, and disconnects in `finally`. If live ADBT cannot provide this evidence, the run stops with exit code `3` instead of letting the model invent Vega APIs.
 
 ## What each phase must prove
 
-`tv_product_spec` must create `VEGA_PORT.md` with a `## TV Flow` section.
+`analyze` must create `ANALYSIS.md` with a `## Portable` section, and its feasibility verdict must not be `blocked` (a blocked verdict stops the run at exit code `5`).
 
-`vega_port` must create the Vega manifest and interactive component, the Vega build script, app registration, Metro boundary, focus-state adapter, and `NextSteps.md` with ADBT sources. These checks prove the expected package shape; they do not replace a real Vega build.
+`plan` must create `VEGA_PORT.md` with a `## TV Flow` section and `NextSteps.md` naming its ADBT sources.
 
-`tv_behavior` must connect the app to the shared focus-state module, run the executable focus-transition check, write a passing `tv-focus-result.json`, and document focus restoration after Back.
+`build_test` must create the Vega manifest and interactive component, the Vega build script, app registration, Metro boundary, and focus-state adapter; connect the app to the shared focus-state module; run the executable focus-transition check and write a passing `tv-focus-result.json`; document focus restoration after Back; and produce a launch screenshot from the Vega lifecycle. These checks prove the expected package shape and remote behavior.
 
 ## Do this
 
@@ -82,27 +79,28 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-2. Before running, check the source path, target flow, portability findings, full phase sequence, seed, and cost cap.
-3. Run the key-free port. The harness automatically loads the recorded ADBT context beside the model recording:
+2. Before running, check the source path, target flow, portability findings, the feasibility verdict, the three-phase sequence (`analyze`, `plan`, `build_test`), seed, and cost cap.
+3. Run the key-free port. The harness automatically loads the recorded ADBT context beside the model recording, and `build_test` replays the Vega lifecycle so it can produce a launch screenshot without a device:
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
 4. Copy the `runId` from the output. You will use it in the Vega lesson.
-5. Open `out/<runId>/portability-report.json`. Separate portable, replace, manual, and out-of-scope findings.
+5. Open `out/<runId>/feasibility-report.json`. Read the feasibility verdict, then open `out/<runId>/portability-report.json` and separate portable, replace, manual, and out-of-scope findings.
 6. Open `out/<runId>/adbt-port-context.json`. Find the two ADBT workflows, selected excerpts, and hashes.
-7. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `replay`, review phase attempts and cost, and check that the context belongs to `vega_port`.
+7. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `replay`, review phase attempts and cost, and check that the context belongs to the `plan` phase.
 8. Open `out/<runId>/app/NextSteps.md`. Find the ADBT sources and the section for unsupported mappings.
-9. Inspect `out/<runId>/app`, `report.md`, and the guarded app's Git log. Match one commit to each passing edit phase.
+9. Inspect `out/<runId>/app`, `report.md`, and the guarded app's Git log. Match one commit to each passing phase.
 10. Check that `apps/pocket-cinema` is still clean and unchanged.
 
 ## Optional: call ADBT MCP live without a model account
 
-Check the native MCP connection, then run the same port with `--adbt-live`. The model output still comes from the recording, but the harness starts pinned ADBT `1.0.5` over stdio before `vega_port`:
+Check the native MCP connection, then run the same port with `--adbt-live`. The model output still comes from the recording, but the harness starts pinned ADBT `1.0.5` over stdio during the `analyze` feasibility check and the `plan` phase:
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
@@ -112,6 +110,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-liv
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --adbt-live --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
@@ -130,17 +129,17 @@ Trace the MCP lifecycle in `src/context-providers/adbt.ts`:
 
 `JSONValue` is the Strands type used to keep MCP arguments and results JSON-compatible. The native `AbortSignal` and MCP SDK stdio transport are passed into Strands; they are not Strands constructs themselves.
 
-ADBT is not handed to the model as an unrestricted tool box. The harness chooses the documents and injects their recorded context only into `vega_port`. This gives replay a stable input and keeps crash or performance tools out of a migration phase that does not need them.
+ADBT is not handed to the model as an unrestricted tool box. The harness chooses the documents and injects their recorded context only into the `plan` phase. This gives replay a stable input and keeps crash or performance tools out of a migration phase that does not need them.
 
 See [Strands Constructs Used in This Workshop](strands-constructs.md) for the complete agent, tool, structured-output, invocation, metrics, and MCP reference.
 
 ## Why this matters
 
-The harness reads first, asks ADBT MCP for current Vega migration workflows, injects only that platform context into `vega_port`, and edits a copy. The model executor can change without losing the platform guidance.
+The harness reads first, asks ADBT MCP for current Vega migration workflows, injects only that platform context into the `plan` phase, and edits a copy. The model executor can change without losing the platform guidance.
 
 ## You are done when
 
-You have the `runId`, ADBT evidence names the two migration workflows, all five pre-Vega stages are complete, the three edit phases have verified commits, `tv-focus-result.json` passes, and the source app is unchanged. The sixth planned stage is the Vega lifecycle in lesson 8.
+You have the `runId`, ADBT evidence names the two migration workflows, all three phases (`analyze`, `plan`, `build_test`) have verified commits, `tv-focus-result.json` passes, `build_test` produced a launch screenshot, and the source app is unchanged. Lesson 8 revisits that same Vega lifecycle to inspect the device evidence.
 
 ## If blocked
 
