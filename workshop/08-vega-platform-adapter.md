@@ -4,7 +4,7 @@
 
 Use ADBT for Vega guidance, then save build and device evidence in the run report.
 
-ADBT already supplied the migration context through Strands `McpClient` during lesson 6's `vega_port` phase. The generated package uses the SDK template shape and React Native's `build-vega` command. Vega CLI installs and launches the package. VDA supplies device status, logs, and screenshots. The harness runs those steps in order and stops when a gate fails.
+ADBT already supplied the migration context through Strands `McpClient` during lesson 6's `plan` phase, and `build_test` already built the package and required a launch screenshot. The generated package uses the SDK template shape and React Native's `build-vega` command. Vega CLI installs and launches the package. VDA supplies device status, logs, and screenshots. This lesson replays that same lifecycle so you can inspect the device evidence. The harness runs those steps in order and stops when a gate fails.
 
 ## Do this
 

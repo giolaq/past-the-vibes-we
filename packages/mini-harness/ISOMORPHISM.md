@@ -5,7 +5,7 @@ Step 04 uses the same boundaries as the complete workshop harness. The mini vers
 | mini module | workshop module path | one-line shared role | what the workshop version adds |
 | --- | --- | --- | --- |
 | `index.ts` | `packages/workshop-harness/src/index.ts` | Parses commands and starts a run. | Plan approval, doctor, status, memory, context, and Vega lifecycle commands. |
-| `harness-config.ts` | `packages/workshop-harness/src/port-pipeline.ts` | Defines the phase plan and per-phase checks. | A fixed six-stage React Native-to-Vega plan with platform evidence. |
+| `harness-config.ts` | `packages/workshop-harness/src/port-pipeline.ts` | Defines the phase plan and per-phase checks. | The same three phases (`analyze` → `plan` → `build_test`) applied to a React Native-to-Vega port with ADBT context and platform evidence. |
 | `pipeline-engine.ts` | `packages/workshop-harness/src/port-pipeline.ts` | Runs phases in order with retry and verification. | Guarded writes, rollback, budget enforcement, ADBT context, commits, and reports. |
 | `run-context.ts` | `packages/workshop-harness/src/source-app.ts` | Creates an isolated working copy for a run. | Source discovery, exclusions, provenance metadata, and source immutability. |
 | `phase-context.ts` | `packages/workshop-harness/src/phase-context.ts` | Assembles the prompt for one phase. | Project facts, portability findings, seed, approved ADBT excerpts, and discovery-first rules. |

@@ -1,19 +1,19 @@
 {
   "phases": [
     {
-      "name": "screen",
-      "prompt": "Read the existing Pocket Cinema React Native app. Replace the placeholder with a horizontal catalog screen and a reusable ShowCard component.",
-      "verify": { "type": "file_exists", "path": "out/src/components/ShowCard.tsx" }
+      "name": "analyze",
+      "prompt": "Read the existing Pocket Cinema React Native app. Write out/ANALYSIS.md describing its screens, components, data, and which parts are portable to a TV. Do not change app code yet.",
+      "verify": { "type": "file_exists", "path": "out/ANALYSIS.md" }
     },
     {
-      "name": "content",
-      "prompt": "Add three synthetic shows to the catalog. One title must be Kitchen Stories.",
-      "verify": { "type": "grep", "path": "out/src/catalog.ts", "pattern": "Kitchen Stories" }
+      "name": "plan",
+      "prompt": "Audit the analyzed app and write out/TV_PORT_PLAN.md. The plan must cover the TV screen layout and how the remote control moves focus, selects, and goes back. Include a section titled ## Remote Control.",
+      "verify": { "type": "grep", "path": "out/TV_PORT_PLAN.md", "pattern": "## Remote Control" }
     },
     {
-      "name": "focus",
-      "prompt": "Add visible TV focus feedback to ShowCard without changing its public props. The component must handle onFocus.",
-      "verify": { "type": "grep", "path": "out/src/components/ShowCard.tsx", "pattern": "onFocus" }
+      "name": "build_test",
+      "prompt": "Produce a build preview and test the ported app. Write out/build/preview.txt with the build result and out/BUILD_TEST.md recording the Screenshot evidence and remote control checks (launch, move, select, back).",
+      "verify": { "type": "grep", "path": "out/BUILD_TEST.md", "pattern": "Screenshot" }
     }
   ]
 }
