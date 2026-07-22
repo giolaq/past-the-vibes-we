@@ -76,7 +76,7 @@ harness: extractAdbtProvenance(agent.messages) -> hash each read -> adbt-port-co
 
 The harness never hardcodes tool names or pre-selects documents. Because the model chooses what to read, the hashed record reconstructed from the message history is the run's proof of the knowledge it used.
 
-**Claude Code CLI** — the CLI has its own MCP client, so ADBT is registered with it once, up front, using Amazon's installer (see below). The harness allows the `mcp__amazon-devices-buildertools__*` tools; the CLI owns the connection.
+**Claude Code CLI** — the CLI has its own MCP client, so ADBT is registered with it once, up front, using Amazon's installer (see below). The harness invokes the CLI with `--allowedTools "*"` so whatever ADBT tools `init-context` configured are permitted without stalling on a permission prompt in non-interactive mode; the CLI owns the connection. The harness still ignores any file the model writes directly — only the returned typed patch is applied, verified, and committed.
 
 Set up ADBT for the CLI (run in a real system terminal; it completes silently):
 

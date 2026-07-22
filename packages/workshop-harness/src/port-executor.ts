@@ -101,10 +101,12 @@ function estimateCost(usage: { input_tokens: number; output_tokens: number }): n
 
 function invokeClaude(command: string, cwd: string, prompt: string, model: string): Promise<{ text: string; costUsd: number; usage: { input_tokens: number; output_tokens: number } }> {
   return new Promise((resolve, reject) => {
-    // Read-only project tools, plus any ADBT MCP tools the attendee configured via
-    // `init-context --agent claude-code-cli`. The CLI owns the MCP connection; we just allow it.
-    const tools = ["Read", "Glob", "Grep", "mcp__amazon-devices-buildertools__*"].join(",");
-    const child = spawn(command, ["-p", "-", "--allowedTools", tools, "--output-format", "stream-json", "--verbose", "--model", model], { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+    // Allow all tools ("*") so the ADBT MCP tools the attendee configured via
+    // `init-context --agent claude-code-cli` are permitted without knowing their exact names, and
+    // so no tool call stalls on an unanswerable permission prompt in non-interactive (-p) mode.
+    // The harness still ignores anything the model writes directly: only the returned typed patch
+    // is applied, verified, and committed.
+    const child = spawn(command, ["-p", "-", "--allowedTools", "*", "--output-format", "stream-json", "--verbose", "--model", model], { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
     let buffer = "", stderr = "", text = "", costUsd = 0, usage = { input_tokens: 0, output_tokens: 0 };
     child.stdout.on("data", (chunk) => { buffer += chunk.toString(); const lines = buffer.split("\n"); buffer = lines.pop() ?? ""; lines.forEach(consume); });
     child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
