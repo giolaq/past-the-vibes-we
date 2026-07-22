@@ -16,8 +16,8 @@ yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
 
 2. Open `steps/01-single-agent/index.ts`.
 3. Find where it builds the prompt, gets a response, and writes files.
-4. Open `out/src/App.tsx` and `out/src/components/ShowCard.tsx`.
-5. Write down three things the model could claim without proving. Examples: TypeScript compiles, catalog content is present, or remote focus works.
+4. Open the generated `out/ANALYSIS.md` (the `analyze` phase output).
+5. Write down three things the model could claim without proving. Examples: the analysis is accurate, the described component really exists, or a part it called "portable" actually runs on TV.
 
 ## Why this matters
 

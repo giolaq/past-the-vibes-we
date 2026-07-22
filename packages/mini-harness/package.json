@@ -2,9 +2,7 @@
   "name": "@past-the-vibes-we/mini-harness",
   "version": "0.1.0",
   "type": "module",
-  "bin": {
-    "mini-harness": "dist/src/index.js"
-  },
+  "bin": "dist/src/index.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
@@ -12,9 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@strands-agents/sdk": "1.7.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@opentelemetry/api": "^1.9.1",
+    "@strands-agents/sdk": "1.7.0",
     "openai": "^6.44.0",
     "zod": "4"
   },

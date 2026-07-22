@@ -30,7 +30,7 @@ phase prompt
 | Construct | Meaning in this workshop |
 | --- | --- |
 | `Agent` | Runs the model-and-tool loop for one phase. It decides when to call the registered read tools and when to return the final patch. |
-| `name` | Gives the phase agent a stable identity such as `workshop-vega_port`. This helps logs and traces identify the run. |
+| `name` | Gives the phase agent a stable identity such as `workshop-plan`. This helps logs and traces identify the run. |
 | `description` | States the agent's role in plain language. It also keeps the instance understandable if it is inspected or reused. |
 | `model` | Supplies the provider adapter created by `model-factory.ts`. The pipeline does not depend directly on Bedrock or OpenAI calls. |
 | `systemPrompt` | Sets durable operating rules for the invocation: inspect first, use evidence, and return a complete patch. Phase-specific work remains in the user prompt. |
@@ -129,7 +129,7 @@ The workshop uses `agent.invoke()` so attendees can see one bounded request, one
 
 ## MCP constructs
 
-The harness uses Strands `McpClient` directly to load ADBT guidance before `vega_port`.
+The harness uses Strands `McpClient` directly to load ADBT guidance for the `plan` phase.
 
 | Construct | Use |
 | --- | --- |
@@ -142,7 +142,7 @@ The harness uses Strands `McpClient` directly to load ADBT guidance before `vega
 
 `StdioClientTransport` is not a Strands construct. It comes from the official Model Context Protocol TypeScript SDK. It starts pinned ADBT as a child process and carries MCP messages over stdin and stdout.
 
-Strands also supports registering an `McpClient` directly as an agent tool source. This workshop does not do that. The harness calls ADBT itself, selects two approved migration workflows, stores their names and hashes, and injects only those excerpts into `vega_port`.
+Strands also supports registering an `McpClient` directly as an agent tool source. This workshop does not do that. The harness calls ADBT itself, selects two approved migration workflows, stores their names and hashes, and injects only those excerpts into the `plan` phase.
 
 ## What the harness owns
 

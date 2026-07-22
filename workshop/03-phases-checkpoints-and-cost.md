@@ -12,10 +12,10 @@ Split a larger task into phases and see how the harness resumes without repeatin
 yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
-  --stop-after content
+  --stop-after plan
 ```
 
-2. Confirm the command says `Paused after content`.
+2. Confirm the command says `Paused after plan`.
 3. Open the generated checkpoint. Find the completed phase, next phase, summaries, and cost.
 4. Resume from the checkpoint:
 
@@ -34,7 +34,7 @@ Phases limit the size of each change. Checkpoints save run progress. Commits pre
 
 ## You are done when
 
-The first command stops after `content`; the second starts at `focus`; completed phases are not repeated.
+The first command stops after `plan`; the second starts at `build_test`; completed phases are not repeated.
 
 ## If blocked
 

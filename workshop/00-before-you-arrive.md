@@ -87,7 +87,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands 
 
 ## 5. Optional Vega setup
 
-Install Vega SDK `0.22.5875` and create a Vega Virtual Device. The harness starts pinned ADBT `1.0.5` as an MCP server during a live `vega_port` phase. It discovers the MCP tools, calls `list_documents`, reads the two approved port workflows, and disconnects. You do not need to run `init-context` because the harness owns this connection. Replay uses a committed ADBT context snapshot.
+Install Vega SDK `0.22.5875` and create a Vega Virtual Device. The harness starts pinned ADBT `1.0.5` as an MCP server during the live `plan` phase (and the `analyze` feasibility check). It discovers the MCP tools, calls `list_documents`, reads the two approved port workflows, and disconnects. You do not need to run `init-context` because the harness owns this connection. Replay uses a committed ADBT context snapshot.
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json

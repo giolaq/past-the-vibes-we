@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2026-07-18T09:59:00.000Z",
+    "phase": "vega_portability_audit",
+    "request": {
+      "model": "fixture",
+      "system": "workshop-vega-port",
+      "messages": []
+    },
+    "response": [
+      {
+        "type": "result",
+        "result": "{\"verdict\":\"feasible-with-adapters\",\"summary\":\"Pocket Cinema ports to Vega: shared React Native product logic is portable, and the only platform-specific work (navigation and remote focus) has a supported Vega path behind an adapter.\",\"dependencies\":[{\"name\":\"react-native\",\"status\":\"supported\",\"reasoning\":\"The ADBT RN workflow confirms portable JavaScript and TypeScript run on VegaScript; keep the shared catalog and components.\"},{\"name\":\"navigation\",\"status\":\"needs-adapter\",\"reasoning\":\"No navigation dependency is present, so remote navigation, back, and focus restoration must be defined explicitly as the ADBT Library Compatibility Check requires.\"},{\"name\":\"focus\",\"status\":\"needs-adapter\",\"reasoning\":\"D-pad focus has no direct RN equivalent; isolate it in a focus-state adapter per the ADBT plan phase.\"}],\"sources\":[\"port_tv_app_to_vega_fos_rn_app.md\"]}"
+      }
+    ],
+    "usage": {
+      "input_tokens": 620,
+      "output_tokens": 210
+    },
+    "costUsd": 0.0028
+  }
+]

@@ -6,17 +6,15 @@ It never edits the source app. Generated work goes to `packages/workshop-harness
 
 ## What happens during a port
 
-The port has five stages before the separate Vega device lifecycle:
+Before the pipeline, `source_discovery` copies the app into a guarded directory without Git history, dependencies, builds, caches, or environment files. The port itself then has three phases:
 
-1. `source_discovery` reads project metadata and copies the app without Git history, dependencies, builds, caches, or environment files.
-2. `vega_portability_audit` classifies reusable code, replacement work, manual decisions, and out-of-scope integrations.
-3. `tv_product_spec` records the product flow that the port must preserve.
-4. `vega_port` loads two selected ADBT workflows and creates the Vega package boundary, focus adapter, and unsupported-work record.
-5. `tv_behavior` connects the app to the focus adapter and runs an executable remote-navigation check.
+1. `analyze` reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict decide whether the port is possible; a `blocked` verdict stops the run at exit `5`.
+2. `plan` loads two selected ADBT workflows and writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
+3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle and captures a launch screenshot.
 
-For each of the last three phases, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
+For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
 
-The model can inspect and propose. It cannot write files or run shell commands. `production_vega_run` remains a separate command because package-shape checks are not proof of a successful build or device session.
+The model can inspect and propose. It cannot write files or run shell commands. The device screenshot is a mandatory gate in `build_test`: the run fails unless a launch screenshot is produced, so the key-free path supplies it with `--platform-replay`.
 
 ## How Strands is used
 
@@ -48,27 +46,30 @@ Read the plan. Then run the recorded port:
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
 Copy the returned `runId`. Inspect:
 
+- `packages/workshop-harness/out/<runId>/feasibility-report.json` for the feasibility verdict;
 - `packages/workshop-harness/out/<runId>/portability-report.json` for what can move to Vega;
 - `packages/workshop-harness/out/<runId>/port-result.json` for phases, checks, retries, and cost;
-- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows injected into `vega_port`;
+- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows injected into the `plan` phase;
 - `packages/workshop-harness/out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
+- `packages/workshop-harness/out/<runId>/01-launch.png` for the build_test launch screenshot;
 - `packages/workshop-harness/out/<runId>/app` for the generated app copy and phase commits.
 
 ## ADBT during the port
 
-ADBT is runtime context for the harness, not only setup for the final device command. Before `vega_port`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient`:
+ADBT is runtime context for the harness, not only setup for the final device command. During `analyze` (feasibility) and `plan`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient`:
 
 ```text
 connect -> discover tools
   -> list_documents(WORKFLOW, vega_os)
   -> read_document(port_tv_app_to_vega.md)
   -> read_document(port_tv_app_to_vega_fos_rn_app.md)
-  -> inject context into vega_port
+  -> inject context into the plan phase
   -> save names, excerpts, and hashes
   -> disconnect
 ```

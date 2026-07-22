@@ -15,7 +15,7 @@ yarn setup`,
   step3: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
   steps/03-phases/fixtures/phases.json \\
   --replay steps/03-phases/fixtures/demo-recording.json \\
-  --stop-after content`,
+  --stop-after plan`,
   step3Resume: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
   steps/03-phases/fixtures/phases.json \\
   --replay steps/03-phases/fixtures/demo-recording.json \\
@@ -47,10 +47,12 @@ cp -R workshop/fixtures/pocket-cinema-inputs \\
   port: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --replay ../../workshop/fixtures/port-recording.json \\
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \\
   --yes --seed workshop-v1 --max-cost 3 --json`,
   portAdbtLive: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --replay ../../workshop/fixtures/port-recording.json \\
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \\
   --adbt-live --yes --seed workshop-v1 --max-cost 3 --json`,
 focusCheck: `(cd packages/workshop-harness/out/<runId>/app && \\
   node --import tsx tests/verify-tv-focus.ts)
@@ -83,10 +85,40 @@ const modules = [
     lead: "Complete this page before lesson 1. Stop troubleshooting after 10 minutes and use replay. A live model or Vega device must never block the workshop.",
     objective: "Choose a reliable workshop path and explain where Strands, ADBT, the harness, and Git each fit.",
     evidence: "A successful replay run, one chosen execution path, and a completed readiness checklist.",
-    body: `${flow([["ADBT MCP","Approved Vega context"],["Strands","Read and propose"],["Harness","Write and check"],["Git","Commit evidence"]])}
+    body: `${concept("Read this first if you have never built an agent harness","You are a React Native developer. You may have never touched an \"agent,\" an \"LLM tool,\" or \"MCP.\" That is fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to \"please port my app.\" Instead we build a <strong>harness</strong>: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself.")}
+      ${note("The one sentence to remember","The model is a contractor with read-only access. The harness is the foreman who inspects the work, keeps the receipts, and signs off. The model proposes; the harness disposes.")}
+
+      <h2>Vocabulary, translated for a React Native dev</h2>
+      <p>You already know these ideas under other names. Here is the dictionary — the rest of the workshop uses these words.</p>
+      ${table(["Term","What it actually is","Your mental model"],[
+        ["<strong>LLM / model</strong>","A program that turns text in into text out. Given a prompt, it returns a guess. Claude is one.","A well-read intern who writes plausible code but never runs it."],
+        ["<strong>Prompt</strong>","The text you send the model.","The Jira ticket plus all the context you paste in."],
+        ["<strong>Agent</strong>","A model wired to a loop where it can call functions (\"tools\"), see the result, and decide what to do next.","An intern who can grep your repo before answering, several times."],
+        ["<strong>Tool</strong>","A named function you expose to the model, with a typed signature. The model <em>requests</em> a call; your code runs it and returns the result.","A locked-down CLI you hand the intern: <code>read_file</code>, <code>list_files</code>, nothing else."],
+        ["<strong>Structured output</strong>","Forcing the model to answer as JSON matching a schema, not free prose.","A required PR template the intern cannot deviate from."],
+        ["<strong>MCP</strong>","Model Context Protocol — a standard so one program can start another as a \"server\" and call its tools.","Starting a language server (LSP) and querying it, but for arbitrary tools."],
+        ["<strong>ADBT</strong>","Amazon Device Build Tools, exposed here as an MCP server serving Vega migration docs.","An internal wiki you can query programmatically."],
+        ["<strong>Skill</strong>","A block of domain instructions (\"how to do TV focus\") kept separate from code.","A runbook you paste into the ticket for one task."],
+        ["<strong>Harness</strong>","The deterministic TypeScript program orchestrating all of the above.","Your CI pipeline, if CI could also call an intern mid-step."],
+        ["<strong>Replay</strong>","Running the pipeline against <em>recorded</em> model answers instead of a live model.","Fixtures / VCR cassettes for network calls."],
+        ["<strong>VDA</strong>","Vega Virtual Device — an emulator for the TV OS.","Android emulator, but for Vega."],
+      ])}
+      ${note("The single most important idea","An LLM generates <em>plausible</em> text. Plausible is not correct. <code>plausible &ne; verified</code>. Everything the harness does exists to close that gap — every phase ends in a mechanical check, not a vibe.")}
+
+      <h2>Who is allowed to do what</h2>
+      <p>This is the security model, and it is the soul of the design. Read the boundary out loud:</p>
+      ${flow([["ADBT MCP","Approved Vega context"],["Strands","Read and propose"],["Harness","Write and check"],["Git","Commit evidence"]])}
+      ${snippet("The boundary, in one diagram",`ADBT (MCP server)  --->  supplies approved Vega knowledge   ---+
+                                                               |
+guarded app copy   --->  read-only tools (list/read/search) --+--> Strands Agent --> proposes a typed patch {summary, files}
+                                                               |
+                                                               v
+     HARNESS: validate paths -> write files -> run checks -> retry once -> git commit -> enforce cost -> write report`,
+        "The model (via Strands) can only <em>list, read, and search</em> inside one guarded copy of the app — no write tool, no shell. It returns JSON. Everything with consequences stays in <code>packages/workshop-harness/src/port-pipeline.ts</code>.")}
+      <p>Why so strict? A model that could write files or run shell commands could, on a confident wrong guess, corrupt your repo or run something destructive. Keep irreversible actions in deterministic code and the worst a bad model answer can do is <em>fail a check and get rejected</em>.</p>
       ${note("What is Strands Agents SDK?","It is the TypeScript agent runtime used by the live remote path. The complete workshop harness pins 1.10.0; the staged mini-harness pins 1.7.0. It provides the model loop, provider adapters, typed tools, structured output, limits, cancellation, and usage metrics.")}
       ${table(["Strands supplies","The harness owns"],[["Agent loop and model providers","Phase order and approval"],["Read-only typed tools","Protected file writes"],["Validated patch output","Checks, retry, and Git commits"],["MCP client and metrics","Cost cap, replay, and report"]])}
-      <p>The port agent can only list, read, and search the guarded app. The harness calls ADBT MCP itself, selects two migration workflows, and injects that context only into <code>vega_port</code>. The model gets no shell or write tool. Replay uses the same phase and evidence contracts without contacting a model or MCP server.</p>
+      <p>The port agent can only list, read, and search the guarded app. The harness calls ADBT MCP itself, selects the approved migration workflows, and injects that context only into the two phases that need it — the <code>analyze</code> feasibility check and the <code>plan</code> phase. The model gets no shell or write tool. Replay uses the same phase and evidence contracts without contacting a model or MCP server.</p>
 
       <h2>1. Check the basics</h2>
       ${steps(["Install Node.js 20 or newer and Git. Corepack supplies Yarn 4.12.","Clone this repository, run <code>cd past-the-vibes-we</code>, and keep the terminal at that root.","Choose Pocket Cinema unless your own React Native app already runs."])}
@@ -149,7 +181,26 @@ const modules = [
     lead: "A skill supplies domain instructions. An executor calls the model. The pipeline should not depend on one provider.",
     objective: "Separate domain knowledge, model execution, tools, and deterministic pipeline control.",
     evidence: "You can point to the file that owns each responsibility in both the mini and complete workshop harnesses.",
-    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}${command("Run Step 4 with replay","step4")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find <code>react-native-screen</code> and <code>tv-focus</code>.","Follow them through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Notice that the React Native target is unchanged; only knowledge delivery and model access have become explicit.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${skillDelivery()}${strandsConstructs()}${fullHarnessStrandsConstructs()}<h2>Inspect the complete Strands boundary</h2>${steps(["Open <code>packages/workshop-harness/src/port-tools.ts</code> and match each <code>tool()</code> field to the first table.","Open <code>port-contract.ts</code> and find the Zod schema passed as <code>structuredOutputSchema</code>.","Open <code>port-executor.ts</code> and trace <code>new Agent()</code> → <code>invoke()</code> → <code>AgentResult</code>.","Follow the result into usage accounting and <code>port-recorder.ts</code>.","Confirm the workshop port agent has no write or shell tool. Its pipeline owns both."])}${knowledgeCheck("Why use AgentSkills with Strands but prompt injection with Claude CLI?","Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.")}<h2>Optional live comparison</h2>${command("Use local Claude Code","step4Local")}${command("Use Strands with Bedrock","step4Remote")}<div class="links"><a href="strands-constructs.md">Open the Strands reference</a></div>${done("You can trace one React Native phase skill through Claude prompt injection or Strands AgentSkills, then separate both from pipeline controls.")}${fallback("Replay shows the same module boundaries without credentials.")}`
+    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}${command("Run Step 4 with replay","step4")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find <code>react-native-screen</code> and <code>tv-focus</code>.","Follow them through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Notice that the React Native target is unchanged; only knowledge delivery and model access have become explicit.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${skillDelivery()}
+
+      <h2>The whole model interaction, in one code block</h2>
+      <p>People expect the AI part of this to be huge and mysterious. It is not. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is this:</p>
+      ${snippet("packages/workshop-harness/src/port-executor.ts",`const agent = new Agent({
+  name: \`workshop-\${phase}\`,
+  model: createModel(config),                 // Bedrock / OpenAI / OpenRouter behind one interface
+  tools: createProjectReadTools(appDir),      // list/read/search only — no write, no shell
+  structuredOutputSchema: PortOutputSchema,   // must return { summary, files }
+  systemPrompt: "Inspect with read-only tools. Return a complete patch. Never claim a file or API exists without reading evidence.",
+  printer: false,                             // keep stdout clean for JSON
+});
+const result = await agent.invoke(prompt, {
+  cancelSignal: AbortSignal.timeout(10 * 60_000),  // 10-min hard stop
+  limits: { turns: 8, totalTokens: 40_000 },       // bounded loop
+});`,
+        "What Strands gives you: the model-and-tool loop, provider adapters, schema-validated output, turn/token limits, cancellation, usage metrics. What it deliberately does <em>not</em> own: writing files, verification, Git, cost policy, ADBT selection. Those stay in the harness.")}
+      ${note("The tools themselves are guarded hard","In <code>src/port-tools.ts</code>, the read tools reject absolute paths, <code>..</code> traversal, symlinks, <code>.git</code>, <code>.env</code>, <code>node_modules</code>, binaries, and files over 100&nbsp;KB. Even the read side of the model's authority has walls.")}
+
+      ${strandsConstructs()}${fullHarnessStrandsConstructs()}<h2>Inspect the complete Strands boundary</h2>${steps(["Open <code>packages/workshop-harness/src/port-tools.ts</code> and match each <code>tool()</code> field to the first table.","Open <code>port-contract.ts</code> and find the Zod schema passed as <code>structuredOutputSchema</code>.","Open <code>port-executor.ts</code> and trace <code>new Agent()</code> → <code>invoke()</code> → <code>AgentResult</code>.","Follow the result into usage accounting and <code>port-recorder.ts</code>.","Confirm the workshop port agent has no write or shell tool. Its pipeline owns both."])}${knowledgeCheck("Why use AgentSkills with Strands but prompt injection with Claude CLI?","Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.")}<h2>Optional live comparison</h2>${command("Use local Claude Code","step4Local")}${command("Use Strands with Bedrock","step4Remote")}<div class="links"><a href="strands-constructs.md">Open the Strands reference</a></div>${done("You can trace one React Native phase skill through Claude prompt injection or Strands AgentSkills, then separate both from pipeline controls.")}${fallback("Replay shows the same module boundaries without credentials.")}`
   },
   {
     id: "memory", number: "05", nav: "Project memory", time: "15 minutes", title: "Review facts before saving them",
@@ -163,85 +214,94 @@ const modules = [
     lead: "Review scope, checks, ADBT context, seed, and cost before approving a port. The source app stays untouched.",
     objective: "Follow the complete port boundary from plan approval to a checked, committed app copy.",
     evidence: "The report links approved ADBT context, a typed patch, check results, cost, and Git commits.",
-    body: `${concept("The production loop","Porting is not one large prompt. The harness separates deterministic inspection, selected platform knowledge, bounded model proposals, protected writes, mechanical checks, and platform execution.")}
-      ${flow([["Inspect","Discover and audit"],["Specify","Preserve one TV flow"],["Port","Use selected ADBT guidance"],["Prove","Check, retry, and commit"]])}
-      ${predict("Which parts of this run should remain deterministic even when you change the model provider?")}
+    body: `${concept("The production loop","The plan is the human approval boundary. ADBT supplies approved Vega knowledge. Strands proposes a typed patch from read-only project tools. The harness applies it, checks it, retries once, and commits only verified work.")}${flow([["ADBT MCP","Load approved workflows"],["Context","Inject into plan"],["Model","Propose a typed patch"],["Checks","Write, commit, or retry"]])}
 
-      <h2>The six stages</h2>
-      ${table(["Stage","Owner","Result"],[
-        ["source_discovery","Harness","Reads metadata and creates a guarded copy"],
-        ["vega_portability_audit","Harness","Classifies portable, replacement, manual, and out-of-scope work"],
-        ["tv_product_spec","Model + harness","Writes and verifies the TV flow to preserve"],
-        ["vega_port","ADBT + model + harness","Creates the Vega package boundary and records gaps"],
-        ["tv_behavior","Model + harness","Connects focus state and proves remote transitions"],
-        ["production_vega_run","Vega adapter","Builds and gathers device evidence in lesson 8"]
-      ])}
-      ${note("Keep the claims separate","The first five stages produce a checked port. They do not prove that the app built, installed, or ran on a Vega device. The separate lifecycle owns those claims.")}
+      ${concept("Your source is never touched","Before anything runs, the harness copies your app into <code>out/&lt;runId&gt;/app/</code> and runs <code>git init</code> inside that copy. Everything the model proposes is written <em>there</em>. Your real <code>apps/pocket-cinema/</code> is read once and never modified. The <code>&lt;runId&gt;</code> is a fresh directory per run, so runs never clobber each other — and the harness makes a Git commit per passing phase, so if phase 3 explodes, phases 1 and 2 are already committed and safe.")}
 
-      <h2>Before the model is allowed to act</h2>
-      ${steps([
-        "<code>plan</code> reads project metadata, scripts, dependencies, approved context, and portability findings without changing the app.",
-        "You review the target SDK, executor, phase order, ADBT mode, fixed seed, and $3 cost cap.",
-        "After <code>--yes</code>, the harness copies the app into <code>out/&lt;runId&gt;/app</code> without Git history, dependencies, build output, caches, or environment files.",
-        "The harness initializes a new Git repository in that guarded copy. The source app is never the model's workspace."
-      ])}
-      ${command("Plan the Pocket Cinema port","plan")}
-      <h3>Review the plan before approval</h3>
-      ${steps(["Confirm the source app and target flow.","Separate portable findings from replacement and manual work.","Check that ADBT is assigned only to <code>vega_port</code>.","Check the six-stage plan, fixed seed, and $3 cap.","Notice that device work remains in lesson 8."])}
+      <h2>The three phases of a port</h2>
+      <p>The port is a fixed sequence of three phases that mirror the mini-harness exactly: <strong>analyze → plan → build_test</strong>. Each is a model phase that ends in a mechanical check; two of them draw on ADBT. Source of truth: <code>src/index.ts</code> (the <code>phases: [...]</code> array) and <code>src/port-pipeline.ts</code> (the <code>phases()</code> function).</p>
+      ${snippet("The phase order — packages/workshop-harness/src/port-pipeline.ts","analyze  ->  plan  ->  build_test\n(model +      (model +    (model + executable focus test\n feasibility   live ADBT)  + mandatory device screenshot)\n via ADBT)","Open <code>src/port-pipeline.ts</code> and read <code>phases()</code>. Each name below maps to one entry.")}
+      ${phaseCard({num:"1",name:"analyze",tags:[{label:"model",kind:"model"},{label:"ADBT feasibility",kind:"adbt"}],rows:{"Does":"Reads the guarded app and writes <code>ANALYSIS.md</code> describing its screens, components, data, and what is portable to Vega TV. Alongside it, at <code>plan</code> time a deterministic dependency inventory (<code>auditSource</code>) plus a bounded model+ADBT step judge whether the port is even possible.","Check":"<code>ANALYSIS.md</code> must contain <code>## Portable</code>.","Feasibility gate":"The model returns a verdict — <code>feasible</code>, <code>feasible-with-adapters</code>, or <code>blocked</code>. A <code>blocked</code> verdict stops the run with exit code 5 <em>before</em> any build budget is spent. Fail fast, fail honest.","Inspect":"<code>out/&lt;runId&gt;/app/ANALYSIS.md</code>, <code>feasibility-report.json</code>, and the deterministic inventory in <code>portability-report.json</code>.","Code":"<code>src/port-pipeline.ts</code>, <code>src/feasibility.ts</code>, <code>src/portability-audit.ts</code>"}})}
+      ${phaseCard({num:"2",name:"plan",tags:[{label:"model",kind:"model"},{label:"live ADBT",kind:"adbt"}],rows:{"Goal":"Plan the Vega TV port: preserved product behavior, Vega replacements, and the exact remote flow.","ADBT step":"The harness itself calls ADBT over MCP, picks two workflow docs (<code>port_tv_app_to_vega.md</code>, <code>port_tv_app_to_vega_fos_rn_app.md</code>), SHA-256 hashes them, and injects them into <em>this phase's</em> prompt.","Skill injected":"Follow the injected ADBT workflows. Keep facts and assumptions separate, port one vertical slice, record gaps instead of inventing APIs.","Checks":"<code>VEGA_PORT.md</code> contains <code>## TV Flow</code>; <code>NextSteps.md</code> contains <code>ADBT</code> (names its sources).","Inspect":"<code>out/&lt;runId&gt;/app/VEGA_PORT.md</code>, <code>NextSteps.md</code>, <code>adbt-port-context.json</code>, and the commit <code>workshop(plan): ...</code>."}})}
+      ${phaseCard({num:"3",name:"build_test",tags:[{label:"model",kind:"model"},{label:"executable test"},{label:"device screenshot",kind:"adbt"}],rows:{"Goal":"Build the <code>apps/vega</code> package from the SDK shape, wire the remote-only home→details flow, and prove it.","Build checks":"manifest <code>schema-version = 1</code> and <code>[[components.interactive]]</code>; <code>package.json</code> has <code>build-vega</code>; <code>app.json</code> and <code>metro.config.js</code> exist; root <code>package.json</code> has <code>vega:build</code>; <code>src/tv/focus-state.ts</code> exists; <code>src/App.tsx</code> imports <code>./tv/focus-state</code>.","Test checks":"A real command runs — <code>node --import tsx tests/verify-tv-focus.ts</code> must exit 0. Back must return focus to the <em>originating card</em>, verified by a script, not a human eyeball. <code>tv-focus-result.json</code> shows <code>\"passed\": true</code>; <code>TV_VERIFICATION.md</code> contains <code>originating card</code>.","Screenshot (mandatory)":"The phase then runs the Vega device lifecycle (build → install → launch → logs → capture → pull). <strong>The run fails unless a launch screenshot is produced.</strong> Replay uses <code>--platform-replay</code> to stay key-free; live runs against a real VDA.","Inspect":"<code>out/&lt;runId&gt;/01-launch.png</code>, <code>vega-platform-result.json</code>, <code>tv-focus-result.json</code>, and the commit <code>workshop(build_test): ...</code>.","Code":"<code>src/port-pipeline.ts</code>, <code>src/platform/vega.ts</code>"}})}
+      ${note("Screenshot is now a mandatory gate","We wired the device screenshot as a required pass criterion of <code>build_test</code>. Note two consequences the repo records honestly: this makes a device (or its <code>--platform-replay</code> fixture) mandatory for a green run, and on the current VDA image the live screenshot tool segfaults, so the <em>live</em> screenshot cannot be produced until that tooling is fixed. The key-free replay path stays green via <code>--platform-replay ../../workshop/fixtures/vega-lifecycle.json</code>.","warning")}
 
-      <h2>Inside one edit phase</h2>
-      ${flow([["Snapshot","Save phase-start commit"],["Propose","Return typed files"],["Guard","Validate paths and cost"],["Verify","Commit or retry once"]])}
-      ${steps([
-        "The prompt combines the phase goal, domain rule, fixed seed, approved context, portability findings, and exact checks.",
-        "The executor may list, read, and search only the guarded app. It has no shell or write tool.",
-        "The response must match <code>PortOutputSchema</code>: a summary plus complete contents for relative file paths.",
-        "The harness rejects absolute paths, traversal, <code>.git</code>, dependencies, and environment files before writing anything.",
-        "The harness writes the files, adds the turn cost, and runs the phase checks.",
-        "On failure, it resets to the phase-start commit and retries once with the exact check failures.",
-        "A passing phase gets one commit. A second failure restores the clean state and stops with exit 2."
-      ])}
+      <h2>Every phase is built from the same prompt template</h2>
+      <p>You do not need to guess what the model sees. Every phase prompt is assembled by one function — <code>prompt()</code> in <code>src/port-pipeline.ts</code> — from the same slots. Notice three things: the model is told the <strong>exact checks</strong> it will be graded against, a failed attempt gets the <strong>verbatim failure text</strong> fed back in, and the output contract is <strong>strict JSON</strong>.</p>
+      ${snippet("The universal prompt template — src/port-pipeline.ts, prompt()",`You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875.
+Read existing files before proposing edits. Preserve unrelated work.
 
-      <h2>What each edit phase proves</h2>
-      ${table(["Phase","Model-assisted change","Mechanical gate"],[
-        ["tv_product_spec","Describe preserved behavior and migration scope","<code>VEGA_PORT.md</code> contains <code>## TV Flow</code>"],
-        ["vega_port","Create manifest, app registration, Metro boundary, build script, focus adapter, and NextSteps","Eight file and content checks confirm the expected Vega package shape"],
-        ["tv_behavior","Use shared focus state and document Back restoration","An executable check writes a passing <code>tv-focus-result.json</code>"]
-      ])}
+Phase: <name>
+Goal: <one sentence>
+Skill: <domain instruction for this phase>
+Creative seed: workshop-v1
 
-      <h2>Why ADBT is used only for <code>vega_port</code></h2>
-      <p>The product spec does not need Vega APIs, and the behavior phase already has a concrete focus contract. The Vega structure phase needs current migration guidance, so the harness starts pinned ADBT, discovers its tools, lists Vega workflows, and reads only <code>port_tv_app_to_vega.md</code> and <code>port_tv_app_to_vega_fos_rn_app.md</code>.</p>
-      ${steps([
-        "Keep only the relevant workflow sections.",
-        "Hash every excerpt and save it in <code>adbt-port-context.json</code>.",
-        "Inject the selected text into <code>vega_port</code>; do not expose unrestricted MCP tools to the model.",
-        "Disconnect in <code>finally</code>. If live ADBT is missing or incomplete, stop with exit 3."
-      ])}
+Approved context:
+<project memory, or "No approved project context.">
 
-      <h2>The executor can change; the guarantees do not</h2>
-      ${table(["Path","Model boundary","Unchanged harness controls"],[
-        ["Replay","Recorded response for the named phase","Schema, path safety, checks, retry, cost, and commit"],
-        ["Claude Code","Prompt over stdin with Read, Glob, and Grep","Schema, path safety, checks, retry, cost, and commit"],
-        ["Strands","Agent with typed list, read, and search tools plus structured output","Schema, path safety, checks, retry, cost, and commit"]
-      ])}
+Portability findings:
+<the JSON from phase 2's audit>
 
-      ${command("Run with recorded model and ADBT context","port")}
-      <h2>Follow the evidence after the run</h2>
-      ${steps([
-        "Copy the <code>runId</code> from the output.",
-        "Open <code>portability-report.json</code> and review what was kept, replaced, deferred, or excluded.",
-        "Open <code>adbt-port-context.json</code> and find both workflow names, excerpts, and hashes.",
-        "Open <code>port-result.json</code> and review ADBT mode, phase attempts, checks, and cost.",
-        "Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.",
-        "Inspect <code>report.md</code> and the guarded app's Git log. Match one commit to each passing edit phase.",
-        "Confirm <code>apps/pocket-cinema</code> is unchanged."
-      ])}
-      ${knowledgeCheck("Who is allowed to write files during the port, and why?","Only the harness writes. The model proposes typed file contents after read-only inspection. This lets the harness reject unsafe paths, restore failed work, enforce cost, and commit only checked changes.")}
+[ ONLY on plan: the ADBT guidance block, with SHA-256 hashes ]
 
-      <h2>Optional: use ADBT MCP live</h2>
-      ${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}
-      ${note("What changes","The harness uses Strands <code>McpClient</code> to discover and call two named tools, records approved excerpts and hashes, then disconnects. The model remains replayed.")}
-      ${done("You can explain every port stage, trace the guarded write-and-verify loop, and distinguish a checked port from real Vega device evidence.")}
-      ${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
+Required checks:
+<each check listed verbatim, so the model knows the bar it must clear>
+
+[ ONLY on a retry: "Previous attempt failed:\\n<exact failure lines>\\nFix these." ]
+
+Return ONLY JSON: {"summary":"...","files":{"relative/path":"complete contents"}}.`,
+        "This exact string is built in <code>src/port-pipeline.ts</code>. Every live model turn — the prompt sent and the raw text returned — is recorded to <code>out/&lt;runId&gt;/port-recording.json</code>. That file is your audit trail: <code>request.messages[0].content</code> is the prompt, <code>response[].result</code> is the model's answer.")}
+
+      ${predict("Which phases need ADBT context, and why should the model not receive every document the MCP server can expose?")}${command("Plan the Pocket Cinema port","plan")}<h2>Review the plan before approval</h2>${steps(["Confirm the source app and target flow.","Read the deterministic portability findings and the model's feasibility verdict.","Confirm the feasibility verdict is not <code>blocked</code> — a blocked verdict stops the run at exit code 5 before any build budget.","Check that ADBT is assigned to <code>analyze</code> (feasibility) and <code>plan</code>.","Check the three-phase plan (analyze → plan → build_test), fixed seed, and $3 cap.","Notice that build_test folds in the device screenshot lifecycle from lesson 8."])}${command("Run with recorded model and ADBT context","port")}<h2>Build an evidence chain</h2>${steps(["Copy the <code>runId</code> from the output.","Open <code>out/&lt;runId&gt;/adbt-port-context.json</code> and find the workflow names and hashes.","Open <code>port-result.json</code> and confirm <code>adbt.mode: replay</code>.","Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.","Inspect the guarded app, report, and Git log.","Confirm <code>apps/pocket-cinema</code> is unchanged."])}${knowledgeCheck("Why does the harness choose the ADBT documents instead of giving the model unrestricted MCP access?","Selection keeps context relevant, reviewable, and reproducible. It also prevents a tool-capable model from fetching unrelated instructions or changing the evidence set between runs.")}
+
+      <h2>Worked example: real prompt in, real output out</h2>
+      <p>This is captured from an actual live run (<code>c9fc9e58</code>, real Claude model, live ADBT over MCP). It shows the ADBT-driven planning and the generated Vega package, so you can see exactly what the model was given and what it returned. (This capture predates the 3-phase collapse; the ADBT injection now lives in <code>plan</code> and the manifest is produced in <code>build_test</code>.)</p>
+      <h3>Into the <code>plan</code> phase — what went in</h3>
+      <p>Same template as above, but ~10x larger, because the <strong>live ADBT documents are injected</strong> — hashes and all. This is the mechanism that lets the model make Vega decisions without guessing.</p>
+      ${snippet("The ADBT block injected into the plan prompt (excerpt)",`## ADBT Vega Port Guidance
+
+Mode: live
+Sources:
+- port_tv_app_to_vega.md (sha256: 5dcf0e6f8a5b6a62d688562c46a9f22f414715c1b792ecdaf92bc0e8016214ea)
+- port_tv_app_to_vega_fos_rn_app.md (sha256: 2f67d9dc1133a52e9873513c3d66a2c0a2ca090a0d90284e1bb54e3f825f5607)
+
+### port_tv_app_to_vega.md
+## Purpose
+Entry point for all FOS-to-Vega app migrations. This workflow determines what the
+user wants to convert, runs shared prerequisites (SDK check, device detection), then
+dispatches to the appropriate conversion-specific orchestrator.
+...
+
+Use these ADBT sources for Vega-specific decisions. Do not invent Vega APIs.
+Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents consulted.`,
+        "Why hashes? So the exact knowledge the model was given is provable and reproducible later. Find it in <code>out/&lt;runId&gt;/adbt-port-context.json</code>.")}
+      <h3>Out of <code>build_test</code> — what came out</h3>
+      <p>The model returned a multi-file patch. Several build_test checks <code>grep</code> the generated manifest — and it contains exactly the strings they look for:</p>
+      ${snippet("Generated apps/vega/manifest.toml",`schema-version = 1
+
+[package]
+title = "Pocket Cinema"
+id = "com.pocketcinema.app"
+
+[[components.interactive]]
+id = "com.pocketcinema.app.main"
+runtime-module = "@pocket-cinema/rn"
+launch-type = "singleton"`)}
+      <p>The most important part of that output is what the model wrote into <code>NextSteps.md</code>. It did not have full MCP doc access in that session, and instead of bluffing, it said so:</p>
+      ${snippet("Generated NextSteps.md (excerpt) — the model admitting uncertainty",`## Unverified against SDK docs (MCP doc access not granted)
+
+The buildertools MCP read_document / list_documents calls were denied in this
+session, so the items below rely on the Vega skill summaries and the ADBT
+workflows above. They MUST be confirmed against the named KB documents before
+relying on them — they are not invented APIs presented as fact.
+
+1. Manifest schema — verify field names and the [[components.interactive]] shape.
+2. App icon asset — vega_app_manifest.md requires a 512x512 PNG.
+3. Build CLI — confirm the exact Kepler/Vega build invocation.`,
+        "This is the skill \"record gaps instead of inventing APIs\" visibly working. The check <code>NextSteps.md contains \"ADBT\"</code> passed, all 8 checks passed, the phase committed.")}
+      ${note("The lesson from the worked example","The model produces large, plausible, well-structured artifacts — and it also wraps JSON in prose and admits uncertainty. Plausible output is not clean output. The harness does not trust prose or vibes: it extracts the JSON, writes it to the guarded copy, and runs mechanical grep/file_exists checks. Only passing work is committed. That is <code>plausible &ne; verified</code>, made concrete.")}
+
+      <h2>Optional: use ADBT MCP live</h2>${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}${note("What changes","The harness uses Strands <code>McpClient</code> to discover and call two named tools, records approved excerpts and hashes, then disconnects. The model remains replayed.")}${done("You can trace each MCP construct from connection through approved context, a typed proposal, checks, a verified commit, and the final report.")}${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
   },
   {
     id: "tv", number: "07", nav: "Test remote behavior", time: "20 minutes", title: "Test the flow, not one screenshot",
@@ -408,6 +468,12 @@ function mcpConstructs() {
       ["<code>disconnect()</code>","Closes the child server and transport in <code>finally</code>, including failure paths."],
     ])}
     ${note("The transport is a separate layer","<code>StdioClientTransport</code> comes from the official Model Context Protocol SDK, not Strands. It starts pinned ADBT as a child process. The harness uses <code>McpClient</code> directly; it does not register ADBT as an unrestricted agent tool source.")}`;
+}
+function snippet(caption, code, look) { return `<figure class="snippet"><figcaption>${caption}</figcaption><pre><code>${escape(code)}</code></pre>${look ? `<p class="look"><strong>Where to look:</strong> ${look}</p>` : ""}</figure>`; }
+function phaseCard(opts) {
+  const tags = (opts.tags || []).map(tag => `<span class="tag ${tag.kind || ""}">${tag.label}</span>`).join("");
+  const rows = Object.entries(opts.rows).map(([term, def]) => `<dt>${term}</dt><dd>${def}</dd>`).join("");
+  return `<section class="phase"><h3><span class="num">${opts.num}</span><code>${opts.name}</code>${tags}</h3><dl>${rows}</dl></section>`;
 }
 function lessonBrief(module) { return `<section class="lesson-brief" aria-label="Lesson goals"><div><span>By the end, you can</span><p>${module.objective}</p></div><div><span>Evidence you will produce</span><p>${module.evidence}</p></div></section>`; }
 function lessonNavigation(module) {

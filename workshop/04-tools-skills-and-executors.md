@@ -25,7 +25,7 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
    - Claude CLI calls `injectSkillText()` and receives the full instructions in the prompt.
    - Strands wraps the instructions in `Skill`, registers `AgentSkills` through `plugins`, and lets the agent activate them with the `skills` tool.
 4. Compare the teaching modules with the production modules in `packages/mini-harness/ISOMORPHISM.md`.
-5. Open the `react-native-screen` and `tv-focus` skills. Notice that the target remains React Native; Step 4 changes how the agent receives domain knowledge, not what kind of app it edits.
+5. Open the `react-native-analysis`, `tv-porting-plan`, and `tv-build-test` skills (one per phase). Notice that the target remains React Native; Step 4 changes how the agent receives domain knowledge, not what kind of app it works on.
 
 Optional live run with Claude Code:
 
