@@ -1,4 +1,4 @@
-import { Agent, StructuredOutputError } from "@strands-agents/sdk";
+import { Agent, StructuredOutputError, McpClient, type Tool } from "@strands-agents/sdk";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import type { ZodTypeAny } from "zod";
@@ -7,9 +7,19 @@ import { PortOutputSchema } from "./port-contract.js";
 import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
 
-export type PortModelResult = { text: string; costUsd: number };
-/** Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict) instead of the default { summary, files } patch. */
-export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult>; }
+/** messages carries the agent's turn history so the pipeline can reconstruct ADBT provenance. */
+export type PortModelResult = { text: string; costUsd: number; messages?: unknown[] };
+/**
+ * Extra tools/providers for a phase. An McpClient can be passed here (e.g. the ADBT MCP client
+ * during analyze/plan); Strands discovers its tools dynamically. Only the Strands executor uses
+ * this — replay and the Claude CLI ignore it (the CLI gets ADBT via its own MCP config).
+ */
+export type ExtraTools = (Tool | McpClient)[];
+/**
+ * Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict).
+ * Optional extraTools give the model additional tool providers for the phase.
+ */
+export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult>; }
 export type ExecutorConfig = { kind: "claude-cli"; command: string; model: string } | { kind: "strands"; model: ModelConfig };
 
 export function resolveExecutorConfig(input: { executor?: string; provider?: string; model?: string; region?: string; command?: string } = {}): ExecutorConfig {
@@ -31,7 +41,7 @@ export function createPortExecutor(options: { appDir: string; outDir: string; re
 class ReplayPortExecutor implements PortExecutor {
   private replay: PortReplay;
   constructor(path: string) { this.replay = new PortReplay(path); }
-  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
     const turn = this.replay.next(phase);
     return { text: responseText(turn.response, phase), costUsd: turn.costUsd ?? (turn.usage.input_tokens + turn.usage.output_tokens) / 1_000_000 };
   }
@@ -40,15 +50,15 @@ class ReplayPortExecutor implements PortExecutor {
 class StrandsPortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: ModelConfig) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult> {
     const outputSchema = schema ?? PortOutputSchema;
     const agent = new Agent({
       name: `workshop-${phase}`,
       description: "Inspects a guarded React Native app and proposes a bounded Vega port patch.",
       model: createModel(this.config),
-      tools: createProjectReadTools(this.appDir),
+      tools: [...createProjectReadTools(this.appDir), ...(extraTools ?? [])],
       structuredOutputSchema: outputSchema,
-      systemPrompt: "Inspect the guarded app with the read-only tools. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
+      systemPrompt: "Inspect the guarded app with the read-only tools. When ADBT tools are available, use them to discover and read the Vega migration workflows you need instead of guessing. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
       printer: false,
     });
     const result = await agent.invoke(prompt, {
@@ -61,14 +71,16 @@ class StrandsPortExecutor implements PortExecutor {
     const usage = { input_tokens: raw?.inputTokens ?? 0, output_tokens: raw?.outputTokens ?? 0 };
     const costUsd = estimateCost(usage);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `${this.config.provider}:${this.config.modelId}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: text }], usage, costUsd });
-    return { text, costUsd };
+    // Return the turn history so the pipeline can reconstruct ADBT provenance from tool calls.
+    const messages = agent.messages.map((message) => (typeof (message as { toJSON?: () => unknown }).toJSON === "function" ? (message as { toJSON: () => unknown }).toJSON() : message));
+    return { text, costUsd, messages };
   }
 }
 
 class ClaudeCodePortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, prompt: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
     const result = await invokeClaude(this.config.command, this.appDir, prompt, this.config.model);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: result.text }], usage: result.usage, costUsd: result.costUsd });
     return { text: result.text, costUsd: result.costUsd };
@@ -89,8 +101,12 @@ function estimateCost(usage: { input_tokens: number; output_tokens: number }): n
 
 function invokeClaude(command: string, cwd: string, prompt: string, model: string): Promise<{ text: string; costUsd: number; usage: { input_tokens: number; output_tokens: number } }> {
   return new Promise((resolve, reject) => {
-    const tools = ["Read", "Glob", "Grep"].join(",");
-    const child = spawn(command, ["-p", "-", "--allowedTools", tools, "--output-format", "stream-json", "--verbose", "--model", model], { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+    // Allow all tools ("*") so the ADBT MCP tools the attendee configured via
+    // `init-context --agent claude-code-cli` are permitted without knowing their exact names, and
+    // so no tool call stalls on an unanswerable permission prompt in non-interactive (-p) mode.
+    // The harness still ignores anything the model writes directly: only the returned typed patch
+    // is applied, verified, and committed.
+    const child = spawn(command, ["-p", "-", "--allowedTools", "*", "--output-format", "stream-json", "--verbose", "--model", model], { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
     let buffer = "", stderr = "", text = "", costUsd = 0, usage = { input_tokens: 0, output_tokens: 0 };
     child.stdout.on("data", (chunk) => { buffer += chunk.toString(); const lines = buffer.split("\n"); buffer = lines.pop() ?? ""; lines.forEach(consume); });
     child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
