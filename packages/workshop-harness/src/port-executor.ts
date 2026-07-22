@@ -1,4 +1,4 @@
-import { Agent, StructuredOutputError } from "@strands-agents/sdk";
+import { Agent, StructuredOutputError, type InvokableTool, type JSONValue } from "@strands-agents/sdk";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import type { ZodTypeAny } from "zod";
@@ -8,8 +8,14 @@ import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
 
 export type PortModelResult = { text: string; costUsd: number };
-/** Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict) instead of the default { summary, files } patch. */
-export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult>; }
+export type ExtraTools = InvokableTool<unknown, JSONValue>[];
+/**
+ * Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict).
+ * Optional extraTools give the model additional agent tools for the phase (e.g. the ADBT MCP
+ * read tools during analyze/plan) so it can fetch platform knowledge itself. Only the Strands
+ * executor uses extraTools; replay and the Claude CLI ignore them.
+ */
+export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult>; }
 export type ExecutorConfig = { kind: "claude-cli"; command: string; model: string } | { kind: "strands"; model: ModelConfig };
 
 export function resolveExecutorConfig(input: { executor?: string; provider?: string; model?: string; region?: string; command?: string } = {}): ExecutorConfig {
@@ -31,7 +37,7 @@ export function createPortExecutor(options: { appDir: string; outDir: string; re
 class ReplayPortExecutor implements PortExecutor {
   private replay: PortReplay;
   constructor(path: string) { this.replay = new PortReplay(path); }
-  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
     const turn = this.replay.next(phase);
     return { text: responseText(turn.response, phase), costUsd: turn.costUsd ?? (turn.usage.input_tokens + turn.usage.output_tokens) / 1_000_000 };
   }
@@ -40,15 +46,15 @@ class ReplayPortExecutor implements PortExecutor {
 class StrandsPortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: ModelConfig) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult> {
     const outputSchema = schema ?? PortOutputSchema;
     const agent = new Agent({
       name: `workshop-${phase}`,
       description: "Inspects a guarded React Native app and proposes a bounded Vega port patch.",
       model: createModel(this.config),
-      tools: createProjectReadTools(this.appDir),
+      tools: [...createProjectReadTools(this.appDir), ...(extraTools ?? [])],
       structuredOutputSchema: outputSchema,
-      systemPrompt: "Inspect the guarded app with the read-only tools. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
+      systemPrompt: "Inspect the guarded app with the read-only tools. When ADBT tools are available, use them to discover and read the Vega migration workflows you need instead of guessing. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
       printer: false,
     });
     const result = await agent.invoke(prompt, {
@@ -68,7 +74,7 @@ class StrandsPortExecutor implements PortExecutor {
 class ClaudeCodePortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
+  async call(phase: string, prompt: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
     const result = await invokeClaude(this.config.command, this.appDir, prompt, this.config.model);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: result.text }], usage: result.usage, costUsd: result.costUsd });
     return { text: result.text, costUsd: result.costUsd };

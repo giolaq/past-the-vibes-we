@@ -9,7 +9,7 @@ It never edits the source app. Generated work goes to `packages/workshop-harness
 Before the pipeline, `source_discovery` copies the app into a guarded directory without Git history, dependencies, builds, caches, or environment files. The port itself then has three phases:
 
 1. `analyze` reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict decide whether the port is possible; a `blocked` verdict stops the run at exit `5`.
-2. `plan` loads two selected ADBT workflows and writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
+2. `plan` gives the model the ADBT read tools so it discovers and reads the Vega workflows itself, then writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
 3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle and captures a launch screenshot.
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
@@ -55,26 +55,24 @@ Copy the returned `runId`. Inspect:
 - `packages/workshop-harness/out/<runId>/feasibility-report.json` for the feasibility verdict;
 - `packages/workshop-harness/out/<runId>/portability-report.json` for what can move to Vega;
 - `packages/workshop-harness/out/<runId>/port-result.json` for phases, checks, retries, and cost;
-- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows injected into the `plan` phase;
+- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows the model read during `analyze` and `plan`, with hashes;
 - `packages/workshop-harness/out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
 - `packages/workshop-harness/out/<runId>/01-launch.png` for the build_test launch screenshot;
 - `packages/workshop-harness/out/<runId>/app` for the generated app copy and phase commits.
 
 ## ADBT during the port
 
-ADBT is runtime context for the harness, not only setup for the final device command. During `analyze` (feasibility) and `plan`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient`:
+ADBT is runtime context the model gathers itself, not setup the harness pre-picks. During `analyze` (feasibility) and `plan`, a live run starts the pinned package as a stdio MCP server through Strands `McpClient` and hands the model two read tools:
 
 ```text
-connect -> discover tools
-  -> list_documents(WORKFLOW, vega_os)
-  -> read_document(port_tv_app_to_vega.md)
-  -> read_document(port_tv_app_to_vega_fos_rn_app.md)
-  -> inject context into the plan phase
-  -> save names, excerpts, and hashes
-  -> disconnect
+harness: connect -> expose adbt_list_documents + adbt_read_document to the agent
+model:   adbt_list_documents(WORKFLOW, vega_os)
+         -> adbt_read_document(<whichever workflows it judges relevant>)
+harness: record each read (name, excerpt, sha256) -> adbt-port-context.json
+         -> disconnect in finally
 ```
 
-The provider requires those two tool names and always disconnects in `finally`. It does not run `init-context` or change Claude configuration.
+The harness exposes only those two read tools (not the full MCP tool box), requires them to exist, and always disconnects in `finally`. It does not run `init-context` or change Claude configuration. Because the model chooses what to read, the hashed record is the run's proof of the knowledge it used.
 
 The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
 
