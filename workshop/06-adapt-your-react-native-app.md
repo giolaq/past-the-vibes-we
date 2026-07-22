@@ -75,54 +75,43 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
 ```
 
 2. Before running, check the source path, target flow, portability findings, the feasibility verdict, the three-phase sequence (`analyze`, `plan`, `build_test`), seed, and cost cap.
-3. Run the key-free port. The harness automatically loads the recorded ADBT context beside the model recording, and `build_test` replays the Vega lifecycle so it can produce a launch screenshot without a device:
+3. Approve and run the port against a live model. Pick your executor. On the Claude CLI path the model reaches ADBT through the MCP config you set up in lesson 0; on the Strands path the harness hands it the ADBT client. `build_test` needs an attached VDA to capture the launch screenshot:
 
 ```sh
+# Claude Code CLI
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --executor claude-cli --model sonnet \
+  --yes --seed workshop-v1 --max-cost 3 --json
+```
+
+```sh
+# Strands + Bedrock
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
   --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
 4. Copy the `runId` from the output. You will use it in the Vega lesson.
 5. Open `out/<runId>/feasibility-report.json`. Read the feasibility verdict, then open `out/<runId>/portability-report.json` and separate portable, replace, manual, and out-of-scope findings.
-6. Open `out/<runId>/adbt-port-context.json`. Find the two ADBT workflows, selected excerpts, and hashes.
-7. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `replay`, review phase attempts and cost, and check that the context belongs to the `plan` phase.
+6. Open `out/<runId>/adbt-port-context.json`. Find the ADBT workflows the model read, their excerpts, and hashes.
+7. Open `out/<runId>/port-result.json`. Confirm `adbt.mode` is `live`, review phase attempts and cost, and check that the context belongs to the `plan` phase.
 8. Open `out/<runId>/app/NextSteps.md`. Find the ADBT sources and the section for unsupported mappings.
 9. Inspect `out/<runId>/app`, `report.md`, and the guarded app's Git log. Match one commit to each passing phase.
 10. Check that `apps/pocket-cinema` is still clean and unchanged.
 
-## Optional: call ADBT MCP live without a model account
-
-Check the native MCP connection, then run the same port with `--adbt-live`. The model output still comes from the recording, but the harness starts pinned ADBT `1.0.5` over stdio during the `analyze` feasibility check and the `plan` phase:
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
-```
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
-  --adbt-live --yes --seed workshop-v1 --max-cost 3 --json
-```
-
-Open that run's `adbt-port-context.json`. Its `mode` is `live`. A fully live Claude Code or Strands run uses the same ADBT provider automatically.
+## How ADBT connects during the port
 
 Trace the MCP lifecycle in `src/context-providers/adbt.ts`:
 
-1. Create Strands `McpClient` with `applicationName`, `applicationVersion`, and a transport.
-2. Use `StdioClientTransport` from the MCP SDK to start pinned ADBT. The transport is not part of Strands.
-3. Call `listTools()`. It connects lazily and returns executable MCP tool objects.
-4. Require `list_documents` and `read_document` by name.
-5. Call `callTool(tool, args, { signal })` with JSON-compatible arguments and a timeout signal.
-6. List Vega `WORKFLOW` documents before reading anything.
-7. Read only the two approved port workflows.
-8. Save names, excerpts, and hashes, then call `disconnect()` in `finally`.
+1. `createAdbtMcpClient` builds a Strands `McpClient` with `applicationName`, `applicationVersion`, and a `StdioClientTransport` (from the MCP SDK) that starts pinned ADBT `1.0.5`.
+2. The pipeline passes that client into the agent's `tools` for `analyze` and `plan`. Strands calls `listTools()` for us — the harness never hardcodes tool names.
+3. The model calls ADBT's own tools (`list_documents`, then `read_document` / `search_documentation`) to fetch the Vega workflows it decides it needs.
+4. After the phase the harness calls `extractAdbtProvenance(agent.messages)`, pairs each read with its result, hashes it into `adbt-port-context.json`, and disconnects the client.
 
-`JSONValue` is the Strands type used to keep MCP arguments and results JSON-compatible. The native `AbortSignal` and MCP SDK stdio transport are passed into Strands; they are not Strands constructs themselves.
+The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch.
 
 The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch. Replay reruns from that recorded context with no live server.
 
@@ -137,5 +126,15 @@ The harness reads first, asks ADBT MCP for current Vega migration workflows, inj
 You have the `runId`, ADBT evidence names the two migration workflows, all three phases (`analyze`, `plan`, `build_test`) have verified commits, `tv-focus-result.json` passes, `build_test` produced a launch screenshot, and the source app is unchanged. Lesson 8 revisits that same Vega lifecycle to inspect the device evidence.
 
 ## If blocked
+
+If a live model, ADBT, or VDA is unavailable, run the fully recorded path — same phases and evidence contract, no credentials (in this mode `adbt.mode` is `replay`):
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --yes --seed workshop-v1 --max-cost 3 --json
+```
 
 Use Pocket Cinema and `checkpoints/audit-complete/`. Do not spend more than 10 minutes adapting a different app during the workshop.
