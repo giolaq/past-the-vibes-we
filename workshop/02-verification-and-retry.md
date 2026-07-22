@@ -6,7 +6,24 @@ See a check fail, then see the harness send the exact failure into one retry.
 
 ## Do this
 
-1. Run the recorded failure and repair:
+1. Run it against a live model with your chosen executor:
+
+```sh
+# Claude Code CLI
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
+  steps/02-verify-loop/fixtures/phases.json \
+  --executor claude-cli --model sonnet
+```
+
+```sh
+# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
+  steps/02-verify-loop/fixtures/phases.json \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
+```
+
+A live model may pass every check on the first try. To see the retry loop deterministically, run the committed recording — its first `plan` attempt omits the required section, so the harness feeds the exact failure back and the second attempt fixes it:
 
 ```sh
 yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
@@ -34,4 +51,4 @@ You can trace one requirement from check, to failure, to retry, to passing resul
 
 ## If blocked
 
-Use `steps/02-verify-loop/fixtures/retry-recording.json`. Do not switch to a live model for this exercise.
+The retry recording (`steps/02-verify-loop/fixtures/retry-recording.json`) is the reliable way to see the failure-then-repair loop, since a live model may pass on the first attempt.

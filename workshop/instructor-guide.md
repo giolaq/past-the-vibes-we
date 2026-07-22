@@ -3,8 +3,8 @@
 ## Before the workshop
 
 1. Send [setup](00-before-you-arrive.md) 48 hours early.
-2. Ask each attendee to report one status: **live ready**, **replay ready**, or **blocked**.
-3. Test every replay and checkpoint from a clean clone.
+2. Ask each attendee to report their live-executor status: **Claude Code ready**, **Strands + Bedrock ready**, or **needs replay fallback**. The workshop runs from scratch against a live model; replay is the safety net.
+3. Test both the live path and every replay/checkpoint fallback from a clean clone.
 4. Rehearse ADBT `1.0.5`, Vega SDK `0.22.5875`, and the target VDA image.
 5. Read [the latest live rehearsal](live-rehearsal.md). Do not present the device path as ready until VDA remains attached.
 6. Start VDA in a separate system terminal, keep it open, and confirm `vega virtual-device status` plus `vega exec vda devices -l` before attendees arrive.
@@ -28,9 +28,9 @@ During lesson 4, trace one mini-harness skill through both routes: full-text pro
 | 01:55 | Lesson 6: trace runtime ADBT context into the guarded Pocket Cinema port | Use the recorded ADBT context and Vega-buildable checkpoint |
 | 02:30 | Lesson 7: run the focus state checks and inspect a failure | Use the focus fixture |
 | 02:50 | **Break** | Keep it a full 10 minutes |
-| 03:00 | Lesson 8: replay the complete Vega lifecycle | Use the complete checkpoint |
+| 03:00 | Lesson 8: run the complete Vega lifecycle on an attached VDA | Fall back to platform replay or the complete checkpoint |
 | 03:25 | Lesson 10: draft a harness for another domain | Use the worksheet example |
-| 03:40 | Recovery, questions, and optional live Vega or Bee demo | Stay with replay if setup is slow |
+| 03:40 | Recovery, questions, and optional Bee demo | Stay with replay if setup is slow |
 
 Lesson 9, Bee context, is optional. Run it only during the final recovery block and only if setup, consent, and time allow.
 

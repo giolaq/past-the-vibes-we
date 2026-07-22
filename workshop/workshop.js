@@ -5,32 +5,68 @@ yarn setup`,
   doctor: `yarn doctor`,
   claudeDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json`,
   strandsDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands --provider bedrock --json`,
-  adbtDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json`,
-  step1: `yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \\
+  adbtDoctor: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json`,
+  step1: `# Claude Code CLI
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \\
+  steps/01-single-agent/fixtures/phases.json \\
+  --executor claude-cli --model sonnet`,
+  step1Strands: `# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \\
+  steps/01-single-agent/fixtures/phases.json \\
+  --executor strands --provider bedrock \\
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2`,
+  step1Replay: `# Fallback if the live model is blocked
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \\
   steps/01-single-agent/fixtures/phases.json \\
   --replay steps/01-single-agent/fixtures/demo-recording.json`,
-  step2: `yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \\
+  step2: `# Claude Code CLI
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \\
+  steps/02-verify-loop/fixtures/phases.json \\
+  --executor claude-cli --model sonnet`,
+  step2Strands: `# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \\
+  steps/02-verify-loop/fixtures/phases.json \\
+  --executor strands --provider bedrock \\
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2`,
+  step2Replay: `# Fallback: the committed recording forces the check to fail, then pass
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \\
   steps/02-verify-loop/fixtures/phases.json \\
   --replay steps/02-verify-loop/fixtures/retry-recording.json`,
-  step3: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
+  step3: `# Claude Code CLI. Stop after the plan phase to inspect the checkpoint.
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
+  steps/03-phases/fixtures/phases.json \\
+  --executor claude-cli --model sonnet \\
+  --stop-after plan`,
+  step3Strands: `# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
+  steps/03-phases/fixtures/phases.json \\
+  --executor strands --provider bedrock \\
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \\
+  --stop-after plan`,
+  step3Resume: `# Resume the same run; only build_test runs.
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
+  steps/03-phases/fixtures/phases.json \\
+  --executor claude-cli --model sonnet \\
+  --resume`,
+  step3Replay: `# Fallback, then resume with --replay ... --resume
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
   steps/03-phases/fixtures/phases.json \\
   --replay steps/03-phases/fixtures/demo-recording.json \\
   --stop-after plan`,
-  step3Resume: `yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \\
-  steps/03-phases/fixtures/phases.json \\
-  --replay steps/03-phases/fixtures/demo-recording.json \\
-  --resume`,
-  step4: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
-  steps/04-skills/fixtures/phases.json \\
-  --replay steps/04-skills/fixtures/demo-recording.json`,
-  step4Local: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
+  step4Local: `# Claude Code CLI
+yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
   steps/04-skills/fixtures/phases.json \\
   --executor claude-cli --model sonnet`,
-  step4Remote: `yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
+  step4Remote: `# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
   steps/04-skills/fixtures/phases.json \\
   --executor strands --provider bedrock \\
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \\
   --region us-west-2`,
+  step4Replay: `# Fallback if the live model is blocked
+yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \\
+  steps/04-skills/fixtures/phases.json \\
+  --replay steps/04-skills/fixtures/demo-recording.json`,
   memoryPrep: `WORKSHOP_INPUTS="/tmp/past-the-vibes-pocket-cinema-inputs"
 rm -rf "$WORKSHOP_INPUTS"
 cp -R workshop/fixtures/pocket-cinema-inputs \\
@@ -44,25 +80,33 @@ cp -R workshop/fixtures/pocket-cinema-inputs \\
   plan: `yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --seed workshop-v1 --max-cost 3 --json`,
-  port: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
+  port: `# Claude Code CLI. The model drives ADBT via the CLI's MCP config (init-context).
+# build_test needs an attached VDA to capture the launch screenshot.
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
+  --executor claude-cli --model sonnet \\
+  --yes --seed workshop-v1 --max-cost 3 --json`,
+  portStrands: `# Strands + Bedrock. The harness hands the ADBT McpClient to the agent.
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
+  --executor strands --provider bedrock \\
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \\
+  --yes --seed workshop-v1 --max-cost 3 --json`,
+  portReplay: `# Fallback if a live model, ADBT, or VDA is unavailable.
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
   --replay ../../workshop/fixtures/port-recording.json \\
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \\
   --yes --seed workshop-v1 --max-cost 3 --json`,
-  portAdbtLive: `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \\
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \\
-  --replay ../../workshop/fixtures/port-recording.json \\
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \\
-  --adbt-live --yes --seed workshop-v1 --max-cost 3 --json`,
 focusCheck: `(cd packages/workshop-harness/out/<runId>/app && \\
   node --import tsx tests/verify-tv-focus.ts)
 cat packages/workshop-harness/out/<runId>/app/tv-focus-result.json`,
-  adbt: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json`,
+  adbt: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json`,
   adbtInitCli: `# Run in a system terminal (not inside the agent). Sets up the ADBT MCP server
 # and skills for Claude Code CLI, so the model can call ADBT tools itself.
 npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli`,
   adbtCheckStatus: `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli`,
-  vegaSetup: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
+  vegaSetup: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 vega --version
 vega virtual-device start --gui`,
   vdaStart: `# Run this in a system terminal and leave it open.
@@ -139,11 +183,12 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
       ${command("Optional: check live ADBT with everything else replayed","adbtDoctor")}
 
       <h2>4. Choose one execution path</h2>
-      ${table(["Path","Use it when","Needs"],[["Replay","Recommended for the workshop and every fallback","Nothing beyond the installed packages"],["Claude Code","You want a local live coding-agent run","Claude Code installed and authenticated"],["Strands + Bedrock","You want the in-process remote executor","AWS credentials and Bedrock model access"]])}
-      ${command("Replay: run one model recording","step1")}
+      ${table(["Path","Use it when","Needs"],[["Claude Code","Default. A local live coding-agent run.","Claude Code installed and authenticated; ADBT via init-context"],["Strands + Bedrock","Default. The in-process remote executor.","AWS credentials and Bedrock model access"],["Replay","Fallback when a live model, ADBT, or device is unavailable.","Nothing beyond the installed packages"]])}
+      <p>Run the workshop from scratch against a live model with one of the two live executors. The recorded replay path stays available as a fallback in every lesson. Confirm your live path is ready:</p>
       ${command("Claude Code: check the local executor","claudeDoctor")}
       ${command("Strands: check Bedrock credentials","strandsDoctor")}
-      ${note("Choose one path","You do not need all three. If a live path fails, save the error, choose replay, and continue.")}
+      ${command("Fallback: check the key-free replay path","doctor")}
+      ${note("Pick one live executor","Choose Claude Code or Strands + Bedrock as your primary path — you do not need both. If your chosen live path fails mid-workshop, save the error and use the replay fallback shown in that lesson.")}
 
       <h2>5. Optional Vega and VDA setup</h2>
       <p>Skip this section when you plan to use lifecycle replay. For the live path, install Vega SDK <code>0.22.5875</code> and create a Vega Virtual Device.</p>
@@ -172,28 +217,28 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
     lead: "Run the smallest example against a React Native app and identify what it cannot prove.",
     objective: "Locate the model boundary and distinguish generated output from verified output.",
     evidence: "Three concrete claims that the one-call script cannot prove by itself.",
-    body: `${concept("Why this step exists","A model can produce plausible files, but plausibility is not evidence. Start with the smallest possible agent so its missing guarantees are easy to see.")}${note("One app from the first minute","Every mini-harness step begins with a reduced Pocket Cinema React Native app. The later port changes platform concerns, but phase → skill → executor → check stays the same.")}${predict("Before you run it, name one bug that could hide inside React Native output that looks complete.")}${command("Run Step 1 with replay","step1")}<h2>Trace the model boundary</h2>${steps(["Open <code>steps/01-single-agent/index.ts</code>.","Find where it copies the starter app, builds the prompt, reads the model response, and writes files.","Open <code>out/src/App.tsx</code> and <code>out/src/components/ShowCard.tsx</code>.","Write down three claims that need an independent check: compile, catalog content, and remote focus are good examples."])}${knowledgeCheck("Why is this an agent script, but not yet a reliable harness?","It has a model call and side effects, but no independent verification, bounded retry, checkpoint, approval gate, or durable evidence.")}${done("You can point to the model boundary and name three missing React Native checks.")}${fallback("The replay is the complete exercise. No live model is needed.")}`
+    body: `${concept("Why this step exists","A model can produce plausible files, but plausibility is not evidence. Start with the smallest possible agent so its missing guarantees are easy to see.")}${note("One app from the first minute","Every mini-harness step begins with a reduced Pocket Cinema React Native app and runs the same three phases: analyze → plan → build_test. The later port changes platform concerns, but phase → skill → executor → check stays the same.")}${predict("Before you run it, name one bug that could hide inside the model's analysis that looks complete.")}<h2>Run it against a live model</h2><p>Pick the executor you set up in lesson 0. It calls a real model and writes files into <code>out/</code>.</p>${command("Claude Code CLI","step1")}${command("Strands + Bedrock","step1Strands")}<h2>Trace the model boundary</h2>${steps(["Open <code>steps/01-single-agent/index.ts</code>.","Find where it copies the starter app, builds the prompt, reads the model response, and writes files.","Open the generated <code>out/ANALYSIS.md</code> (the analyze phase output).","Write down three claims that need an independent check: the analysis is accurate, a component it named really exists, a part it called portable actually runs on TV."])}${knowledgeCheck("Why is this an agent script, but not yet a reliable harness?","It has a model call and side effects, but no independent verification, bounded retry, checkpoint, approval gate, or durable evidence.")}${done("You can point to the model boundary and name three missing React Native checks.")}${fallback("If the live model is blocked, run the committed recording instead — same exercise, no account:")}${command("Fallback: replay","step1Replay")}`
   },
   {
     id: "verify", number: "02", nav: "Check and retry", time: "20 minutes", title: "Turn a failure into a useful retry",
     lead: "Run a mechanical check and send its exact failure into one bounded retry.",
     objective: "Trace a requirement through a failed check, a contextual retry, and a passing result.",
     evidence: "The failed grep message appears in the retry request and the second attempt passes.",
-    body: `${concept("Why this step exists","A retry is useful only when it carries new information. The check turns a vague failure into precise context the next attempt can act on.")}${predict("The recording contains two content responses. Predict which catalog requirement the first response misses.")}${command("Replay the failed check and repair","step2")}${expected(`Pattern "Kitchen Stories" not found in out/src/catalog.ts`)}<h2>Follow the evidence</h2>${steps(["Find the failed <code>grep</code> check in the output.","Open <code>steps/02-verify-loop/verify.ts</code> and locate that check.","Find the same failure text in the retry request.","Open <code>out/src/catalog.ts</code> and confirm the second attempt passes the original check."])}${knowledgeCheck("Why pass the exact failure into the retry instead of saying try again?","The exact failure narrows the problem, preserves the original requirement, and makes the retry explainable. A generic retry buys another guess.")}${done("You can trace requirement → failed check → retry → passing React Native source.")}${fallback("Use the committed retry recording. Do not replace this exercise with a live call.")}`
+    body: `${concept("Why this step exists","A retry is useful only when it carries new information. The check turns a vague failure into precise context the next attempt can act on.")}${predict("The plan phase must document the remote control. Predict what the check greps for, and what happens if the model's first plan omits it.")}<h2>Run it against a live model</h2><p>A live model may pass every check on the first try. To see the retry loop deterministically, use the committed recording — its first plan attempt is missing the required section, so the harness feeds the exact failure back and the second attempt fixes it.</p>${command("Claude Code CLI","step2")}${command("Strands + Bedrock","step2Strands")}<h2>See the retry loop (recording)</h2>${command("Replay the failed check and repair","step2Replay")}${expected(`Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md`)}<h2>Follow the evidence</h2>${steps(["Find the failed <code>grep</code> check in the output.","Open <code>steps/02-verify-loop/verify.ts</code> and locate that check.","Find the same failure text in the retry request.","Open <code>out/TV_PORT_PLAN.md</code> and confirm the second attempt adds the remote control section."])}${knowledgeCheck("Why pass the exact failure into the retry instead of saying try again?","The exact failure narrows the problem, preserves the original requirement, and makes the retry explainable. A generic retry buys another guess.")}${done("You can trace requirement → failed check → retry → passing output.")}`
   },
   {
     id: "phases", number: "03", nav: "Phases and resume", time: "25 minutes", title: "Split the work and resume it",
     lead: "Use phases for small changes, commits for verified code, and checkpoints for run progress.",
     objective: "Explain the different jobs of a phase, a checkpoint, and a Git commit.",
     evidence: "A paused run resumes at focus, while the Git log keeps one commit per completed phase.",
-    body: `${concept("Why this step exists","Long agent runs fail. Small phases limit the damage, checkpoints remember orchestration progress, and commits preserve code that already passed its checks.")}${predict("The run stops after content. Which phase should resume next, and which phases must not run again?")}${command("Pause after the content phase","step3")}${expected(`Paused after content.\ncheckpoint.json: { "nextPhase": 2 }`)}<h2>Inspect before resuming</h2>${steps(["Open <code>out/checkpoint.json</code>.","Use <code>phases.json</code> to confirm index 2 is <code>focus</code>.","Open the Git log and find commits for screen and content."])}${command("Resume the same run","step3Resume")}<h2>Compare the result</h2>${steps(["Confirm only focus ran after resume.","Open the final checkpoint and Git log.","Explain what progress belongs in the checkpoint and what evidence belongs in Git."])}${knowledgeCheck("Why keep both a checkpoint and per-phase commits?","The checkpoint tells the engine where to continue. Git records the exact verified code state for each completed phase. They answer different recovery questions.")}${done("The second command runs only focus, without repeating screen or content.")}${fallback("Read <code>fixtures/resume/README.md</code>, then repeat the two replay commands.")}`
+    body: `${concept("Why this step exists","Long agent runs fail. Small phases limit the damage, checkpoints remember orchestration progress, and commits preserve code that already passed its checks.")}${predict("The run stops after plan. Which phase should resume next, and which phases must not run again?")}<h2>Run it against a live model, pausing after plan</h2>${command("Claude Code CLI","step3")}${command("Strands + Bedrock","step3Strands")}${expected(`Paused after plan.\ncheckpoint.json: { "nextPhase": 2 }`)}<h2>Inspect before resuming</h2>${steps(["Open <code>out/checkpoint.json</code>.","Use <code>phases.json</code> to confirm index 2 is <code>build_test</code>.","Open the Git log and find commits for analyze and plan."])}${command("Resume the same run","step3Resume")}<h2>Compare the result</h2>${steps(["Confirm only build_test ran after resume.","Open the final checkpoint and Git log.","Explain what progress belongs in the checkpoint and what evidence belongs in Git."])}${knowledgeCheck("Why keep both a checkpoint and per-phase commits?","The checkpoint tells the engine where to continue. Git records the exact verified code state for each completed phase. They answer different recovery questions.")}${done("After resume, only build_test runs — analyze and plan are not repeated.")}${fallback("If the live model is blocked, use the recording (then resume with --replay ... --resume):")}${command("Fallback: replay","step3Replay")}`
   },
   {
     id: "skills", number: "04", nav: "Skills and executors", time: "20 minutes", title: "Separate knowledge from model access",
     lead: "A skill supplies domain instructions. An executor calls the model. The pipeline should not depend on one provider.",
     objective: "Separate domain knowledge, model execution, tools, and deterministic pipeline control.",
     evidence: "You can point to the file that owns each responsibility in both the mini and complete workshop harnesses.",
-    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}${command("Run Step 4 with replay","step4")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find the <code>react-native-analysis</code>, <code>tv-porting-plan</code>, and <code>tv-build-test</code> skills.","Follow them through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Notice that the React Native target is unchanged; only knowledge delivery and model access have become explicit.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${skillDelivery()}
+    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}<h2>Run it against a live model</h2>${command("Claude Code CLI","step4Local")}${command("Strands + Bedrock","step4Remote")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find the <code>react-native-analysis</code>, <code>tv-porting-plan</code>, and <code>tv-build-test</code> skills.","Follow them through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Notice that the React Native target is unchanged; only knowledge delivery and model access have become explicit.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${skillDelivery()}
 
       <h2>The whole model interaction, in one code block</h2>
       <p>People expect the AI part of this to be huge and mysterious. It is not. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is this:</p>
@@ -212,7 +257,7 @@ const result = await agent.invoke(prompt, {
         "What Strands gives you: the model-and-tool loop, provider adapters, schema-validated output, turn/token limits, cancellation, usage metrics. What it deliberately does <em>not</em> own: writing files, verification, Git, cost policy, ADBT selection. Those stay in the harness.")}
       ${note("The tools themselves are guarded hard","In <code>src/port-tools.ts</code>, the read tools reject absolute paths, <code>..</code> traversal, symlinks, <code>.git</code>, <code>.env</code>, <code>node_modules</code>, binaries, and files over 100&nbsp;KB. Even the read side of the model's authority has walls.")}
 
-      ${strandsConstructs()}${fullHarnessStrandsConstructs()}<h2>Inspect the complete Strands boundary</h2>${steps(["Open <code>packages/workshop-harness/src/port-tools.ts</code> and match each <code>tool()</code> field to the first table.","Open <code>port-contract.ts</code> and find the Zod schema passed as <code>structuredOutputSchema</code>.","Open <code>port-executor.ts</code> and trace <code>new Agent()</code> → <code>invoke()</code> → <code>AgentResult</code>.","Follow the result into usage accounting and <code>port-recorder.ts</code>.","Confirm the workshop port agent has no write or shell tool. Its pipeline owns both."])}${knowledgeCheck("Why use AgentSkills with Strands but prompt injection with Claude CLI?","Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.")}<h2>Optional live comparison</h2>${command("Use local Claude Code","step4Local")}${command("Use Strands with Bedrock","step4Remote")}<div class="links"><a href="strands-constructs.md">Open the Strands reference</a></div>${done("You can trace one React Native phase skill through Claude prompt injection or Strands AgentSkills, then separate both from pipeline controls.")}${fallback("Replay shows the same module boundaries without credentials.")}`
+      ${strandsConstructs()}${fullHarnessStrandsConstructs()}<h2>Inspect the complete Strands boundary</h2>${steps(["Open <code>packages/workshop-harness/src/port-tools.ts</code> and match each <code>tool()</code> field to the first table.","Open <code>port-contract.ts</code> and find the Zod schema passed as <code>structuredOutputSchema</code>.","Open <code>port-executor.ts</code> and trace <code>new Agent()</code> → <code>invoke()</code> → <code>AgentResult</code>.","Follow the result into usage accounting and <code>port-recorder.ts</code>.","Confirm the workshop port agent has no write or shell tool. Its pipeline owns both."])}${knowledgeCheck("Why use AgentSkills with Strands but prompt injection with Claude CLI?","Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.")}<div class="links"><a href="strands-constructs.md">Open the Strands reference</a></div>${done("You can trace one React Native phase skill through Claude prompt injection or Strands AgentSkills, then separate both from pipeline controls.")}${fallback("If the live model is blocked, replay shows the same module boundaries without credentials:")}${command("Fallback: replay","step4Replay")}`
   },
   {
     id: "memory", number: "05", nav: "Project memory", time: "15 minutes", title: "Review facts before saving them",
@@ -264,7 +309,7 @@ Required checks:
 Return ONLY JSON: {"summary":"...","files":{"relative/path":"complete contents"}}.`,
         "This exact string is built in <code>src/port-pipeline.ts</code>. Every live model turn — the prompt sent and the raw text returned — is recorded to <code>out/&lt;runId&gt;/port-recording.json</code>. That file is your audit trail: <code>request.messages[0].content</code> is the prompt, <code>response[].result</code> is the model's answer.")}
 
-      ${predict("The model now calls ADBT over MCP itself. What has to be recorded for the run to stay reproducible and auditable?")}${command("Plan the Pocket Cinema port","plan")}<h2>Review the plan before approval</h2>${steps(["Confirm the source app and target flow.","Read the deterministic portability findings and the model's feasibility verdict.","Confirm the feasibility verdict is not <code>blocked</code> — a blocked verdict stops the run at exit code 5 before any build budget.","Check that ADBT is assigned to <code>analyze</code> (feasibility) and <code>plan</code>.","Check the three-phase plan (analyze → plan → build_test), fixed seed, and $3 cap.","Notice that build_test folds in the device screenshot lifecycle from lesson 8."])}${command("Run with recorded model and ADBT context","port")}<h2>Build an evidence chain</h2>${steps(["Copy the <code>runId</code> from the output.","Open <code>out/&lt;runId&gt;/adbt-port-context.json</code> and find the workflow names and hashes.","Open <code>port-result.json</code> and confirm <code>adbt.mode: replay</code>.","Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.","Inspect the guarded app, report, and Git log.","Confirm <code>apps/pocket-cinema</code> is unchanged."])}${knowledgeCheck("The model fetches ADBT docs itself now. How does the run stay auditable and reproducible?","Every ADBT read tool call is wrapped by the harness: it records the document name, the returned excerpt, and a SHA-256 hash into <code>adbt-port-context.json</code>. So even though the model chose what to read, there is an exact, hashed record of the knowledge it actually used — and replay can rerun from that recorded context with no live MCP server.")}
+      ${predict("The model now calls ADBT over MCP itself. What has to be recorded for the run to stay reproducible and auditable?")}${command("Plan the Pocket Cinema port","plan")}<h2>Review the plan before approval</h2>${steps(["Confirm the source app and target flow.","Read the deterministic portability findings and the model's feasibility verdict.","Confirm the feasibility verdict is not <code>blocked</code> — a blocked verdict stops the run at exit code 5 before any build budget.","Check that ADBT is assigned to <code>analyze</code> (feasibility) and <code>plan</code>.","Check the three-phase plan (analyze → plan → build_test), fixed seed, and $3 cap.","Notice that build_test folds in the device screenshot lifecycle from lesson 8."])}<h2>Run the port against a live model</h2><p>Approve and run with a real model. On the Claude CLI path the model reaches ADBT through the MCP config you set up in lesson 0; on the Strands path the harness hands it the ADBT client. <code>build_test</code> needs an attached VDA to capture the launch screenshot.</p>${command("Claude Code CLI","port")}${command("Strands + Bedrock","portStrands")}<h2>Build an evidence chain</h2>${steps(["Copy the <code>runId</code> from the output.","Open <code>out/&lt;runId&gt;/adbt-port-context.json</code> and find the workflow names and hashes the model read.","Open <code>port-result.json</code> and confirm <code>adbt.mode: live</code>.","Open <code>app/NextSteps.md</code> and find ADBT sources and unsupported mappings.","Inspect the guarded app, report, and Git log.","Confirm <code>apps/pocket-cinema</code> is unchanged."])}${knowledgeCheck("The model fetches ADBT docs itself now. How does the run stay auditable and reproducible?","The harness reconstructs every ADBT read from the agent's messages after the phase — document name, excerpt, and a SHA-256 hash into <code>adbt-port-context.json</code>. So even though the model chose what to read, there is an exact, hashed record of the knowledge it used — and replay can rerun from that recorded context with no live MCP server.")}${fallback("If a live model, ADBT, or VDA is unavailable, run the fully recorded path — same phases and evidence contract, no credentials:")}${command("Fallback: replay","portReplay")}
 
       <h2>Worked example: real prompt in, real output out</h2>
       <p>This is captured from an actual live run (<code>c9fc9e58</code>, real Claude model, live ADBT over MCP). It shows the ADBT-driven planning and the generated Vega package. (This capture predates the model-driven-MCP change: it used harness injection. Today the model calls ADBT's <code>read_document</code> tool itself, but the recorded provenance below — document names and SHA-256 hashes — is exactly what the harness now reconstructs from the model's tool calls.)</p>
@@ -313,7 +358,7 @@ relying on them — they are not invented APIs presented as fact.
         "This is the skill \"record gaps instead of inventing APIs\" visibly working. The check <code>NextSteps.md contains \"ADBT\"</code> passed, all 8 checks passed, the phase committed.")}
       ${note("The lesson from the worked example","The model produces large, plausible, well-structured artifacts — and it also wraps JSON in prose and admits uncertainty. Plausible output is not clean output. The harness does not trust prose or vibes: it extracts the JSON, writes it to the guarded copy, and runs mechanical grep/file_exists checks. Only passing work is committed. That is <code>plausible &ne; verified</code>, made concrete.")}
 
-      <h2>Optional: use ADBT MCP live</h2>${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}${note("What changes","The harness builds a Strands <code>McpClient</code> for ADBT and hands it to the agent. On a live Strands model the model discovers and calls ADBT's tools itself; here the model stays replayed, so this shows the live ADBT connection alongside recorded model turns. The harness reconstructs and hashes what was read, then disconnects.")}${done("You can trace each MCP construct from connection through approved context, a typed proposal, checks, a verified commit, and the final report.")}${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
+      <h2>How ADBT connects during the port</h2>${command("Check the native ADBT MCP path","adbtDoctor")}${mcpConstructs()}${note("Two executor paths","Strands: the harness passes the ADBT <code>McpClient</code> into the agent's tools and the model calls ADBT itself. Claude CLI: the CLI reaches ADBT through the MCP config from <code>init-context</code>. Either way the harness reconstructs and hashes what was read.")}${done("You can trace each MCP construct from connection through the model's own tool calls, a typed proposal, checks, a verified commit, and the final report.")}${fallback("A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions. Use the recorded ADBT context via the replay fallback above.")}`
   },
   {
     id: "tv", number: "07", nav: "Test remote behavior", time: "20 minutes", title: "Test the flow, not one screenshot",
@@ -324,10 +369,10 @@ relying on them — they are not invented APIs presented as fact.
   },
   {
     id: "vega", number: "08", nav: "Run the Vega lifecycle", time: "25 minutes", title: "Hand the guarded app to Vega tools",
-    lead: "The key-free replay teaches the complete lifecycle. A live Vega SDK and VDA run is optional device evidence.",
+    lead: "Run the complete lifecycle against a live Vega SDK and VDA. Recorded replay stays as a fallback when no device is attached.",
     objective: "Distinguish reproducible lifecycle rehearsal from evidence produced by a real Vega device.",
     evidence: "Eight lifecycle gates pass, with evidenceMode labeled replay or live.",
-    body: `${concept("Two kinds of evidence","Replay proves that everyone can study the lifecycle and its contracts. A live VDA run proves that this app completed those commands on an attached device. Keep those claims separate.")}${note("Current rehearsal status","SDK 0.22.5875 builds and validates the app. Live install, launch, logs, and screenshots still require a VDA target that remains attached.","warning")}<div class="links"><a href="live-rehearsal.md">Read the rehearsal record</a></div>${predict("If the SDK build passes but the device list is empty, which lifecycle gates must the harness refuse to claim?")}${command("Show the Vega plan","vegaPlan")}${command("Run the key-free lifecycle replay","vegaRun")}<h2>Inspect all eight gates</h2>${steps(["Replace <code>&lt;runId&gt;</code> with the id from lesson 6.","Confirm SDK version and device status were checked before build.","Find build, install, launch, logs, capture, and pull results.","Check <code>checks[0].passed</code> and <code>evidenceMode: replay</code>.","Explain why replay evidence is not device certification."])}${knowledgeCheck("What turns lifecycle output into trustworthy evidence?","The harness records the exact command, outcome, artifact, and evidence mode for each gate. A successful process exit alone is not enough when no device is attached.")}<h2>Optional live device run</h2>${command("Check the native ADBT MCP path","adbt")}${note("No agent configuration change","The harness owns the pinned ADBT MCP connection. It does not run <code>init-context</code> or edit Claude configuration.")}${command("Start VDA and keep this terminal open","vdaStart")}${command("Confirm the SDK and attached device","vdaCheck")}${command("Run with Vega SDK and VDA","vegaLive")}<h2>Claim live evidence only when</h2>${steps(["The SDK reports <code>0.22.5875</code>.","VDA reports <code>running: true</code> and lists an attached device.","Build, install, launch, logs, capture, and pull all pass.","The result says <code>evidenceMode: live</code> and the screenshot came from the device."])}${done("Replay is complete when all eight recorded gates pass. Live testing is complete only when the live evidence checklist also passes.")}${fallback("An empty device list is a failure even with exit 0. Try one repair, then use replay or <code>checkpoints/complete/</code>.")}`
+    body: `${concept("Two kinds of evidence","A live VDA run proves this app built, installed, launched, and produced a screenshot on an attached device. Replay proves you can study the lifecycle and its contracts without one. Keep those claims separate.")}${note("Device screenshot caveat","On the current VDA image the screenshot tool segfaults at the capture gate, so a fully live run may fail there even when build, install, and launch pass. The repo records this in the rehearsal note. If you hit it, use the replay fallback to finish the lesson.","warning")}<div class="links"><a href="live-rehearsal.md">Read the rehearsal record</a></div>${predict("If the SDK build passes but the device list is empty, which lifecycle gates must the harness refuse to claim?")}<h2>Run the lifecycle on a live VDA</h2>${steps(["Replace <code>&lt;runId&gt;</code> with the id from lesson 6."])}${command("Start VDA and keep this terminal open","vdaStart")}${command("Confirm the SDK and attached device","vdaCheck")}${command("Show the Vega plan","vegaPlan")}${command("Run with Vega SDK and VDA","vegaLive")}<h2>Claim live evidence only when</h2>${steps(["The SDK reports <code>0.22.5875</code>.","VDA reports <code>running: true</code> and lists an attached device.","Build, install, launch, logs, capture, and pull all pass.","The result says <code>evidenceMode: live</code> and the screenshot came from the device."])}<h2>Inspect all eight gates</h2>${steps(["Confirm SDK version and device status were checked before build.","Find build, install, launch, logs, capture, and pull results.","Read each gate's exact command, exit code, and output."])}${knowledgeCheck("What turns lifecycle output into trustworthy evidence?","The harness records the exact command, outcome, artifact, and evidence mode for each gate. A successful process exit alone is not enough when no device is attached.")}${done("All eight gates pass on an attached VDA and the result says <code>evidenceMode: live</code> with a device screenshot.")}${fallback("If no VDA is attached or the screenshot gate segfaults, run the recorded lifecycle instead — same eight gates, labeled evidenceMode: replay:")}${command("Fallback: key-free lifecycle replay","vegaRun")}`
   },
   {
     id: "bee", number: "09", nav: "Optional Bee context", time: "15 minutes", title: "Import selected context, not a transcript",

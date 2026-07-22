@@ -6,12 +6,13 @@ Split a larger task into phases and see how the harness resumes without repeatin
 
 ## Do this
 
-1. Run the phased example:
+1. Run the phased example against a live model, pausing after the plan phase:
 
 ```sh
+# Claude Code CLI (or swap in the Strands + Bedrock flags from earlier lessons)
 yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
-  --replay steps/03-phases/fixtures/demo-recording.json \
+  --executor claude-cli --model sonnet \
   --stop-after plan
 ```
 
@@ -22,7 +23,7 @@ yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
 ```sh
 yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
-  --replay steps/03-phases/fixtures/demo-recording.json \
+  --executor claude-cli --model sonnet \
   --resume
 ```
 
@@ -38,4 +39,4 @@ The first command stops after `plan`; the second starts at `build_test`; complet
 
 ## If blocked
 
-Read `workshop/fixtures/resume/README.md` and continue with the instructor checkpoint.
+If the live model is unavailable, run the same two commands with `--replay steps/03-phases/fixtures/demo-recording.json` in place of the `--executor` flags (keep `--stop-after plan`, then `--resume`). Read `workshop/fixtures/resume/README.md` for the checkpoint details.
