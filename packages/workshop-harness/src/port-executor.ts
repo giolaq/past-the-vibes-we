@@ -1,13 +1,15 @@
 import { Agent, StructuredOutputError } from "@strands-agents/sdk";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
+import type { ZodTypeAny } from "zod";
 import { createModel, defaultModel, type ModelConfig, type RemoteProvider } from "./model-factory.js";
 import { PortOutputSchema } from "./port-contract.js";
 import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
 
 export type PortModelResult = { text: string; costUsd: number };
-export interface PortExecutor { call(phase: string, prompt: string): Promise<PortModelResult>; }
+/** Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict) instead of the default { summary, files } patch. */
+export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult>; }
 export type ExecutorConfig = { kind: "claude-cli"; command: string; model: string } | { kind: "strands"; model: ModelConfig };
 
 export function resolveExecutorConfig(input: { executor?: string; provider?: string; model?: string; region?: string; command?: string } = {}): ExecutorConfig {
@@ -19,16 +21,17 @@ export function resolveExecutorConfig(input: { executor?: string; provider?: str
   return { kind, model: { provider, modelId: input.model ?? process.env.WORKSHOP_MODEL ?? defaultModel(provider), region: input.region ?? process.env.AWS_REGION } };
 }
 
-export function createPortExecutor(options: { appDir: string; outDir: string; replayPath?: string; config?: ExecutorConfig }): PortExecutor {
+export function createPortExecutor(options: { appDir: string; outDir: string; replayPath?: string; config?: ExecutorConfig; recordingName?: string }): PortExecutor {
   if (PortReplay.exists(options.replayPath)) return new ReplayPortExecutor(options.replayPath);
   const config = options.config ?? resolveExecutorConfig();
-  return config.kind === "strands" ? new StrandsPortExecutor(options.appDir, options.outDir, config.model) : new ClaudeCodePortExecutor(options.appDir, options.outDir, config);
+  const recordingPath = join(options.outDir, options.recordingName ?? "port-recording.json");
+  return config.kind === "strands" ? new StrandsPortExecutor(options.appDir, recordingPath, config.model) : new ClaudeCodePortExecutor(options.appDir, recordingPath, config);
 }
 
 class ReplayPortExecutor implements PortExecutor {
   private replay: PortReplay;
   constructor(path: string) { this.replay = new PortReplay(path); }
-  async call(phase: string): Promise<PortModelResult> {
+  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
     const turn = this.replay.next(phase);
     return { text: responseText(turn.response, phase), costUsd: turn.costUsd ?? (turn.usage.input_tokens + turn.usage.output_tokens) / 1_000_000 };
   }
@@ -36,15 +39,16 @@ class ReplayPortExecutor implements PortExecutor {
 
 class StrandsPortExecutor implements PortExecutor {
   private recorder: PortRecorder;
-  constructor(private appDir: string, outDir: string, private config: ModelConfig) { this.recorder = new PortRecorder(join(outDir, "port-recording.json")); }
-  async call(phase: string, prompt: string): Promise<PortModelResult> {
+  constructor(private appDir: string, recordingPath: string, private config: ModelConfig) { this.recorder = new PortRecorder(recordingPath); }
+  async call(phase: string, prompt: string, schema?: ZodTypeAny): Promise<PortModelResult> {
+    const outputSchema = schema ?? PortOutputSchema;
     const agent = new Agent({
       name: `workshop-${phase}`,
       description: "Inspects a guarded React Native app and proposes a bounded Vega port patch.",
       model: createModel(this.config),
       tools: createProjectReadTools(this.appDir),
-      structuredOutputSchema: PortOutputSchema,
-      systemPrompt: "Inspect the guarded app with the read-only tools. Return a complete patch through the required schema. Never claim a file or API exists without reading evidence.",
+      structuredOutputSchema: outputSchema,
+      systemPrompt: "Inspect the guarded app with the read-only tools. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
       printer: false,
     });
     const result = await agent.invoke(prompt, {
@@ -52,7 +56,7 @@ class StrandsPortExecutor implements PortExecutor {
       limits: { turns: 8, totalTokens: 40_000 },
     });
     if (!result.structuredOutput) throw new StructuredOutputError("Strands returned no port output");
-    const text = JSON.stringify(PortOutputSchema.parse(result.structuredOutput));
+    const text = JSON.stringify(outputSchema.parse(result.structuredOutput));
     const raw = result.metrics?.accumulatedUsage;
     const usage = { input_tokens: raw?.inputTokens ?? 0, output_tokens: raw?.outputTokens ?? 0 };
     const costUsd = estimateCost(usage);
@@ -63,8 +67,8 @@ class StrandsPortExecutor implements PortExecutor {
 
 class ClaudeCodePortExecutor implements PortExecutor {
   private recorder: PortRecorder;
-  constructor(private appDir: string, outDir: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>) { this.recorder = new PortRecorder(join(outDir, "port-recording.json")); }
-  async call(phase: string, prompt: string): Promise<PortModelResult> {
+  constructor(private appDir: string, recordingPath: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>) { this.recorder = new PortRecorder(recordingPath); }
+  async call(phase: string, prompt: string, _schema?: ZodTypeAny): Promise<PortModelResult> {
     const result = await invokeClaude(this.config.command, this.appDir, prompt, this.config.model);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: result.text }], usage: result.usage, costUsd: result.costUsd });
     return { text: result.text, costUsd: result.costUsd };

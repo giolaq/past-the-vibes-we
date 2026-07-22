@@ -34,7 +34,7 @@ During lesson 4, trace one mini-harness skill through both routes: full-text pro
 
 Lesson 9, Bee context, is optional. Run it only during the final recovery block and only if setup, consent, and time allow.
 
-For lesson 6, show the five boundaries on screen: native ADBT MCP connection, approved workflow lookup, `vega_port` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
+For lesson 6, show the five boundaries on screen: native ADBT MCP connection, approved workflow lookup, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
 The core path takes 200 minutes. Two breaks and a 20-minute recovery block bring the session to four hours.
 

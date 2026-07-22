@@ -1,23 +1,58 @@
 [
   {
     "timestamp": "2026-07-03T12:00:00.000Z",
-    "phase": "screen",
-    "request": { "model": "fixture", "system": "mini-harness", "messages": [] },
-    "response": "{\"summary\":\"Replaced the placeholder with a React Native catalog screen.\",\"files\":{\"out/src/App.tsx\":\"import React from \\\"react\\\";\\nimport { SafeAreaView, ScrollView, StyleSheet, Text } from \\\"react-native\\\";\\nimport { shows } from \\\"./catalog.js\\\";\\nimport { ShowCard } from \\\"./components/ShowCard.js\\\";\\n\\nexport default function App() {\\n  return <SafeAreaView style={styles.page}><Text style={styles.brand}>POCKET CINEMA</Text><Text style={styles.title}>Tonight's picks</Text><ScrollView horizontal>{shows.map((show) => <ShowCard key={show.id} show={show} />)}</ScrollView></SafeAreaView>;\\n}\\n\\nconst styles = StyleSheet.create({ page: { flex: 1, backgroundColor: \\\"#101214\\\", padding: 24 }, brand: { color: \\\"#F6C453\\\", fontWeight: \\\"800\\\" }, title: { color: \\\"#FFFFFF\\\", fontSize: 32, marginVertical: 24 } });\\n\",\"out/src/components/ShowCard.tsx\":\"import React from \\\"react\\\";\\nimport { Pressable, StyleSheet, Text, View } from \\\"react-native\\\";\\nimport type { Show } from \\\"../catalog.js\\\";\\n\\nexport function ShowCard({ show }: { show: Show }) {\\n  return <Pressable style={styles.card}><View style={[styles.art, { backgroundColor: show.color }]} /><Text style={styles.title}>{show.title}</Text><Text style={styles.copy}>{show.description}</Text></Pressable>;\\n}\\n\\nconst styles = StyleSheet.create({ card: { width: 220, marginRight: 18, padding: 8 }, art: { height: 130, borderRadius: 6 }, title: { color: \\\"#FFFFFF\\\", fontSize: 18, fontWeight: \\\"700\\\", marginTop: 10 }, copy: { color: \\\"#A8B0B7\\\", marginTop: 4 } });\\n\"}}",
-    "usage": { "input_tokens": 100, "output_tokens": 200 }
+    "phase": "analyze",
+    "request": {
+      "model": "fixture",
+      "system": "mini-harness",
+      "messages": []
+    },
+    "response": "{\"summary\": \"Analyzed the Pocket Cinema app and recorded TV portability.\", \"files\": {\"out/ANALYSIS.md\": \"# Pocket Cinema \\u2014 App Analysis\\n\\n## Screens\\n- Single screen in `src/App.tsx`: a `SafeAreaView` with a brand label and a placeholder message.\\n\\n## Components\\n- No reusable components yet. Rendering is inline in `App.tsx`.\\n\\n## Data\\n- `src/catalog.ts` defines the `Show` type and an empty/placeholder catalog.\\n\\n## Portable to TV\\n- Shared React Native primitives (`SafeAreaView`, `Text`, `StyleSheet`) and the data module port directly.\\n\\n## Needs TV-specific work\\n- No navigation, no remote focus handling, no Select/Back flow. These must be added for a 10-foot UI.\\n\"}}",
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 200
+    }
   },
   {
     "timestamp": "2026-07-03T12:00:01.000Z",
-    "phase": "content",
-    "request": { "model": "fixture", "system": "mini-harness", "messages": [] },
-    "response": "{\"summary\":\"Added three synthetic shows to the catalog.\",\"files\":{\"out/src/catalog.ts\":\"export type Show = { id: string; title: string; description: string; color: string };\\n\\nexport const shows: Show[] = [\\n  { id: \\\"kitchen\\\", title: \\\"Kitchen Stories\\\", description: \\\"Cooks trade family recipes after closing time.\\\", color: \\\"#B85C38\\\" },\\n  { id: \\\"rails\\\", title: \\\"Late Night Rails\\\", description: \\\"A quiet journey across sleeping cities.\\\", color: \\\"#176B87\\\" },\\n  { id: \\\"signal\\\", title: \\\"Signal Coast\\\", description: \\\"A radio host follows a distant transmission.\\\", color: \\\"#5B4B8A\\\" }\\n];\\n\"}}",
-    "usage": { "input_tokens": 80, "output_tokens": 160 }
+    "phase": "plan",
+    "request": {
+      "model": "fixture",
+      "system": "mini-harness",
+      "messages": []
+    },
+    "response": "{\"summary\": \"Drafted the layout but omitted the required remote control section.\", \"files\": {\"out/TV_PORT_PLAN.md\": \"# Pocket Cinema \\u2014 TV Port Plan\\n\\n## TV Screen Layout\\n- A horizontal rail of cards.\\n\\n(Remote flow not yet described.)\\n\"}}",
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 200
+    }
+  },
+  {
+    "timestamp": "2026-07-03T12:00:01.500Z",
+    "phase": "plan",
+    "request": {
+      "model": "fixture",
+      "system": "mini-harness",
+      "messages": []
+    },
+    "response": "{\"summary\": \"Repaired the plan using the verification failure; added the remote control flow.\", \"files\": {\"out/TV_PORT_PLAN.md\": \"# Pocket Cinema \\u2014 TV Port Plan\\n\\n## TV Screen Layout\\n- A horizontal rail of show cards with a featured header. Large type and spacing for a 10-foot UI.\\n\\n## Remote Control\\n- Launch: focus starts on the first card.\\n- Left / Right: move focus along the rail, stopping at the boundaries.\\n- Select (OK): open the details for the focused card.\\n- Back: return to the rail and restore focus to the originating card.\\n\\n## Gaps\\n- Confirm the exact TV focus API on the target platform before coding.\\n\"}}",
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 200
+    }
   },
   {
     "timestamp": "2026-07-03T12:00:02.000Z",
-    "phase": "focus",
-    "request": { "model": "fixture", "system": "mini-harness", "messages": [] },
-    "response": "{\"summary\":\"Added visible remote-focus feedback to ShowCard.\",\"files\":{\"out/src/components/ShowCard.tsx\":\"import React, { useState } from \\\"react\\\";\\nimport { Pressable, StyleSheet, Text, View } from \\\"react-native\\\";\\nimport type { Show } from \\\"../catalog.js\\\";\\n\\nexport function ShowCard({ show }: { show: Show }) {\\n  const [focused, setFocused] = useState(false);\\n  return <Pressable onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={[styles.card, focused && styles.focused]}><View style={[styles.art, { backgroundColor: show.color }]} /><Text style={styles.title}>{show.title}</Text><Text style={styles.copy}>{show.description}</Text></Pressable>;\\n}\\n\\nconst styles = StyleSheet.create({ card: { width: 220, marginRight: 18, padding: 8, borderWidth: 3, borderColor: \\\"transparent\\\" }, focused: { borderColor: \\\"#F6C453\\\", transform: [{ scale: 1.04 }] }, art: { height: 130, borderRadius: 6 }, title: { color: \\\"#FFFFFF\\\", fontSize: 18, fontWeight: \\\"700\\\", marginTop: 10 }, copy: { color: \\\"#A8B0B7\\\", marginTop: 4 } });\\n\"}}",
-    "usage": { "input_tokens": 60, "output_tokens": 120 }
+    "phase": "build_test",
+    "request": {
+      "model": "fixture",
+      "system": "mini-harness",
+      "messages": []
+    },
+    "response": "{\"summary\": \"Built a preview and recorded screenshot and remote control evidence.\", \"files\": {\"out/build/preview.txt\": \"BUILD: preview ok (mini-harness synthetic build)\\nartifact: out/build/preview.txt\\n\", \"out/BUILD_TEST.md\": \"# Build and Test\\n\\n## Build\\n- Preview artifact written to out/build/preview.txt.\\n\\n## Screenshot\\n- Captured launch screenshot: out/build/launch.png (synthetic evidence).\\n\\n## Remote Control Checks\\n- launch: first card focused \\u2014 pass\\n- move: focus traverses the rail and stops at boundaries \\u2014 pass\\n- select: details open for the focused card \\u2014 pass\\n- back: focus returns to the originating card \\u2014 pass\\n\"}}",
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 200
+    }
   }
 ]
