@@ -155,6 +155,7 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
       ${command("Set up ADBT MCP for the Claude Code CLI (one time)","adbtInitCli")}
       ${command("Verify the ADBT MCP setup","adbtCheckStatus")}
       ${note("Where these come from","Amazon Devices Builder Tools ships the ADBT MCP server, skills, and steering docs as an npm package. <code>init-context</code> writes the MCP config into your agent; <code>check-status</code> confirms it. See the Vega docs: developer.amazon.com/docs/vega/0.22/mcp-server.html")}
+      <p>When the harness runs the CLI executor, it invokes it with <code>--allowedTools "*"</code> so whatever ADBT tools <code>init-context</code> configured are permitted without stalling on a permission prompt in non-interactive mode. The CLI runs against the guarded copy, and the harness applies only the returned typed patch.</p>
       ${command("Check ADBT and start VDA in a system terminal","vegaSetup")}
       <p>Keep that terminal open. In a second system terminal, run:</p>
       ${command("Confirm the SDK and attached device","vdaCheck")}
@@ -312,7 +313,7 @@ relying on them — they are not invented APIs presented as fact.
         "This is the skill \"record gaps instead of inventing APIs\" visibly working. The check <code>NextSteps.md contains \"ADBT\"</code> passed, all 8 checks passed, the phase committed.")}
       ${note("The lesson from the worked example","The model produces large, plausible, well-structured artifacts — and it also wraps JSON in prose and admits uncertainty. Plausible output is not clean output. The harness does not trust prose or vibes: it extracts the JSON, writes it to the guarded copy, and runs mechanical grep/file_exists checks. Only passing work is committed. That is <code>plausible &ne; verified</code>, made concrete.")}
 
-      <h2>Optional: use ADBT MCP live</h2>${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}${note("What changes","The harness uses Strands <code>McpClient</code> to discover and call two named tools, records approved excerpts and hashes, then disconnects. The model remains replayed.")}${done("You can trace each MCP construct from connection through approved context, a typed proposal, checks, a verified commit, and the final report.")}${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
+      <h2>Optional: use ADBT MCP live</h2>${command("Check the native MCP path","adbtDoctor")}${command("Run the port with runtime ADBT","portAdbtLive")}${mcpConstructs()}${note("What changes","The harness builds a Strands <code>McpClient</code> for ADBT and hands it to the agent. On a live Strands model the model discovers and calls ADBT's tools itself; here the model stays replayed, so this shows the live ADBT connection alongside recorded model turns. The harness reconstructs and hashes what was read, then disconnects.")}${done("You can trace each MCP construct from connection through approved context, a typed proposal, checks, a verified commit, and the final report.")}${fallback("Use the recorded ADBT context. A live port stops with exit 3 when ADBT is unavailable; it never continues with unsupported assumptions.")}`
   },
   {
     id: "tv", number: "07", nav: "Test remote behavior", time: "20 minutes", title: "Test the flow, not one screenshot",
@@ -473,12 +474,12 @@ function mcpConstructs() {
     ${table(["Construct","Role in the ADBT path"],[
       ["<code>McpClient</code>","Strands client wrapper that connects lazily, exposes MCP tools, calls them, and cleans up the connection."],
       ["<code>applicationName</code> / <code>applicationVersion</code>","Identify Past the Vibes Workshop to the MCP server during connection setup."],
-      ["<code>listTools()</code>","Discovers executable tool objects, then the harness requires <code>list_documents</code> and <code>read_document</code> by name."],
-      ["<code>callTool(tool, args, { signal })</code>","Calls a discovered tool with JSON arguments and a bounded cancellation signal."],
-      ["<code>JSONValue</code>","Keeps MCP arguments and results inside the JSON-compatible contract."],
+      ["<code>listTools()</code>","Strands calls this for the passed <code>McpClient</code> to discover ADBT's tools dynamically, then exposes them to the model. The harness does not require or pre-pick tool names."],
+      ["<code>Agent({ tools: [...projectTools, adbtClient] })</code>","The <code>McpClient</code> is passed into the agent's tools. Strands invokes ADBT's tools for the model during the agent loop; the harness does not call them."],
+      ["<code>agent.messages</code>","After the phase, the harness walks the tool-use and tool-result blocks to reconstruct which ADBT docs the model read, then hashes them into <code>adbt-port-context.json</code>."],
       ["<code>disconnect()</code>","Closes the child server and transport in <code>finally</code>, including failure paths."],
     ])}
-    ${note("The transport is a separate layer","<code>StdioClientTransport</code> comes from the official Model Context Protocol SDK, not Strands. It starts pinned ADBT as a child process. The harness uses <code>McpClient</code> directly; it does not register ADBT as an unrestricted agent tool source.")}`;
+    ${note("The transport is a separate layer","<code>StdioClientTransport</code> comes from the official Model Context Protocol SDK, not Strands. It starts pinned ADBT as a child process. The harness passes the <code>McpClient</code> into the agent's tools so the model can call ADBT itself; provenance is reconstructed from the message history afterward.")}`;
 }
 function snippet(caption, code, look) { return `<figure class="snippet"><figcaption>${caption}</figcaption><pre><code>${escape(code)}</code></pre>${look ? `<p class="look"><strong>Where to look:</strong> ${look}</p>` : ""}</figure>`; }
 function phaseCard(opts) {
