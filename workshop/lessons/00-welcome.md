@@ -10,26 +10,26 @@ evidence: A successful replay run, one chosen execution path, and a completed re
 ---
 
 :::concept Read this first if you have never built an agent harness
-You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That is fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong>: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself.
+You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That's fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong>: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself.
 :::
 
 :::note The one sentence to remember
-The model is a contractor with read-only access. The harness is the foreman who inspects the work, keeps the receipts, and signs off. The model proposes; the harness disposes.
+The model is a contractor with read-only access. The harness is the foreman: it checks the work and decides what gets in.
 :::
 
 <h2>Vocabulary, translated for a React Native dev</h2>
-      <p>You already know these ideas under other names. Here is the dictionary — the rest of the workshop uses these words.</p>
+      <p>You already know these ideas under other names. Here's the dictionary; the rest of the workshop uses these words.</p>
 
 :::raw
 <table><thead><tr><th>Term</th><th>What it actually is</th><th>Your mental model</th></tr></thead><tbody><tr><td><strong>LLM / model</strong></td><td>A program that turns text in into text out. Given a prompt, it returns a guess. Claude is one.</td><td>A well-read intern who writes plausible code but never runs it.</td></tr><tr><td><strong>Prompt</strong></td><td>The text you send the model.</td><td>The Jira ticket plus all the context you paste in.</td></tr><tr><td><strong>Agent</strong></td><td>A model wired to a loop where it can call functions ("tools"), see the result, and decide what to do next.</td><td>An intern who can grep your repo before answering, several times.</td></tr><tr><td><strong>Tool</strong></td><td>A named function you expose to the model, with a typed signature. The model <em>requests</em> a call; your code runs it and returns the result.</td><td>A locked-down CLI you hand the intern: <code>read_file</code>, <code>list_files</code>, nothing else.</td></tr><tr><td><strong>Structured output</strong></td><td>Forcing the model to answer as JSON matching a schema, not free prose.</td><td>A required PR template the intern cannot deviate from.</td></tr><tr><td><strong>MCP</strong></td><td><a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a> — a standard so one program can start another as a "server" and call its tools.</td><td>Starting a language server (LSP) and querying it, but for arbitrary tools.</td></tr><tr><td><strong>ADBT</strong></td><td><a href="https://www.npmjs.com/package/@amazon-devices/amazon-devices-buildertools-mcp" target="_blank" rel="noopener">Amazon Devices Builder Tools</a>, exposed here as an MCP server serving Vega migration docs.</td><td>An internal wiki you can query programmatically.</td></tr><tr><td><strong>Skill</strong></td><td>A block of domain instructions ("how to do TV focus") kept separate from code.</td><td>A runbook you paste into the ticket for one task.</td></tr><tr><td><strong>Harness</strong></td><td>The deterministic TypeScript program orchestrating all of the above.</td><td>Your CI pipeline, if CI could also call an intern mid-step.</td></tr><tr><td><strong>Replay</strong></td><td>Running the pipeline against <em>recorded</em> model answers instead of a live model.</td><td>Fixtures / VCR cassettes for network calls.</td></tr><tr><td><strong>VDA</strong></td><td>Vega Virtual Device — an emulator for the TV OS.</td><td>Android emulator, but for Vega.</td></tr></tbody></table>
 :::
 
 :::note The single most important idea
-An LLM generates <em>plausible</em> text. Plausible is not correct. <code>plausible &ne; verified</code>. Everything the harness does exists to close that gap — every phase ends in a mechanical check, not a vibe.
+An LLM generates <em>plausible</em> text, and plausible is not the same as correct: <code>plausible &ne; verified</code>. Everything the harness does closes that gap. Every phase ends in a mechanical check, not a vibe.
 :::
 
 <h2>Who is allowed to do what</h2>
-      <p>This is the security model. Read the boundary out loud:</p>
+      <p>This is the security model:</p>
 
 :::flow
 ADBT MCP | Approved Vega context
@@ -48,10 +48,10 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
 >look: The model (via Strands) can <em>list, read, and search</em> the guarded app, and the harness hands the whole ADBT <code>McpClient</code> to the agent so Strands discovers the ADBT tools dynamically and the model calls them itself. It still has no write tool and no shell. Afterward the harness reconstructs which ADBT docs it read and hashes them. Everything with consequences stays in <code>packages/workshop-harness/src/port-pipeline.ts</code>.
 :::
 
-<p>Why so strict? A model that could write files or run shell commands could, on a confident wrong guess, corrupt your repo or run something destructive. Keep irreversible actions in deterministic code and the worst a bad model answer can do is <em>fail a check and get rejected</em>.</p>
+<p>The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keep irreversible actions in deterministic code, and the worst a bad answer can do is <em>fail a check and get rejected</em>.</p>
 
 :::note What is Strands Agents SDK?
-<a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path. Both the complete workshop harness and the staged mini-harness pin 1.10.0. Two things make it a good fit: the production plumbing — provider adapters, typed tools, structured output, limits, cancellation, usage metrics — comes built in, and it stays a library rather than a framework, so the harness boundary this workshop teaches survives intact.
+<a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path. Both the complete workshop harness and the staged mini-harness pin 1.10.0. It fits this workshop for two reasons: the plumbing (provider adapters, typed tools, structured output, limits, cancellation, usage metrics) is built in, and it's a library, not a framework — it doesn't try to own writes or orchestration, so the harness boundary stays where we put it.
 :::
 
 :::raw
@@ -143,7 +143,7 @@ npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --age
 :::
 
 :::note Where these come from
-Amazon Devices Builder Tools ships the ADBT MCP server, skills, and steering docs as one pinned npm package: over 400 current Vega documents — migration workflows, knowledge-base pages, prompts — plus ten agent skills, served from a local process. <code>init-context</code> writes the MCP config into your agent (it supports Claude Code, Cursor, Kiro, Cline, and Copilot); <code>check-status</code> confirms it. It is the difference between a model reading the vendor's own current guidance and one guessing Vega APIs. See the <a href="https://developer.amazon.com/docs/vega/0.22/mcp-server.html" target="_blank" rel="noopener">Vega ADBT setup docs</a>.
+Amazon Devices Builder Tools ships the ADBT MCP server, skills, and steering docs as one pinned npm package: over 400 current Vega documents — migration workflows, knowledge-base pages, prompts — plus ten agent skills, served from a local process. <code>init-context</code> writes the MCP config into your agent (it supports Claude Code, Cursor, Kiro, Cline, and Copilot); <code>check-status</code> confirms it. With it, the model reads the vendor's current guidance instead of guessing Vega APIs from memory. See the <a href="https://developer.amazon.com/docs/vega/0.22/mcp-server.html" target="_blank" rel="noopener">Vega ADBT setup docs</a>.
 :::
 
 <p>When the harness runs the CLI executor, it invokes it with <code>--allowedTools "*"</code> so whatever ADBT tools <code>init-context</code> configured are permitted without stalling on a permission prompt in non-interactive mode. The CLI runs against the guarded copy, and the harness applies only the returned typed patch.</p>

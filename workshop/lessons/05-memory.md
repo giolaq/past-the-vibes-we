@@ -10,7 +10,7 @@ evidence: The saved PROJECT_CONTEXT.md separates decisions, facts, questions, an
 ---
 
 :::concept Why this step exists
-Project context should be small, attributable, and approved. A raw transcript is too noisy, too private, and too easy for an agent to misread as instruction.
+Project context should stay small, and every entry needs a source and a human sign-off. A raw transcript has none of that: it's noisy, private, and easy for an agent to misread as instruction.
 :::
 
 :::predict
