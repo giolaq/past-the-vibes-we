@@ -6,12 +6,21 @@ Separate domain instructions, system capabilities, and model access.
 
 ## Do this
 
-1. Run Step 4 with replay:
+1. Run Step 4 against a live model with your chosen executor:
 
 ```sh
+# Claude Code CLI
 yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
-  --replay steps/04-skills/fixtures/demo-recording.json
+  --executor claude-cli --model sonnet
+```
+
+```sh
+# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
+  steps/04-skills/fixtures/phases.json \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
 ```
 
 2. Open these files:
@@ -27,22 +36,12 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
 4. Compare the teaching modules with the production modules in `packages/mini-harness/ISOMORPHISM.md`.
 5. Open the `react-native-analysis`, `tv-porting-plan`, and `tv-build-test` skills (one per phase). Notice that the target remains React Native; Step 4 changes how the agent receives domain knowledge, not what kind of app it works on.
 
-Optional live run with Claude Code:
+Fallback if the live model is blocked — replay shows the same module boundaries without credentials:
 
 ```sh
 yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
   steps/04-skills/fixtures/phases.json \
-  --executor claude-cli --model sonnet
-```
-
-Optional live run with Strands and Bedrock:
-
-```sh
-yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
-  steps/04-skills/fixtures/phases.json \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
-  --region us-west-2
+  --replay steps/04-skills/fixtures/demo-recording.json
 ```
 
 ## Read the Strands call from top to bottom

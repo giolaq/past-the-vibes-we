@@ -32,7 +32,7 @@ yarn verify
 yarn doctor
 ```
 
-## Run the key-free workshop path
+## Run the port
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema \
@@ -40,7 +40,24 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-Read the plan. Then run the recorded port:
+Read the plan. Then run the port against a live model (pick your executor). `build_test` needs an attached VDA to capture the launch screenshot:
+
+```sh
+# Claude Code CLI (ADBT via init-context; see "ADBT during the port" below)
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --executor claude-cli --model sonnet \
+  --yes --seed workshop-v1 --max-cost 3 --json
+
+# Strands + Bedrock (harness hands the ADBT McpClient to the agent)
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
+  --yes --seed workshop-v1 --max-cost 3 --json
+```
+
+Fallback if a live model, ADBT, or VDA is unavailable — the fully recorded path (`adbt.mode` will be `replay`):
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \

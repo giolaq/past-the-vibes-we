@@ -4,7 +4,7 @@
 
 Use ADBT for Vega guidance, then save build and device evidence in the run report.
 
-ADBT already supplied the migration context through Strands `McpClient` during lesson 6's `plan` phase, and `build_test` already built the package and required a launch screenshot. The generated package uses the SDK template shape and React Native's `build-vega` command. Vega CLI installs and launches the package. VDA supplies device status, logs, and screenshots. This lesson replays that same lifecycle so you can inspect the device evidence. The harness runs those steps in order and stops when a gate fails.
+ADBT supplied the migration context during lesson 6's `plan` phase, and `build_test` already built the package and required a launch screenshot. The generated package uses the SDK template shape and React Native's `build-vega` command. Vega CLI installs and launches the package. VDA supplies device status, logs, and screenshots. This lesson runs that lifecycle on a real device so you can inspect the evidence. The harness runs the gates in order and stops when one fails.
 
 ## Do this
 
@@ -15,46 +15,21 @@ yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --plan --
 ```
 
 2. Read the plan before continuing. Check the app path, SDK, eight commands, and confirmation requirement.
-3. Run the key-free replay:
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
-  --yes --json
-```
-
-4. Open `out/<runId>/vega-platform-result.json`. Confirm it records:
-
-- pinned ADBT and Vega SDK versions;
-- device-status output;
-- build, install, and launch results;
-- logs and a screenshot path;
-- the focus transition result;
-- any remaining blocker.
-
-## Optional live device run
-
-The harness owns the ADBT MCP connection, so it does not change Claude Code configuration. Check ADBT through the same runtime path used in lesson 6, then check Vega SDK:
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
-vega --version
-```
-
-Start the virtual device in a system terminal and leave that terminal open:
+3. Start the virtual device in a system terminal and leave that terminal open:
 
 ```sh
 vega virtual-device start --gui
 ```
 
-In a second terminal, wait until both commands show an attached device:
+4. In a second terminal, wait until both commands show an attached device:
 
 ```sh
+vega --version
 vega virtual-device status
 vega exec vda devices -l
 ```
 
-Install the pinned Vega package dependencies in the guarded copy, then run the same approved lifecycle without the replay flag:
+5. Install the pinned Vega package dependencies in the guarded copy, then run the approved lifecycle on the device:
 
 ```sh
 npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
@@ -64,7 +39,28 @@ yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \
 
 If you use `checkpoints/vega-buildable/app`, run `npm ci` instead because that checkpoint includes the tested lockfile.
 
-The lifecycle stops at the first failed gate. An empty `devices -l` result is a device failure even when the command exits successfully. Fix the device once or switch to replay; do not keep launching builds with no attached target.
+6. Open `out/<runId>/vega-platform-result.json`. Confirm it records:
+
+- pinned ADBT and Vega SDK versions;
+- device-status output;
+- build, install, and launch results;
+- logs and a screenshot path;
+- the focus transition result;
+- any remaining blocker.
+
+The lifecycle stops at the first failed gate. An empty `devices -l` result is a device failure even when the command exits successfully.
+
+> **Screenshot caveat.** On the current VDA image the screenshot tool segfaults at the capture gate, so a fully live run may fail there even when build, install, and launch pass. If you hit it, finish the lesson with the replay fallback below.
+
+## Fallback: key-free lifecycle replay
+
+If no VDA is attached (or the screenshot gate segfaults), run the recorded lifecycle — same eight gates, labeled `evidenceMode: "replay"`:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --yes --json
+```
 
 ## Why this matters
 
@@ -72,8 +68,8 @@ Platform commands should live behind a small adapter. ADBT provides versioned kn
 
 ## You are done when
 
-For replay, the result contains eight successful lifecycle steps, the focus transition check, a log path, a screenshot path, and `evidenceMode: "replay"`. For a live device claim, require `evidenceMode: "live"` plus real install, launch, log, and screenshot evidence. Never present replay as device certification.
+For a live device claim, the result has eight successful lifecycle steps, the focus transition check, a log path, a screenshot path, and `evidenceMode: "live"` with a screenshot that came from the device. For the fallback, the same eight gates pass with `evidenceMode: "replay"`. Never present replay as device certification.
 
 ## If blocked
 
-Try one repair for no more than 10 minutes. Then use the platform replay command. Device setup is optional; understanding the lifecycle and evidence is required.
+Try one device repair for no more than 10 minutes. Then use the platform replay command above to finish the lesson. Understanding the lifecycle and evidence is the required outcome; a working device is not.
