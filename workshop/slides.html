@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Past the Vibes — Speaker Deck</title>
+<!-- ============================================================
+     PAST THE VIBES — speaker deck
+     Built with the frontend-slides skill conventions:
+     - single self-contained HTML file, zero dependencies
+     - fixed 16:9 stage (1920x1080) scaled to the viewport
+     - .active/.visible slide classes (never display:none)
+     - staggered .reveal animations per slide
+     - keyboard (arrows/space/pgup/pgdn/home/end) + touch navigation
+     Style: the workshop's own navy/orange brand, dark "10-foot UI"
+     cinema treatment. The recurring orange rounded outline is a TV
+     focus ring — the workshop's core visual idea.
+     ============================================================ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES
+   Include this ENTIRE file in every presentation.
+   Slides are authored at 1920×1080 and scaled as a whole.
+   =========================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--slide-bg, #fff);
+}
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+img, video, canvas, svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide {
+        position: relative;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 1920px;
+        height: 1080px;
+        break-after: page;
+        page-break-after: always;
+    }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+}
+
+/* ===========================================
+   THEME — the workshop brand, dark cinema cut
+   =========================================== */
+:root {
+    --stage-bg: #05090d;          /* letterbox around the stage */
+    --slide-bg: #0c141d;          /* deep navy, darker than the site topbar */
+    --panel: #16222e;             /* raised panel */
+    --panel-2: #1c2c3b;           /* site navy-2 */
+    --ink: #eef3f7;               /* near-white text */
+    --muted: #93a5b4;             /* secondary text */
+    --faint: #5c6d7c;             /* tertiary text */
+    --orange: #ff6b1a;            /* brand accent = the focus ring */
+    --orange-soft: #ff8b4d;
+    --blue: #4da3e0;              /* site blue, lifted for dark bg */
+    --green: #2fae7d;
+    --red: #e05252;
+    --line: #2a3a49;
+    --display: "Archivo", Arial, "Helvetica Neue", sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+/* Slide scaffolding: every slide gets the same atmospheric background
+   (radial glow + faint dot grid) and generous 10-foot padding. */
+.slide {
+    font-family: var(--display);
+    color: var(--ink);
+    background:
+        radial-gradient(1100px 700px at 78% 18%, #14283a 0%, transparent 60%),
+        radial-gradient(900px 600px at 12% 88%, #101c29 0%, transparent 55%),
+        var(--slide-bg);
+}
+.slide::before {
+    /* faint dot grid, kept subtle so type stays the hero */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(#ffffff10 1.5px, transparent 1.5px);
+    background-size: 56px 56px;
+    mask-image: linear-gradient(180deg, #0006, #000 40%, #0006);
+    pointer-events: none;
+}
+.wrap {
+    position: absolute;
+    inset: 0;
+    padding: 110px 140px 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 34px;
+}
+
+/* Recurring text roles */
+.kicker {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--orange);
+}
+.kicker .dim { color: var(--faint); }
+h1 {
+    margin: 0;
+    font-size: 128px;
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -2px;
+}
+h2 {
+    margin: 0;
+    font-size: 84px;
+    font-weight: 900;
+    line-height: 1.06;
+    letter-spacing: -1.5px;
+    max-width: 1500px;
+}
+.support {
+    font-size: 36px;
+    line-height: 1.45;
+    font-weight: 500;
+    color: var(--muted);
+    max-width: 1360px;
+}
+.support strong { color: var(--ink); font-weight: 700; }
+.support code, .kicker code { font-family: var(--mono); color: var(--orange-soft); font-size: 0.92em; }
+.accent { color: var(--orange); }
+.blue { color: var(--blue); }
+.green { color: var(--green); }
+.red { color: var(--red); }
+
+/* The focus ring — the deck's signature object. An orange rounded
+   outline with a soft glow, exactly like TV focus on a card. */
+.focus-card {
+    position: relative;
+    border: 5px solid var(--orange);
+    border-radius: 22px;
+    box-shadow: 0 0 0 10px #ff6b1a22, 0 24px 70px #00000066;
+    background: var(--panel);
+}
+
+/* Panels, chips, big code lines */
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 40px 48px;
+}
+.chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--slide-bg);
+    background: var(--orange);
+    border-radius: 8px;
+    padding: 8px 18px;
+}
+.codeline {
+    font-family: var(--mono);
+    font-size: 32px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: #0a1119;
+    border: 1px solid var(--line);
+    border-left: 6px solid var(--orange);
+    border-radius: 12px;
+    padding: 26px 34px;
+    white-space: pre;
+}
+.codeline .c { color: var(--faint); }
+.codeline .o { color: var(--orange-soft); }
+.codeline .g { color: var(--green); }
+.codeline .b { color: var(--blue); }
+.codeline .r { color: var(--red); }
+
+/* Two-column comparisons */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+.cols .panel h3 {
+    margin: 0 0 22px;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: var(--mono);
+}
+.cols .panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 16px; }
+.cols .panel li { font-size: 30px; line-height: 1.35; color: var(--muted); padding-left: 36px; position: relative; }
+.cols .panel li::before { content: "—"; position: absolute; left: 0; color: var(--orange); }
+.cols .panel li strong { color: var(--ink); font-weight: 700; }
+
+/* Pipeline flow (boxes and arrows) */
+.flow { display: flex; align-items: stretch; gap: 18px; }
+.flow .step {
+    flex: 1;
+    display: grid;
+    align-content: center;
+    gap: 8px;
+    padding: 30px 26px;
+    background: var(--panel-2);
+    border-top: 6px solid var(--orange);
+    border-radius: 0 0 14px 14px;
+}
+.flow .step b { font-size: 32px; font-weight: 700; }
+.flow .step span { font-size: 22px; color: var(--muted); line-height: 1.3; }
+.flow .arrow { align-self: center; font-size: 40px; color: var(--orange); font-weight: 900; }
+
+/* Big statement slides */
+.statement {
+    font-size: 150px;
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -3px;
+    margin: 0;
+}
+.statement .mono { font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
+
+/* Slide chrome: lesson tag (top-left) + footer strip */
+.tag {
+    position: absolute;
+    top: 56px;
+    left: 140px;
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+.tag b { color: var(--orange); font-weight: 600; }
+.foot {
+    position: absolute;
+    bottom: 48px;
+    left: 140px;
+    right: 140px;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--faint);
+    letter-spacing: 1px;
+}
+
+/* D-pad diagram for the TV slide */
+.dpad { display: grid; grid-template-columns: repeat(3, 110px); grid-auto-rows: 110px; gap: 14px; justify-content: center; }
+.dpad button {
+    font: 600 40px var(--mono);
+    color: var(--ink);
+    background: var(--panel-2);
+    border: 2px solid var(--line);
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.dpad .ok { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 0 6px #ff6b1a22; }
+
+/* Reveal animation: children fade/rise in sequence when the slide
+   becomes .visible. Delays are set inline via --d. */
+.reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity 600ms ease var(--d, 0ms), transform 600ms ease var(--d, 0ms);
+}
+.slide.visible .reveal { opacity: 1; transform: none; }
+
+/* Deck chrome: progress bar + counter (outside the slide design) */
+.deck-progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 5px;
+    background: var(--orange);
+    z-index: 1001;
+    transition: width 300ms ease;
+}
+.deck-counter {
+    position: fixed;
+    right: 26px;
+    bottom: 20px;
+    z-index: 1001;
+    font: 600 15px var(--mono);
+    color: #93a5b4;
+    letter-spacing: 1px;
+    background: #0c141dd0;
+    border: 1px solid #2a3a49;
+    border-radius: 8px;
+    padding: 7px 13px;
+}
+</style>
+</head>
+<body>
+<div class="deck-viewport">
+  <div class="deck-stage" id="stage">
+
+    <!-- 1 ▸ TITLE -->
+    <section class="slide">
+      <div class="wrap" style="justify-content:center; align-items:flex-start;">
+        <div class="kicker reveal" style="--d:0ms">A hands-on workshop <span class="dim">·</span> 4 hours <span class="dim">·</span> bring a laptop</div>
+        <h1 class="reveal" style="--d:120ms">PAST THE<br><span class="accent">VIBES</span></h1>
+        <div class="support reveal" style="--d:240ms">Build an agent harness for your React&nbsp;Native app.</div>
+        <div class="reveal" style="--d:380ms; display:flex; gap:28px; margin-top:20px;">
+          <div class="focus-card" style="padding:22px 38px; font-size:30px; font-weight:700;">Giovanni Laquidara</div>
+          <div class="panel" style="padding:22px 38px; font-size:30px; font-weight:700; border-radius:22px;">Kourtney Meiss</div>
+        </div>
+      </div>
+      <div class="foot"><span>past-the-vibes-we</span><span>replay works with zero credentials</span></div>
+    </section>
+
+    <!-- 2 ▸ THE LINE -->
+    <section class="slide">
+      <div class="tag"><b>Intro</b> · why we are here</div>
+      <div class="wrap">
+        <div class="support reveal" style="--d:0ms">You have heard some version of this line:</div>
+        <h2 class="reveal" style="--d:140ms">“Stop writing prompts.<br>Start building <span class="accent">the loop</span> that writes them for you.”</h2>
+        <div class="support reveal" style="--d:300ms">Today we actually explain what it means — and <strong>build one, piece by piece</strong>, against a real React Native app.</div>
+      </div>
+      <div class="foot"><span>intro</span><span>one agent → a working pipeline</span></div>
+    </section>
+
+    <!-- 3 ▸ THE PROBLEM -->
+    <section class="slide">
+      <div class="tag"><b>Intro</b> · the one idea behind everything</div>
+      <div class="wrap" style="gap:50px;">
+        <p class="statement reveal" style="--d:0ms"><span class="mono accent">plausible</span><br><span class="mono" style="color:var(--faint)">&ne;</span> <span class="mono blue">verified</span></p>
+        <div class="support reveal" style="--d:200ms">An LLM generates <strong>plausible</strong> text. Plausible is not correct.<br>Everything we build today exists to close that gap: <strong>every phase ends in a mechanical check, not a vibe.</strong></div>
+      </div>
+      <div class="foot"><span>intro</span><span>write this down</span></div>
+    </section>
+
+    <!-- 4 ▸ THE ONE SENTENCE -->
+    <section class="slide">
+      <div class="tag"><b>Intro</b> · the security model</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">The model is a <span class="blue">contractor</span>.<br>The harness is the <span class="accent">foreman</span>.</h2>
+        <div class="cols reveal" style="--d:180ms">
+          <div class="panel">
+            <h3 class="blue">Model · read-only</h3>
+            <ul>
+              <li><strong>Lists, reads, searches</strong> the guarded app</li>
+              <li>Returns a <strong>typed patch</strong>: <code style="font-family:var(--mono)">{summary, files}</code></li>
+              <li>No shell. No write tool. Ever.</li>
+            </ul>
+          </div>
+          <div class="panel" style="border-color:var(--orange)">
+            <h3 class="accent">Harness · owns consequences</h3>
+            <ul>
+              <li><strong>Writes files</strong>, runs checks, retries once</li>
+              <li>Enforces the <strong>cost cap</strong>, commits passing work</li>
+              <li>Keeps the receipts: evidence, hashes, reports</li>
+            </ul>
+          </div>
+        </div>
+        <div class="support reveal" style="--d:320ms"><strong>The model proposes; the harness disposes.</strong> Say it out loud once per hour.</div>
+      </div>
+      <div class="foot"><span>intro</span><span>this boundary never moves today</span></div>
+    </section>
+
+    <!-- 5 ▸ THE PIPELINE -->
+    <section class="slide">
+      <div class="tag"><b>Intro</b> · the whole system on one slide</div>
+      <div class="wrap" style="gap:54px;">
+        <h2 class="reveal" style="--d:0ms">One bounded loop, run three times</h2>
+        <div class="flow reveal" style="--d:160ms">
+          <div class="step"><b>ADBT MCP</b><span>model reads Vega workflows itself</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Strands agent</b><span>read-only tools, typed patch out</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Harness</b><span>write → check → retry → commit</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Evidence</b><span>hashes, git log, screenshots, report</span></div>
+        </div>
+        <div class="codeline reveal" style="--d:320ms"><span class="b">analyze</span>  →  <span class="b">plan</span>  →  <span class="b">build_test</span>      <span class="c">// lesson 1 through the final port</span></div>
+      </div>
+      <div class="foot"><span>intro</span><span>packages/workshop-harness/src/port-pipeline.ts</span></div>
+    </section>
+
+    <!-- 6 ▸ TODAY'S ARC -->
+    <section class="slide">
+      <div class="tag"><b>Intro</b> · how the four hours run</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Ten lessons. One rule.</h2>
+        <div class="cols reveal" style="--d:160ms">
+          <div class="panel">
+            <h3 style="color:var(--muted)">The arc</h3>
+            <ul>
+              <li><strong>1–4</strong> · build a mini-harness from one model call</li>
+              <li><strong>5–8</strong> · run the real React&nbsp;Native → Vega TV port</li>
+              <li><strong>9</strong> · optional: Bee context, with consent</li>
+              <li><strong>10</strong> · design a harness for <strong>your</strong> domain</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3 style="color:var(--muted)">The rule</h3>
+            <ul>
+              <li>Live model first — <strong>replay is the safety net</strong></li>
+              <li>Blocked? Debug for <strong>10 minutes, then replay</strong></li>
+              <li>Replay needs <strong>zero credentials</strong>: no key, no device</li>
+              <li>Every lesson states exactly <strong>what proves completion</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>intro</span><span>site: yarn site → localhost:4173</span></div>
+    </section>
+
+    <!-- 7 ▸ LESSON 1 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 1</b> · from prompt to loop</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">Start with <span class="accent">one model call</span>.<br>Then ask what it cannot prove.</h2>
+        <div class="codeline reveal" style="--d:160ms">$ tsx steps/01-single-agent/index.ts run fixtures/phases.json
+<span class="g">✓</span> out/ANALYSIS.md written        <span class="r">✗</span> <span class="c">…is any of it true?</span></div>
+        <div class="support reveal" style="--d:300ms">The file exists — that is all we know. The analysis could name components that don’t exist and call unportable code portable. <strong>Your job: write down three claims this script cannot prove.</strong></div>
+      </div>
+      <div class="foot"><span>lesson 01 · 15 min</span><span>a model call with side effects is not yet a harness</span></div>
+    </section>
+
+    <!-- 8 ▸ LESSON 2 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 2</b> · verification and retry</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">A retry is only useful when it<br>carries <span class="accent">new information</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md
+<span class="c">→ exact failure text goes into attempt 2 …</span>
+<span class="g">✓</span> plan repaired: remote control section added</div>
+        <div class="support reveal" style="--d:300ms">“Try again” buys another guess. <strong>The exact failure narrows the problem</strong> and keeps the original requirement. One bounded retry — then stop.</div>
+      </div>
+      <div class="foot"><span>lesson 02 · 20 min</span><span>steps/02-verify-loop/verify.ts</span></div>
+    </section>
+
+    <!-- 9 ▸ LESSON 3 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 3</b> · phases, checkpoints, cost</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Long runs fail.<br>Plan for the failure.</h2>
+        <div class="cols reveal" style="--d:160ms" role="presentation">
+          <div class="panel">
+            <h3 style="color:var(--muted)">Three different memories</h3>
+            <ul>
+              <li><strong>Phases</strong> limit the size of each change</li>
+              <li><strong>Checkpoints</strong> remember run progress → <code style="font-family:var(--mono)">--resume</code></li>
+              <li><strong>Git commits</strong> preserve each verified code state</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3 style="color:var(--muted)">Watch for</h3>
+            <ul>
+              <li><code style="font-family:var(--mono)">checkpoint.json: {"nextPhase": 2}</code></li>
+              <li>Resume runs <strong>only</strong> <code style="font-family:var(--mono)">build_test</code></li>
+              <li>Cost visible on every phase — and capped</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>lesson 03 · 25 min</span><span>they answer different recovery questions</span></div>
+    </section>
+
+    <!-- 10 ▸ LESSON 4 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 4</b> · tools, skills, executors</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">The skills are <span class="accent">Amazon’s</span>, not ours</h2>
+        <div class="codeline reveal" style="--d:160ms">analyze     → <span class="o">amazon-devices-vega-best-practices</span>
+plan        → <span class="o">amazon-devices-vega-focus-management</span>
+build_test  → <span class="o">amazon-devices-vega-build-and-run</span></div>
+        <div class="support reveal" style="--d:300ms">Installed by ADBT’s <code>init-context</code>, versioned by the vendor, consumed by the harness without owning a word of them. <strong>Swapping a phase’s expertise is a one-line change in <code>phases.json</code>.</strong> Claude CLI gets skill text in the prompt; Strands activates them through <code>AgentSkills</code>.</div>
+      </div>
+      <div class="foot"><span>lesson 04 · 20 min</span><span>knowledge delivery ≠ model access ≠ pipeline control</span></div>
+    </section>
+
+    <!-- 11 ▸ STRANDS -->
+    <section class="slide">
+      <div class="tag"><b>Under the hood</b> · the agent runtime</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms"><span class="blue">Strands Agents SDK</span> — the plumbing comes built in</h2>
+        <div class="cols reveal" style="--d:160ms">
+          <div class="panel">
+            <h3 class="blue">The SDK supplies</h3>
+            <ul>
+              <li>One interface for <strong>Bedrock / OpenAI / OpenRouter</strong></li>
+              <li><strong>Zod-typed tools</strong> · schema-enforced output</li>
+              <li>Turn &amp; token <strong>limits</strong>, cancellation, metrics, <strong>native MCP</strong></li>
+            </ul>
+          </div>
+          <div class="panel" style="border-color:var(--orange)">
+            <h3 class="accent">It stays a library</h3>
+            <ul>
+              <li>Never asks to own <strong>writes, git, orchestration</strong></li>
+              <li>The harness boundary <strong>survives the SDK</strong></li>
+              <li>Our whole executor: <strong>~100 lines</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="support reveal" style="--d:300ms">AWS’s open-source agent runtime, TypeScript and Python. Pinned here at <code>1.10.0</code>.</div>
+      </div>
+      <div class="foot"><span>reference: strands-constructs.md</span><span>github.com/strands-agents/harness-sdk</span></div>
+    </section>
+
+    <!-- 12 ▸ ADBT -->
+    <section class="slide">
+      <div class="tag"><b>Under the hood</b> · the knowledge source</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms"><span class="accent">ADBT</span> — vendor docs, not guessed APIs</h2>
+        <div class="cols reveal" style="--d:160ms">
+          <div class="panel">
+            <h3 style="color:var(--muted)">One pinned npm package</h3>
+            <ul>
+              <li><strong>400+ current Vega documents</strong> — workflows, KB, prompts</li>
+              <li><strong>10 agent skills</strong> — manifest, focus, media, navigation…</li>
+              <li>Served <strong>locally over MCP</strong>; one installer, every major agent</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3 style="color:var(--muted)">Why it matters here</h3>
+            <ul>
+              <li>The model reads <strong>Amazon’s own migration guidance</strong></li>
+              <li>ADBT down? The run <strong>stops at exit 3</strong> — it never invents APIs</li>
+              <li>Every read is <strong>hashed into the evidence</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>@amazon-devices/amazon-devices-buildertools-mcp</span><span>developer.amazon.com/docs/vega</span></div>
+    </section>
+
+    <!-- 13 ▸ LESSON 5 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 5</b> · project memory</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">Facts get <span class="accent">reviewed</span><br>before they get remembered</h2>
+        <div class="flow reveal" style="--d:160ms">
+          <div class="step"><b>snapshot</b><span>scrubbed source, never a transcript</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>propose</b><span>model drafts candidate facts</span></div>
+          <div class="arrow">→</div>
+          <div class="step" style="border-top-color:var(--blue)"><b>you review</b><span>the human approval gate</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>apply</b><span>PROJECT_CONTEXT.md, with sources</span></div>
+        </div>
+        <div class="support reveal" style="--d:300ms">The model may summarize candidates. <strong>It cannot silently promote them into trusted context.</strong> Every saved fact names its source; open questions never masquerade as decisions.</div>
+      </div>
+      <div class="foot"><span>lesson 05 · 15 min</span><span>durable truth is a human decision</span></div>
+    </section>
+
+    <!-- 14 ▸ LESSON 6 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 6</b> · the port — the main event</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Your source app is<br><span class="accent">never touched</span></h2>
+        <div class="codeline reveal" style="--d:160ms">apps/pocket-cinema   <span class="c">→ copied →</span>   out/&lt;runId&gt;/app   <span class="c">(git init inside)</span>
+<span class="b">analyze</span> → feasibility gate <span class="c">(blocked ⇒ exit 5, before any spend)</span>
+<span class="b">plan</span>    → model reads ADBT workflows itself · every read <span class="o">SHA-256 hashed</span>
+<span class="b">build_test</span> → focus test must pass + <span class="o">device screenshot required</span></div>
+        <div class="support reveal" style="--d:300ms">Approve the plan, set the <strong>$3 cap</strong>, run. One commit per verified phase — if phase 3 explodes, phases 1 and 2 are already safe.</div>
+      </div>
+      <div class="foot"><span>lesson 06 · 35 min</span><span>evidence chain: adbt-port-context.json → git log → report</span></div>
+    </section>
+
+    <!-- 15 ▸ WORKED EXAMPLE -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 6</b> · a real run, unedited</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">The best output of the day:<br>the model <span class="accent">admitting uncertainty</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="c">## Unverified against SDK docs (MCP doc access not granted)</span>
+The items below … <span class="o">MUST be confirmed</span> against the named KB documents
+before relying on them — they are <span class="o">not invented APIs presented as fact</span>.</div>
+        <div class="support reveal" style="--d:300ms">From the recorded live run: instead of bluffing, the model wrote its gaps into <code>NextSteps.md</code>. The skill said <strong>“record gaps instead of inventing APIs”</strong> — and the checks don’t trust prose either way.</div>
+      </div>
+      <div class="foot"><span>lesson 06 · worked example</span><span>plausible ≠ verified, made concrete</span></div>
+    </section>
+
+    <!-- 16 ▸ LESSON 7 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 7</b> · TV as the stress test</div>
+      <div class="wrap" style="gap:40px;">
+        <div style="display:grid; grid-template-columns: 1fr 420px; gap:60px; align-items:center;">
+          <div style="display:grid; gap:36px;">
+            <h2 class="reveal" style="--d:0ms">A screenshot shows a moment.<br><span class="accent">Focus is temporal.</span></h2>
+            <div class="codeline reveal" style="--d:160ms">launch  → featured action <span class="g">has focus</span>
+down    → focus enters the first rail
+left/right → <span class="g">stops at boundaries</span>
+select  → details opens for <span class="o">that</span> card
+back    → <span class="o">the same card</span> regains focus</div>
+            <div class="support reveal" style="--d:300ms">The last line is the one screenshots always miss. It’s verified by <strong>an executable check</strong>, not an eyeball: <code>tv-focus-result.json → "passed": true</code>.</div>
+          </div>
+          <div class="reveal" style="--d:240ms">
+            <div class="dpad" aria-label="TV remote D-pad">
+              <span></span><button>↑</button><span></span>
+              <button>←</button><button class="ok">OK</button><button>→</button>
+              <span></span><button>↓</button><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>lesson 07 · 20 min</span><span>tests/verify-tv-focus.ts — no device required</span></div>
+    </section>
+
+    <!-- 17 ▸ LESSON 8 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 8</b> · the Vega device lifecycle</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Eight gates, and an honest label<br>on every claim</h2>
+        <div class="codeline reveal" style="--d:160ms">sdk → device → build → install → launch → logs → capture → pull
+<span class="g">evidenceMode: live</span>    <span class="c">this app ran on an attached device</span>
+<span class="b">evidenceMode: replay</span>  <span class="c">the control flow works — not device proof</span></div>
+        <div class="support reveal" style="--d:300ms">A successful process exit is not evidence when no device is attached. The harness records <strong>the exact command, exit code, artifact, and mode</strong> for every gate — keep the two claims separate.</div>
+      </div>
+      <div class="foot"><span>lesson 08 · 25 min</span><span>vega-run &lt;runId&gt; · replay fallback always available</span></div>
+    </section>
+
+    <!-- 18 ▸ LESSON 9 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 9</b> · optional — Bee context</div>
+      <div class="wrap" style="gap:46px;">
+        <h2 class="reveal" style="--d:0ms">Context with <span class="accent">consent</span>.<br>A snapshot, never a transcript.</h2>
+        <div class="support reveal" style="--d:180ms"><strong>Bee</strong> is Amazon’s wearable AI: it turns your conversations about the product into searchable decisions. Here it is only a <strong>discovery source</strong> — search, pick one conversation, save a scrubbed snapshot with source ids and a hash, then run it through lesson 5’s approval gate.</div>
+        <div class="codeline reveal" style="--d:320ms">disconnect Bee → the approved snapshot <span class="g">still works</span>
+<span class="c">// reproducible without a live private-data dependency</span></div>
+      </div>
+      <div class="foot"><span>lesson 09 · optional, 15 min</span><span>synthetic fixture is the normal path</span></div>
+    </section>
+
+    <!-- 19 ▸ LESSON 10 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 10</b> · take it home</div>
+      <div class="wrap" style="gap:50px;">
+        <h2 class="reveal" style="--d:0ms">TV was the example.<br><span class="accent">The loop is the point.</span></h2>
+        <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → checkpoint → report</div>
+        <div class="support reveal" style="--d:300ms">Take the worksheet. Name <strong>one outcome</strong>, the fewest useful phases, <strong>one mechanical check per phase</strong>, an approval point, a budget, and the evidence another developer can inspect. Swap the TV skill, the Vega adapter, and the D-pad check for your domain.</div>
+      </div>
+      <div class="foot"><span>lesson 10 · 15 min</span><span>worksheet.md</span></div>
+    </section>
+
+    <!-- 20 ▸ CLOSE -->
+    <section class="slide">
+      <div class="wrap" style="justify-content:center; align-items:flex-start; gap:44px;">
+        <div class="kicker reveal" style="--d:0ms">Fork it · run it · replace the TV parts with your domain</div>
+        <h1 class="reveal" style="--d:140ms; font-size:110px;">Go past<br>the <span class="accent">vibes</span>.</h1>
+        <div class="reveal" style="--d:280ms; display:grid; gap:14px;">
+          <div class="codeline" style="font-size:36px;">github.com/giolaq/past-the-vibes-we</div>
+        </div>
+        <div class="support reveal" style="--d:400ms">Everything you ran today runs at home with <strong>zero credentials</strong> — the replay path is yours to keep. Giovanni Laquidara · Kourtney Meiss</div>
+      </div>
+      <div class="foot"><span>thank you</span><span>questions → find us at the break</span></div>
+    </section>
+
+  </div>
+</div>
+
+<div class="deck-progress" id="progress"></div>
+<div class="deck-counter" id="counter">1 / 20</div>
+
+<script>
+/* ============================================================
+   SlidePresentation — fixed-stage scaling + navigation.
+   - scales the 1920x1080 stage uniformly into the window
+   - .active/.visible toggling (visibility/opacity, no display:none)
+   - keyboard: arrows, space, page up/down, home/end
+   - touch: horizontal swipe
+   - URL hash (#n) survives reload and deep-links a slide
+   ============================================================ */
+(function () {
+  const stage = document.getElementById("stage");
+  const slides = Array.from(stage.querySelectorAll(".slide"));
+  const progress = document.getElementById("progress");
+  const counter = document.getElementById("counter");
+  let index = 0;
+
+  function scale() {
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    const x = (window.innerWidth - 1920 * s) / 2;
+    const y = (window.innerHeight - 1080 * s) / 2;
+    stage.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+  }
+
+  function show(next, updateHash = true) {
+    index = Math.max(0, Math.min(slides.length - 1, next));
+    slides.forEach((slide, i) => {
+      slide.classList.toggle("active", i === index);
+      /* .visible is added a frame later so .reveal transitions replay
+         every time a slide is entered */
+      slide.classList.remove("visible");
+      if (i === index) requestAnimationFrame(() => requestAnimationFrame(() => slide.classList.add("visible")));
+    });
+    progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+    counter.textContent = `${index + 1} / ${slides.length}`;
+    if (updateHash) history.replaceState(null, "", `#${index + 1}`);
+  }
+
+  window.addEventListener("resize", scale);
+  window.addEventListener("keydown", (event) => {
+    if (["ArrowRight", "ArrowDown", " ", "PageDown"].includes(event.key)) { event.preventDefault(); show(index + 1); }
+    if (["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key)) { event.preventDefault(); show(index - 1); }
+    if (event.key === "Home") { event.preventDefault(); show(0); }
+    if (event.key === "End") { event.preventDefault(); show(slides.length - 1); }
+  });
+
+  let touchX = null;
+  window.addEventListener("touchstart", (event) => { touchX = event.touches[0].clientX; }, { passive: true });
+  window.addEventListener("touchend", (event) => {
+    if (touchX === null) return;
+    const dx = event.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 60) show(index + (dx < 0 ? 1 : -1));
+    touchX = null;
+  }, { passive: true });
+
+  scale();
+  show(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1), false);
+})();
+</script>
+</body>
+</html>
