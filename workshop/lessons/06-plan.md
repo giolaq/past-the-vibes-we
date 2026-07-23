@@ -179,6 +179,13 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 6. Confirm <code>apps/pocket-cinema</code> is unchanged.
 :::
 
+:::visual
+src: assets/port-terminal.png
+alt: Terminal showing a completed three-phase port replay, its cost, and one Git commit for analyze, plan, and build_test
+label: Actual replay output
+caption: "A complete key-free run. The important result is not only run_complete: the guarded app has one reviewable commit for every passing model phase."
+:::
+
 <p>This chain is the observability you built the harness for: the prompts, the document reads, the cost, and the commits of the whole run are on disk, inspectable by anyone, without asking the model what it did.</p>
 
 :::knowledge The model fetches ADBT docs itself now. How does the run stay auditable and reproducible?
