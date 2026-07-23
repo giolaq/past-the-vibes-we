@@ -10,7 +10,7 @@ evidence: You can point to the file that owns each responsibility in both the mi
 ---
 
 :::concept Four responsibilities
-Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.
+Each piece has one job: skills teach domain knowledge, phase context assembles the task, executors talk to the model, tools expose narrow capabilities, and the pipeline decides when side effects are allowed.
 :::
 
 :::predict

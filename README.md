@@ -13,7 +13,7 @@ The standard path uses committed recordings. You do not need a model account, AP
 
 ## Start here
 
-Install Node.js 20 or newer and Git. Corepack installs the repository's pinned Yarn 4.12 version. Then run:
+Install Node.js 20 or newer and Git — Corepack will install the repository's pinned Yarn 4.12 — then run:
 
 ```sh
 git clone https://github.com/giolaq/past-the-vibes-we.git
@@ -60,7 +60,7 @@ unset NODE_TLS_REJECT_UNAUTHORIZED
 
 Do not disable TLS certificate verification to work around a network or proxy problem.
 
-Live model and Vega device paths are optional. Read [Before You Arrive](workshop/lessons/00-welcome.md) before configuring them.
+Live model and Vega device paths are optional; read [Before You Arrive](workshop/lessons/00-welcome.md) before configuring them.
 
 ## Repository map
 
