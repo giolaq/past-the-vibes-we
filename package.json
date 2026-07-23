@@ -11,10 +11,12 @@
     "typecheck": "yarn --cwd packages/mini-harness typecheck && yarn --cwd packages/workshop-harness typecheck && yarn --cwd apps/pocket-cinema typecheck",
     "test": "yarn --cwd packages/mini-harness test && yarn --cwd packages/workshop-harness test && yarn --cwd apps/pocket-cinema test",
     "check:workshop": "yarn --cwd packages/workshop-harness tsx ../../scripts/check-workshop.ts",
-    "verify": "yarn typecheck && yarn test && yarn check:workshop",
+    "build:site": "node scripts/build-site.mjs",
+    "check:site": "node scripts/build-site.mjs --check",
+    "verify": "yarn typecheck && yarn test && yarn check:workshop && yarn check:site",
     "replay": "yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run steps/01-single-agent/fixtures/phases.json --replay steps/01-single-agent/fixtures/demo-recording.json",
     "doctor": "yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --json",
-    "site": "node scripts/serve-workshop.mjs"
+    "site": "yarn build:site && node scripts/serve-workshop.mjs"
   },
   "packageManager": "yarn@4.12.0",
   "license": "MIT-0"

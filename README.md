@@ -60,14 +60,15 @@ unset NODE_TLS_REJECT_UNAUTHORIZED
 
 Do not disable TLS certificate verification to work around a network or proxy problem.
 
-Live model and Vega device paths are optional. Read [Before You Arrive](workshop/00-before-you-arrive.md) before configuring them.
+Live model and Vega device paths are optional. Read [Before You Arrive](workshop/lessons/00-welcome.md) before configuring them.
 
 ## Repository map
 
 | Path | Purpose |
 | --- | --- |
 | `workshop/index.html` | Interactive attendee guide and progress tracker |
-| `workshop/00-*.md` through `10-*.md` | Written lesson sequence |
+| `workshop/lessons/*.md` | Lesson source of truth; the web app is generated from these |
+| `workshop/workshop.data.js` | Generated from `lessons/` by `scripts/build-site.mjs` (do not edit by hand) |
 | `workshop/instructor-guide.md` | Timing, fallbacks, evidence rules, and teaching notes |
 | `workshop/strands-constructs.md` | Every Strands construct used by the workshop |
 | `workshop/fixtures` | Key-free recordings and context snapshots |

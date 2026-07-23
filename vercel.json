@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": null,
-  "buildCommand": null,
+  "buildCommand": "node scripts/build-site.mjs",
   "outputDirectory": "workshop"
 }

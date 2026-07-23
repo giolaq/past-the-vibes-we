@@ -27,16 +27,16 @@ Run each lesson's replay command from its "If blocked" or fallback section, then
 
 | Lesson | File | Evidence to verify and record |
 | --- | --- | --- |
-| 1 | `workshop/01-from-prompt-to-loop.md` | `packages/mini-harness/out/ANALYSIS.md` exists. Report three claims the one-call script cannot prove. |
-| 2 | `workshop/02-verification-and-retry.md` | Output shows `Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md`, then a successful repair. Report the requirement → failed check → retry → pass trace. |
-| 3 | `workshop/03-phases-checkpoints-and-cost.md` | After the stop-after command, `packages/mini-harness/out/checkpoint.json` has `"nextPhase": 2`. After resume, only `build_test` ran. |
-| 4 | `workshop/04-tools-skills-and-executors.md` | The replay run completes. ADBT skills are not installed in your environment: inspect `workshop/fixtures/adbt-skills.json` and report which skill maps to which phase, and which file owns skills, prompts, executors, and checks. |
-| 5 | `workshop/05-project-memory.md` | `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md` exists, every entry names a source, and the committed fixture is unchanged. |
-| 6 | `workshop/06-adapt-your-react-native-app.md` | The replay port reports `run_complete` with phases `analyze`, `plan`, `build_test`. Record the `runId`. Confirm `apps/pocket-cinema` is unchanged (`git status`). |
-| 7 | `workshop/07-tv-as-the-stress-test.md` | `tv-focus-result.json` in the lesson 6 run output (or in `workshop/checkpoints/vega-buildable/app`) shows `"passed": true` with the full transition list. |
-| 8 | `workshop/08-vega-platform-adapter.md` | `vega-run` with `--platform-replay` passes all eight gates and reports `evidenceMode: replay`. State explicitly that this proves control flow, not device behavior. |
-| 9 | `workshop/09-bee-context-agent.md` | Skip. It is optional and requires live Bee access and human consent. Note the skip and the reason in the report. |
-| 10 | `workshop/10-take-it-home.md` | Answer `workshop/worksheet.md` in the report for a domain of your choice: phases, one mechanical check per phase, approval point, budget, and retained evidence. |
+| 1 | `workshop/lessons/01-single-agent.md` | `packages/mini-harness/out/ANALYSIS.md` exists. Report three claims the one-call script cannot prove. |
+| 2 | `workshop/lessons/02-verify.md` | Output shows `Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md`, then a successful repair. Report the requirement → failed check → retry → pass trace. |
+| 3 | `workshop/lessons/03-phases.md` | After the stop-after command, `packages/mini-harness/out/checkpoint.json` has `"nextPhase": 2`. After resume, only `build_test` ran. |
+| 4 | `workshop/lessons/04-skills.md` | The replay run completes. ADBT skills are not installed in your environment: inspect `workshop/fixtures/adbt-skills.json` and report which skill maps to which phase, and which file owns skills, prompts, executors, and checks. |
+| 5 | `workshop/lessons/05-memory.md` | `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md` exists, every entry names a source, and the committed fixture is unchanged. |
+| 6 | `workshop/lessons/06-plan.md` | The replay port reports `run_complete` with phases `analyze`, `plan`, `build_test`. Record the `runId`. Confirm `apps/pocket-cinema` is unchanged (`git status`). |
+| 7 | `workshop/lessons/07-tv.md` | `tv-focus-result.json` in the lesson 6 run output (or in `workshop/checkpoints/vega-buildable/app`) shows `"passed": true` with the full transition list. |
+| 8 | `workshop/lessons/08-vega.md` | `vega-run` with `--platform-replay` passes all eight gates and reports `evidenceMode: replay`. State explicitly that this proves control flow, not device behavior. |
+| 9 | `workshop/lessons/09-bee.md` | Skip. It is optional and requires live Bee access and human consent. Note the skip and the reason in the report. |
+| 10 | `workshop/lessons/10-finish.md` | Answer `workshop/worksheet.md` in the report for a domain of your choice: phases, one mechanical check per phase, approval point, budget, and retained evidence. |
 
 ## You are done when
 

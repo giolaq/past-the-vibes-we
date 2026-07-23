@@ -2,7 +2,7 @@
 
 ## Before the workshop
 
-1. Send [setup](00-before-you-arrive.md) 48 hours early.
+1. Send [setup](lessons/00-welcome.md) 48 hours early.
 2. Open the [speaker deck](slides.html) (`workshop/slides.html`, also served at `/slides.html` by `yarn site`). It carries the intro plus one slide per teaching beat: the boundary, each lesson's key idea, the Strands and ADBT highlights, and the close. Arrow keys or swipe to navigate; print to PDF from the browser for a handout.
 3. Ask each attendee to report their live-executor status: **Claude Code ready**, **Strands + Bedrock ready**, or **needs replay fallback**. The workshop runs from scratch against a live model; replay is the safety net.
 4. Test both the live path and every replay/checkpoint fallback from a clean clone.
