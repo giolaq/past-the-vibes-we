@@ -44,6 +44,31 @@ test("feeds exact verification failure into retry", async () => {
   assert.match(executor.calls[1].prompt, /Portability analysis documented: missing ANALYSIS.md/);
 });
 
+test("a raised attempt budget loops until the checks pass", async () => {
+  const app = fixtureApp();
+  // Attempt 1: no ANALYSIS.md at all. Attempt 2: the file exists but lacks the marker —
+  // a different failure, so the progress rule lets the loop continue. Attempt 3: green.
+  const executor = new FakeExecutor([
+    response({ "WRONG.md": "no" }),
+    response({ "ANALYSIS.md": "# Analysis without the marker" }),
+    ...successResponses(),
+  ]);
+  const result = await pipeline(app, executor, 10, 5);
+  assert.equal(result.phases[0].attempts, 3);
+});
+
+test("until-done stops when the same failures repeat", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor([
+    response({ "WRONG.md": "no" }),
+    response({ "WRONG.md": "still no" }),
+    ...successResponses(),
+  ]);
+  await assert.rejects(() => pipeline(app, executor, 10, Infinity), /no progress/);
+  assert.equal(executor.calls.length, 2);
+  assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
+});
+
 test("budget abort restores a clean generated tree", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([{ ...response({ "VEGA_PORT.md": "## TV Flow" }), costUsd: 4 }]);
@@ -64,8 +89,8 @@ test("rejects model writes to environment files", async () => {
   await assert.rejects(() => pipeline(app, executor), /Unsafe model output path/);
 });
 
-function pipeline(appDir: string, executor: PortExecutor, maxCostUsd = 10) {
-  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd, executor, adbt: fakeAdbt() });
+function pipeline(appDir: string, executor: PortExecutor, maxCostUsd = 10, maxAttempts?: number) {
+  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd, maxAttempts, executor, adbt: fakeAdbt() });
 }
 
 function fixtureApp(): string {

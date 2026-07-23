@@ -10,7 +10,7 @@ evidence: The report links approved ADBT context, a typed patch, check results, 
 ---
 
 :::concept The production loop
-The plan is the human approval boundary. During analyze and plan the model calls ADBT over MCP itself to gather Vega knowledge. Strands proposes a typed patch from read-only project tools. The harness records every ADBT read, applies the patch, checks it, retries once, and commits only verified work.
+The plan is the human approval boundary. During analyze and plan the model calls ADBT over MCP itself to gather Vega knowledge. Strands proposes a typed patch from read-only project tools. The harness records every ADBT read, applies the patch, checks it, retries once (or loops until green with `--max-attempts`/`--until-done`, under the cost cap and a no-progress rule), and commits only verified work.
 :::
 
 :::flow

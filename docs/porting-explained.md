@@ -238,6 +238,8 @@ You reach for live only to prove the real thing works (real model reasoning, rea
 
 The pattern transfers to any workflow: keep `plan → context → run → check → retry → checkpoint → report`, and swap the TV skill and Vega commands for yours. The "take it home" lesson walks through it.
 
+The retry is also where you extend the harness toward "loop until the port is done": `--max-attempts N` (or `--until-done`) replaces the single retry with a convergence loop. It stays safe because "done" is the verifier's verdict, the cost cap still throws, and the loop stops early when the same failures repeat — retrying a failure the model cannot fix only spends budget. Never move this iteration inside the model's own turn loop: the harness-level loop has a mechanical check between every attempt, which is what makes it converge instead of run away.
+
 ---
 
 ## Appendix: files to open, mapped to concepts
