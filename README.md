@@ -1,6 +1,6 @@
 # Past the Vibes
 
-Build a small coding harness, then use it to adapt a React Native flow for Vega TV.
+Build a small coding harness with [AWS Strands Agents SDK](https://github.com/strands-agents/harness-sdk), then use it to port a React Native flow to Vega TV. The harness is the deliverable: swap its skills, its MCP server, or its executor and reuse it for your own work. Owning the harness — instead of driving a coding agent by prompt — gives you control over every write, check, and dollar, and observability over every model turn, document read, and commit.
 
 This repository contains everything used in the workshop:
 
