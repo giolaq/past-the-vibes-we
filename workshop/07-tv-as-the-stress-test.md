@@ -28,7 +28,7 @@ launch -> featured action has focus
 
 5. Open `workshop/fixtures/focus-failure/README.md`.
 6. Find the failed focus-restoration evidence and explain what should be sent into a retry.
-7. Find `hasTVPreferredFocus`, the `onFocus` handlers, and their shared `focus-state.ts` module.
+7. Find `hasTVPreferredFocus`, the `onFocus` handlers, and their shared `focus-state.ts` module. These focus props come from React Native's TV support — see [react-native-tvos](https://github.com/react-native-tvos/react-native-tvos) for the general TV story. This workshop targets Vega, not that fork, but the focus model is the same.
 
 ## Why this matters
 

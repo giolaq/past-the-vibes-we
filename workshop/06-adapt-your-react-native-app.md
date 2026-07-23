@@ -13,7 +13,7 @@ The port is a pipeline, not one large prompt. It separates inspection, platform 
 | Phase | Owner | What happens | Evidence |
 | --- | --- | --- | --- |
 | `analyze` | Model + ADBT + harness | Reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict judge whether the port is possible. | `ANALYSIS.md`, `feasibility-report.json`, `portability-report.json`, and a verified commit |
-| `plan` | ADBT + model + harness | Loads two approved Vega workflows, describes the flow to preserve and Vega replacements, and records unsupported mappings. | `VEGA_PORT.md`, `NextSteps.md`, ADBT evidence, and a verified commit |
+| `plan` | ADBT + model + harness | The model reads the Vega workflows it needs from ADBT, describes the flow to preserve and Vega replacements, and records unsupported mappings. | `VEGA_PORT.md`, `NextSteps.md`, ADBT evidence, and a verified commit |
 | `build_test` | Model + Vega adapter + harness | Creates the Vega package boundary, connects the shared focus state, runs the executable remote-navigation check, then builds, launches, and captures a device screenshot. | Vega package files, `tv-focus-result.json`, `TV_VERIFICATION.md`, `01-launch.png`, and a verified commit |
 
 Before the pipeline, `source_discovery` copies the app into a guarded directory (no model). The feasibility part of `analyze` runs at `plan` time, so its verdict is in the plan you approve. `build_test` folds in the Vega device lifecycle from lesson 8: the run fails unless a launch screenshot is produced.
@@ -111,19 +111,17 @@ Trace the MCP lifecycle in `src/context-providers/adbt.ts`:
 3. The model calls ADBT's own tools (`list_documents`, then `read_document` / `search_documentation`) to fetch the Vega workflows it decides it needs.
 4. After the phase the harness calls `extractAdbtProvenance(agent.messages)`, pairs each read with its result, hashes it into `adbt-port-context.json`, and disconnects the client.
 
-The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch.
-
 The model drives ADBT, but not without limits. The ADBT `McpClient` is only in the agent's tools during `analyze` and `plan`, and the harness reconstructs every read from the message history and hashes it, so a run remains reproducible from `adbt-port-context.json` even though the model chose what to fetch. Replay reruns from that recorded context with no live server.
 
 See [Strands Constructs Used in This Workshop](strands-constructs.md) for the complete agent, tool, structured-output, invocation, metrics, and MCP reference.
 
 ## Why this matters
 
-The harness reads first, asks ADBT MCP for current Vega migration workflows, injects only that platform context into the `plan` phase, and edits a copy. The model executor can change without losing the platform guidance.
+The harness reads first, lets the model fetch current Vega migration workflows from ADBT during `analyze` and `plan`, records and hashes every read, and edits a copy. The model executor can change without losing the platform guidance.
 
 ## You are done when
 
-You have the `runId`, ADBT evidence names the two migration workflows, all three phases (`analyze`, `plan`, `build_test`) have verified commits, `tv-focus-result.json` passes, `build_test` produced a launch screenshot, and the source app is unchanged. Lesson 8 revisits that same Vega lifecycle to inspect the device evidence.
+You have the `runId`, ADBT evidence names the migration workflows the model read, all three phases (`analyze`, `plan`, `build_test`) have verified commits, `tv-focus-result.json` passes, `build_test` produced a launch screenshot, and the source app is unchanged. Lesson 8 revisits that same Vega lifecycle to inspect the device evidence.
 
 ## If blocked
 

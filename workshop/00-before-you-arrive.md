@@ -4,13 +4,13 @@ Allow about 20 minutes. Stop troubleshooting after 10 minutes and use replay. Li
 
 ## What runs the agent
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the in-process TypeScript runtime for the workshop's remote model path. The complete workshop harness pins `1.10.0`; the staged mini-harness pins `1.7.0`. We use it for:
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the in-process TypeScript runtime for the workshop's remote model path. Both the complete workshop harness and the staged mini-harness pin `1.10.0`. We use it for:
 
 - one bounded agent per phase;
-- Bedrock, OpenAI, or OpenRouter model access;
+- [Amazon Bedrock](https://docs.aws.amazon.com/bedrock/), OpenAI, or [OpenRouter](https://openrouter.ai/docs) model access;
 - three Zod-typed, read-only project tools;
 - schema-validated patch output;
-- the native MCP connection to ADBT;
+- the native [Model Context Protocol (MCP)](https://modelcontextprotocol.io) connection to [ADBT, the Amazon Devices Builder Tools MCP server](https://www.npmjs.com/package/@amazon-devices/amazon-devices-buildertools-mcp);
 - token usage, turn limits, and cancellation.
 
 The harness still owns the plan, approval, writes, checks, retry, Git commits, cost cap, and report. The model does not get a shell or a write tool.
@@ -19,7 +19,7 @@ Replay uses the same phase and evidence contracts without contacting a model or 
 
 ## 1. Check the basics
 
-Install Node.js 20 or newer and Git. Clone the repository and open a terminal at its root. Enable Corepack so the repository's `packageManager` field selects Yarn 4.12.
+Install Node.js 20 or newer and Git. Clone the repository and open a terminal at its root. Enable [Corepack](https://nodejs.org/api/corepack.html) so the repository's `packageManager` field selects Yarn 4.12.
 
 After cloning, enter the repository once and keep this terminal at its root:
 
@@ -73,7 +73,7 @@ yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
   --replay steps/01-single-agent/fixtures/demo-recording.json
 ```
 
-For local Claude Code:
+For local [Claude Code](https://code.claude.com/docs):
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json
@@ -87,7 +87,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands 
 
 ## 5. Optional Vega setup
 
-Install Vega SDK `0.22.5875` and create a Vega Virtual Device. On the live Strands path the harness builds the ADBT `McpClient` and hands it to the agent during `analyze` and `plan`, so the model discovers ADBT's tools and calls `list_documents` / `read_document` itself; the harness then records what it read. Replay uses a committed ADBT context snapshot.
+Install [Vega SDK](https://developer.amazon.com/docs/vega/0.22/install-vega-sdk.html) `0.22.5875` and create a Vega Virtual Device. On the live Strands path the harness builds the ADBT `McpClient` and hands it to the agent during `analyze` and `plan`, so the model discovers ADBT's tools and calls `list_documents` / `read_document` itself; the harness then records what it read. Replay uses a committed ADBT context snapshot.
 
 If you run the **Claude Code CLI** executor, register ADBT with the CLI once, up front (run in a real system terminal; it completes silently):
 
@@ -96,7 +96,7 @@ npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --age
 npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
 ```
 
-You do not need `init-context` for the replay or Strands paths — the harness owns the ADBT connection there. See the Vega docs: developer.amazon.com/docs/vega/0.22/mcp-server.html
+You do not need `init-context` for the replay or Strands paths — the harness owns the ADBT connection there. See the [Vega ADBT setup docs](https://developer.amazon.com/docs/vega/0.22/mcp-server.html).
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json

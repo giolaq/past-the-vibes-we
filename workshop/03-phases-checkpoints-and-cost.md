@@ -39,4 +39,20 @@ The first command stops after `plan`; the second starts at `build_test`; complet
 
 ## If blocked
 
-If the live model is unavailable, run the same two commands with `--replay steps/03-phases/fixtures/demo-recording.json` in place of the `--executor` flags (keep `--stop-after plan`, then `--resume`). Read `workshop/fixtures/resume/README.md` for the checkpoint details.
+If the live model is unavailable, run the same exercise from the committed recording:
+
+```sh
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
+  steps/03-phases/fixtures/phases.json \
+  --replay steps/03-phases/fixtures/demo-recording.json \
+  --stop-after plan
+```
+
+```sh
+yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
+  steps/03-phases/fixtures/phases.json \
+  --replay steps/03-phases/fixtures/demo-recording.json \
+  --resume
+```
+
+Read `workshop/fixtures/resume/README.md` for the checkpoint details.
