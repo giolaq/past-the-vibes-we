@@ -6,7 +6,7 @@ Use the [workshop web app](index.html) during the session. It gives you the comm
 
 ## Strands Agents SDK in this workshop
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the TypeScript agent runtime used by the live remote executor. Both the complete workshop harness and the staged mini-harness pin `1.10.0`. It provides the model loop, model providers, Zod-typed tools, structured output, execution limits, and usage metrics.
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime, used here as the live remote executor. Both the complete workshop harness and the staged mini-harness pin `1.10.0`. It provides the model loop, provider-agnostic model access (Bedrock, OpenAI, OpenRouter behind one interface), Zod-typed tools, schema-enforced structured output, execution limits, cancellation, and usage metrics — and it stays a library, so the harness keeps ownership of writes, checks, and commits.
 
 The workshop starts with React Native, not a website. Every mini-harness step modifies a reduced Pocket Cinema app, so the target stays familiar while the harness grows from one model call into phases, checks, skills, and executors.
 
@@ -49,6 +49,8 @@ Follow lessons 1–8, skip optional lesson 9, and finish with lesson 10. The sch
 - **Strands:** use the in-process Strands Agents SDK with Bedrock, OpenAI, or OpenRouter via `--executor strands`.
 
 Start with [Before You Arrive](00-before-you-arrive.md). Keep [Troubleshooting](troubleshooting.md) open during the session.
+
+Handing this workshop to an AI agent instead of a person? Point it at the [agent runbook](AGENT_RUNBOOK.md) — it maps the lessons to replay commands, evidence, and a completion report.
 
 ## Lessons
 

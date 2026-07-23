@@ -39,6 +39,8 @@ The live port stops with exit `3` during `analyze`, before the `plan` phase; it 
 
 If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
 
+If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force` (or point `MINI_SKILLS_DIR` at your agent's skills directory). Replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection.
+
 ## Vega CLI build or VDA fails
 
 Check each boundary separately:
