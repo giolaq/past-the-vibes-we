@@ -4,7 +4,7 @@ number: "08"
 nav: Run the Vega lifecycle
 time: 25 minutes
 title: Hand the guarded app to Vega tools
-lead: Run the complete lifecycle against a live Vega SDK and VDA. Recorded replay stays as a fallback when no device is attached.
+lead: Run the complete lifecycle against a live Vega SDK and VDA, with recorded replay as the fallback when no device is attached.
 objective: Distinguish reproducible lifecycle rehearsal from evidence produced by a real Vega device.
 evidence: Eight lifecycle gates pass, with evidenceMode labeled replay or live.
 ---
