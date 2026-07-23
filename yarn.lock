@@ -5,7 +5,7 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aws-sdk/client-bedrock-runtime@npm:^3.1069.0, @aws-sdk/client-bedrock-runtime@npm:^3.1078.0":
+"@aws-sdk/client-bedrock-runtime@npm:^3.1078.0":
   version: 3.1092.0
   resolution: "@aws-sdk/client-bedrock-runtime@npm:3.1092.0"
   dependencies:
@@ -1692,7 +1692,7 @@ __metadata:
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
     "@opentelemetry/api": "npm:^1.9.1"
-    "@strands-agents/sdk": "npm:1.7.0"
+    "@strands-agents/sdk": "npm:1.10.0"
     "@types/node": "npm:^22.0.0"
     openai: "npm:^6.44.0"
     tsx: "npm:^4.19.0"
@@ -2276,80 +2276,6 @@ __metadata:
     openai:
       optional: true
   checksum: 10c0/5f28c2539b471a9a0cf2c25e94927ab43aa96c9f99fac6839b2b1f2d598850dc1c86e3c6f83c2150a8e73c41ed75c1bcc9c250d5013983afd5c1a925a8100884
-  languageName: node
-  linkType: hard
-
-"@strands-agents/sdk@npm:1.7.0":
-  version: 1.7.0
-  resolution: "@strands-agents/sdk@npm:1.7.0"
-  dependencies:
-    "@aws-sdk/client-bedrock-runtime": "npm:^3.1069.0"
-    "@types/json-schema": "npm:^7.0.15"
-    uuid: "npm:^14.0.1"
-    yaml: "npm:^2.8.3"
-  peerDependencies:
-    "@a2a-js/sdk": ^0.3.10
-    "@ai-sdk/provider": ^3.0.0
-    "@anthropic-ai/sdk": ^0.104.2
-    "@aws-sdk/client-bedrock-agent": ^3.1075.0
-    "@aws-sdk/client-bedrock-agent-runtime": ^3.1075.0
-    "@aws-sdk/client-s3": ^3.1069.0
-    "@aws/bedrock-token-generator": ^1.1.0
-    "@cedar-policy/cedar-wasm": ^4.0.0
-    "@cedar-policy/mcp-schema-generator-wasm": ^0.6.0
-    "@google/genai": ^2.6.0
-    "@modelcontextprotocol/sdk": ^1.25.2
-    "@opentelemetry/api": ^1.9.0
-    "@opentelemetry/exporter-metrics-otlp-http": ^0.219.0
-    "@opentelemetry/exporter-trace-otlp-http": ^0.219.0
-    "@opentelemetry/resources": ^2.8.0
-    "@opentelemetry/sdk-metrics": ^2.6.1
-    "@opentelemetry/sdk-trace-base": ^2.6.1
-    "@opentelemetry/sdk-trace-node": ^2.6.1
-    "@smithy/types": ^4.15.0
-    express: ^5.1.0
-    openai: ^6.42.0
-    zod: ^4.1.12
-  peerDependenciesMeta:
-    "@a2a-js/sdk":
-      optional: true
-    "@ai-sdk/provider":
-      optional: true
-    "@anthropic-ai/sdk":
-      optional: true
-    "@aws-sdk/client-bedrock-agent":
-      optional: true
-    "@aws-sdk/client-bedrock-agent-runtime":
-      optional: true
-    "@aws-sdk/client-s3":
-      optional: true
-    "@aws/bedrock-token-generator":
-      optional: true
-    "@cedar-policy/cedar-wasm":
-      optional: true
-    "@cedar-policy/mcp-schema-generator-wasm":
-      optional: true
-    "@google/genai":
-      optional: true
-    "@opentelemetry/exporter-metrics-otlp-http":
-      optional: true
-    "@opentelemetry/exporter-trace-otlp-http":
-      optional: true
-    "@opentelemetry/resources":
-      optional: true
-    "@opentelemetry/sdk-metrics":
-      optional: true
-    "@opentelemetry/sdk-trace-base":
-      optional: true
-    "@opentelemetry/sdk-trace-node":
-      optional: true
-    "@smithy/types":
-      optional: true
-    express:
-      optional: true
-    openai:
-      optional: true
-  checksum: 10c0/239882f7754b659d3cc56506b3faea1f7cc8cf525b0b941f51cf00de7d3bbf2cfa95af37fc9db49c93a149af102000de364f143146ccdcaf6801849f5bc95792
   languageName: node
   linkType: hard
 

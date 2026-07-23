@@ -8,6 +8,8 @@ This package improves the same small React Native TV app four times. Every step 
 yarn setup
 ```
 
+`openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
+
 ## Step 1: one model call
 
 The program sends a prompt and writes files. It does not check the result.
@@ -30,7 +32,7 @@ yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
   --replay steps/02-verify-loop/fixtures/retry-recording.json
 ```
 
-Done when you see `Pattern "Kitchen Stories" not found` followed by a successful repair.
+Done when you see `Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md` followed by a successful repair.
 
 ## Step 3: phases and resume
 

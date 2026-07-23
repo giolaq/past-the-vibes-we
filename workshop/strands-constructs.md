@@ -1,6 +1,6 @@
 # Strands Constructs Used in This Workshop
 
-This is a code-reading guide, not a list of everything Strands Agents SDK can do. The complete workshop harness pins `@strands-agents/sdk` `1.10.0`; the staged mini-harness pins `1.7.0`. Both use bounded agents around React Native work. The complete harness inspects a guarded app and proposes a Vega patch.
+This is a code-reading guide, not a list of everything Strands Agents SDK can do. Both the complete workshop harness and the staged mini-harness pin `@strands-agents/sdk` `1.10.0`. Both use bounded agents around React Native work. The complete harness inspects a guarded app and proposes a Vega patch.
 
 Use these files while reading this guide:
 
@@ -129,20 +129,20 @@ The workshop uses `agent.invoke()` so attendees can see one bounded request, one
 
 ## MCP constructs
 
-The harness uses Strands `McpClient` directly to load ADBT guidance for the `plan` phase.
+The harness uses Strands `McpClient` in two ways. During a live port run it registers the ADBT client as an agent tool source for `analyze` and `plan`, so the model decides which ADBT documents to read. Outside the port run, `doctor --adbt-live` and `context adbt` call the client directly to check the server and capture a replay context.
 
 | Construct | Use |
 | --- | --- |
 | `McpClient` | Connects to a trusted MCP server and exposes its tools as executable objects. |
 | `applicationName` and `applicationVersion` | Identify Past the Vibes Workshop to the server during initialization. |
-| `listTools()` | Connects lazily and returns the server's tool objects. The harness requires `list_documents` and `read_document`. |
+| `listTools()` | Connects lazily and returns the server's tool objects. The doctor and capture paths require `list_documents` and `read_document`. |
 | `callTool(tool, args, { signal })` | Calls one discovered tool with JSON arguments and a cancellation signal. |
 | `JSONValue` | Defines the JSON-compatible MCP argument and result boundary. |
 | `disconnect()` | Closes the server connection and child process. It runs in `finally`, including error paths. |
 
 `StdioClientTransport` is not a Strands construct. It comes from the official Model Context Protocol TypeScript SDK. It starts pinned ADBT as a child process and carries MCP messages over stdin and stdout.
 
-Strands also supports registering an `McpClient` directly as an agent tool source. This workshop does not do that. The harness calls ADBT itself, selects two approved migration workflows, stores their names and hashes, and injects only those excerpts into the `plan` phase.
+Registering an `McpClient` directly as an agent tool source is how the live port run works. The harness hands the ADBT client to the agent for `analyze` and `plan`, the model calls `list_documents` and then `read_document` for whichever workflows it needs, and after each phase the harness reconstructs every read from the message history and hashes it into `adbt-port-context.json` (`extractAdbtProvenance` in `packages/workshop-harness/src/context-providers/adbt.ts`). Replay reruns from that recorded context with no live server.
 
 ## What the harness owns
 

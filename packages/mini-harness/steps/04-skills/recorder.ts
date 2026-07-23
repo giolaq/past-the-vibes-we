@@ -28,6 +28,10 @@ export class ReplayClient {
     if (turn.phase !== phase) throw new Error(`Replay phase mismatch: wanted ${phase}, got ${turn.phase}`);
     return turn;
   }
+  seek(phase: string): void {
+    const index = this.turns.findIndex((turn) => turn.phase === phase);
+    if (index >= 0) this.index = index;
+  }
 }
 
 export function responseText(response: unknown): string {

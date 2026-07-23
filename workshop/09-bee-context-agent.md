@@ -4,6 +4,8 @@
 
 Select useful facts from a conversation without putting a full private transcript into the prompt or repository.
 
+[Bee](https://www.aboutamazon.com/news/devices/bee-amazon-wearable-ai-device-new-features) is Amazon's wearable AI device. It listens to your day (when you let it), turns conversations into summaries, decisions, and to-dos, and exposes them for search. Here it is only a discovery source: the harness queries it through a local `bee` CLI and stores a scrubbed snapshot, never a transcript.
+
 Skip this lesson if Bee is not configured or participants have not consented to retrieval.
 
 ## Do this

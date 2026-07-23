@@ -15,7 +15,7 @@ async function main() {
   const ctx = createRunContext(resume);
   const checkpoint = resume ? readCheckpoint(ctx.outDir) : null;
   if (checkpoint) Object.assign(ctx, { summaries: checkpoint.summaries, costUsd: checkpoint.costUsd });
-  const executor = createExecutor(ctx, replayPath);
+  const executor = createExecutor(ctx, replayPath, checkpoint ? phases[checkpoint.nextPhase]?.name : undefined);
   await runPipeline(phases, ctx, executor, checkpoint?.nextPhase ?? 0);
   console.log(`Wrote ${ctx.outDir}/report.md ($${ctx.costUsd.toFixed(4)})`);
 }
