@@ -4,7 +4,7 @@ number: "00"
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
-lead: Complete this page before lesson 1. Stop troubleshooting after 10 minutes and use replay. A live model or Vega device must never block the workshop.
+lead: Do this setup before the workshop starts. If anything live fights you for more than 10 minutes — model account, ADBT, device — stop and use replay instead. Every lesson also runs from recordings, so a broken setup never has to stop you.
 objective: Choose a reliable workshop path and explain where Strands, ADBT, the harness, and Git each fit.
 evidence: A successful replay run, one chosen execution path, and a completed readiness checklist.
 ---
