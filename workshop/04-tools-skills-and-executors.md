@@ -4,7 +4,7 @@
 
 Separate domain instructions, system capabilities, and model access.
 
-The domain instructions here are not ours: each phase loads one of Amazon's vendor-maintained ADBT skills, installed by `init-context` in lesson 0 into `~/.claude/skills`. The harness consumes them without owning their content.
+The domain instructions here are not ours: each phase loads one of Amazon's vendor-maintained ADBT skills, installed by `init-context` in lesson 0 into `~/.claude/skills`. ADBT ships ten of them — manifest configuration, focus management, navigation, media playback, performance, build-and-run, and more — versioned and updated by Amazon, which means real TV domain expertise reaches your agent without you writing or maintaining a word of it. The harness consumes them without owning their content.
 
 ## Do this
 
@@ -74,7 +74,7 @@ A skill explains what matters. A tool performs a narrow action. An executor hide
 
 Because the skills are ADBT's, the pipeline gets vendor-maintained Vega knowledge without owning any of it: swapping a phase's expertise is a one-line change in `phases.json`, and Amazon updates the skill content independently through the ADBT package.
 
-The full workshop port applies the same rule with Strands Agents SDK:
+The full workshop port applies the same rule with Strands Agents SDK. Notice how much of this lesson's machinery the SDK supplies out of the box — the agent loop, Zod-validated tool arguments, schema-enforced output with automatic retry on mismatch, turn and token limits, cancellation, and usage metrics are all one `Agent` constructor, not code you maintain:
 
 - `packages/workshop-harness/src/port-tools.ts` defines three Zod-typed tools: list, read, and search.
 - The tools are scoped to the guarded app. They reject `.env`, `.git`, `node_modules`, absolute paths, and paths outside the app.
