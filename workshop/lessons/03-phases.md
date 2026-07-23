@@ -13,6 +13,13 @@ evidence: A paused run resumes at focus, while the Git log keeps one commit per 
 Long agent runs fail. Small phases limit the damage, checkpoints remember orchestration progress, and commits preserve code that already passed its checks.
 :::
 
+:::flow
+Analyze | Check and commit
+Plan | Check, commit, checkpoint
+Pause | Process may stop safely
+Resume | Run build_test only
+:::
+
 :::predict
 The run stops after plan. Which phase should resume next, and which phases must not run again?
 :::

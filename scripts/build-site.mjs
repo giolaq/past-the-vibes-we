@@ -174,6 +174,8 @@ const comp = {
     `<ol class="tasks">${items.map((item) => `<li>${inline(item)}</li>`).join("")}</ol>`,
   snippet: (caption, code, look) =>
     `<figure class="snippet"><figcaption>${inline(caption)}</figcaption><pre><code>${escapeHtml(code)}</code></pre>${look ? `<p class="look"><strong>Where to look:</strong> ${inline(look)}</p>` : ""}</figure>`,
+  visual: ({ src, alt, caption, label = "Workshop visual" }) =>
+    `<figure class="lesson-visual"><div class="visual-label">${inline(label)}</div><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy"><figcaption>${inline(caption)}</figcaption></figure>`,
   flow: (items) =>
     `<div class="flow">${items.map((item, index) => `${index ? "<i>→</i>" : ""}<div><b>${inline(item[0])}</b><span>${inline(item[1])}</span></div>`).join("")}</div>`,
 };
@@ -339,6 +341,12 @@ function renderDirective(name, header, modifier, content) {
       // Content is YAML: name, tags: [{label,kind}], rows: {term: def}
       const spec = parseYaml(content);
       return phaseCard({ num: header, name: spec.name, tags: spec.tags, rows: spec.rows });
+    }
+    case "visual": {
+      const spec = parseYaml(content);
+      if (!spec?.src || !spec?.alt || !spec?.caption) throw new Error(":::visual requires src, alt, and caption");
+      if (!existsSync(join(lessonsDir, "..", spec.src))) throw new Error(`Missing visual asset: ${spec.src}`);
+      return comp.visual(spec);
     }
     case "raw":
       return content.replace(/^\n+|\n+$/g, "");

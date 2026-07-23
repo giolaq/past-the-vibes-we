@@ -72,6 +72,13 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
 <div class="grid"><article><h3>Pocket Cinema</h3><p>Recommended. Every exercise, recording, and checkpoint supports this app.</p><code>apps/pocket-cinema</code></article><article><h3>Your app</h3><p>Use one working flow: launch → screen → action → back. Switch to Pocket Cinema if discovery takes more than 10 minutes.</p><code>launch → screen → action → back</code></article></div>
 :::
 
+:::visual
+src: assets/pocket-cinema-android-tv.png
+alt: Pocket Cinema home screen running on an Android TV emulator, with a featured title and a horizontal content rail
+label: Actual Android TV capture
+caption: "Pocket Cinema is the shared starting app. This is the unported React Native baseline running on the workshop's Android TV AVD; later lessons add explicit focus behavior and a separate Vega package."
+:::
+
 <h3>Bring-your-own-app safety check</h3>
 
 :::raw
