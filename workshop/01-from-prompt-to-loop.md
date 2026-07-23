@@ -6,12 +6,21 @@ Run the smallest possible agent program against a React Native app, then identif
 
 ## Do this
 
-1. Run Step 1 with the committed recording:
+1. Run Step 1 against a live model with your chosen executor:
 
 ```sh
+# Claude Code CLI
 yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
   steps/01-single-agent/fixtures/phases.json \
-  --replay steps/01-single-agent/fixtures/demo-recording.json
+  --executor claude-cli --model sonnet
+```
+
+```sh
+# Strands + Bedrock
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
+  steps/01-single-agent/fixtures/phases.json \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
 ```
 
 2. Open `steps/01-single-agent/index.ts`.
@@ -31,4 +40,10 @@ You can point to the model boundary and name at least three missing checks.
 
 ## If blocked
 
-Use the replay command above. It is free and needs no model account.
+If the live model is unavailable, run the committed recording instead — same exercise, no account:
+
+```sh
+yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
+  steps/01-single-agent/fixtures/phases.json \
+  --replay steps/01-single-agent/fixtures/demo-recording.json
+```
