@@ -6,9 +6,9 @@ Written for a React Native developer who has never touched an "agent harness," a
 
 ## 0. The one-paragraph version
 
-We took a small React Native app (Pocket Cinema) and ported one screen flow to run on Vega, Amazon's TV OS. We did not do it by hand, and we did not just ask an AI "please port this app." Instead we built a **harness**: a plain TypeScript program that runs a fixed pipeline of steps, lets an AI model *propose* code inside tight walls, and keeps for itself every dangerous or irreversible action — writing files, running checks, committing to git, spending money, talking to the device. The AI reads and suggests. The harness decides and acts.
+We took a small React Native app (Pocket Cinema) and ported one screen flow to run on Vega, Amazon's TV OS. We did not do it by hand, and we did not just ask an AI "please port this app." Instead we built a **harness**: a plain TypeScript program that runs a fixed pipeline of steps, lets an AI model *propose* code inside tight walls, and keeps for itself every dangerous or irreversible action — writing files, running checks, committing to git, spending money, talking to the device.
 
-If you remember one sentence: **the model is a contractor with read-only access; the harness is the foreman who inspects the work, keeps the receipts, and signs off.**
+If you remember one sentence: **the model is a contractor with read-only access; the harness is the foreman who checks the work and signs off.**
 
 ---
 
@@ -30,7 +30,7 @@ You know these concepts already under different names. Here is the dictionary.
 | **Replay** | Running the pipeline against *recorded* model answers instead of a live model | Fixtures / VCR cassettes for network calls |
 | **VDA** | Vega Virtual Device — an emulator for the TV OS | Android emulator, but for Vega |
 
-The single most important idea: an LLM **generates plausible text**. Plausible is not correct. `plausible ≠ verified`. Everything the harness does exists to close that gap.
+The most important row is the first one: an LLM generates plausible text, and plausible is not the same as correct. Everything the harness does closes that gap.
 
 ---
 
@@ -57,7 +57,7 @@ They share the same skeleton. `packages/mini-harness/ISOMORPHISM.md` maps one to
 
 ## 3. The cast: who is allowed to do what
 
-This is the security model. Read the boundary out loud:
+This is the security model:
 
 ```
 ADBT (MCP server)  --->  supplies approved Vega knowledge   ---+
@@ -72,7 +72,7 @@ guarded app copy   --->  read-only tools (list/read/search) --+--> Strands Agent
 - **ADBT** supplies platform knowledge. During `analyze` and `plan` the harness hands the ADBT `McpClient` to the Strands agent (`tools: [...projectTools, adbtClient]`); Strands discovers ADBT's tools (`list_documents`, `read_document`, `search_documentation`) dynamically and the model calls them itself. The harness does not pre-pick documents. Afterward it reconstructs which docs the model read from the agent's messages and hashes each into `adbt-port-context.json`. The model still has no write tool and no shell. (`src/context-providers/adbt.ts`)
 - **The harness** owns everything with consequences: writing to disk, running verification, committing to git, the cost cap, retries, and the final report. (`src/port-pipeline.ts`)
 
-Why so strict? Because a model that could write files or run shell commands could, on a confident wrong guess, corrupt your repo or run something destructive. Keeping irreversible actions in deterministic code means the worst a bad model answer can do is *fail a check and get rejected*.
+The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keeping irreversible actions in deterministic code means the worst a bad answer can do is *fail a check and get rejected*.
 
 ---
 
@@ -115,7 +115,7 @@ This is where the model combines its own reasoning with Amazon's platform knowle
 3. The **model** decides what to fetch: it calls ADBT's own `list_documents` to discover the Vega workflows, then `read_document` (or `search_documentation`) for whichever ones it judges relevant. The harness pre-selects nothing.
 4. When the phase ends the pipeline disconnects the client and calls `extractAdbtProvenance(agent.messages)`: it walks the model's tool calls, finds each ADBT read, pairs it with its result, and hashes it into `out/<runId>/adbt-port-context.json` with `mode: "live"`.
 
-Why reconstruct + hash afterward? Because the model chose what to read, the audit trail is the *only* proof of what knowledge it actually used — so the run stays provable and reproducible even though nothing was pre-picked. (The harness no longer sits between the model and each call, so provenance is derived from the message history, not a live wrapper.)
+The model chose what to read, so the reconstructed audit trail is the only proof of what knowledge it actually used. Hashing it keeps the run provable and reproducible even though nothing was pre-picked. (The harness no longer sits between the model and each call, so provenance comes from the message history, not a live wrapper.)
 
 **2b. The model writes the migration plan.** Using what it read, it returns `VEGA_PORT.md` (preserved behavior, Vega replacements, the exact remote flow), and the harness records the ADBT sources it consulted in `NextSteps.md`. The instruction is blunt: *Use the ADBT tools to discover and read the workflows you need. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md.*
 **Skill injected:** use the ADBT tools to discover and read the workflows you need, keep facts and assumptions separate, port one vertical slice, record gaps instead of inventing APIs.
@@ -142,17 +142,17 @@ This phase forces the model to *plan in writing*, grounded in real Amazon migrat
 - `tv-focus-result.json` contains `"passed": true`
 - `TV_VERIFICATION.md` contains `originating card`
 
-**Screenshot (mandatory):** the phase then runs the Vega device lifecycle (`src/platform/vega.ts`) — `sdk_version → device_status → build → install → launch → logs → capture → pull`. **The run fails unless a launch screenshot is produced.** The key-free replay path supplies it via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`; a live run captures it from an attached VDA. Each gate records the exact command, exit code, and output, labeled `replay` or `live`, and it **refuses to claim success it cannot prove**.
+**Screenshot (mandatory):** the phase then runs the Vega device lifecycle (`src/platform/vega.ts`) — `sdk_version → device_status → build → install → launch → logs → capture → pull`. **The run fails unless a launch screenshot is produced.** The key-free replay path supplies it via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`; a live run captures it from an attached VDA. Each gate records the exact command, exit code, and output, labeled `replay` or `live`.
 
 **Inspect:** the new `out/<runId>/app/apps/vega/` package, `tv-focus-result.json`, `out/<runId>/01-launch.png`, `vega-platform-result.json`, and the commit `workshop(build_test): ...`.
 
-> **Two honest caveats about the mandatory screenshot.** Making the screenshot a required pass criterion means a device (or its `--platform-replay` fixture) is now mandatory for a green run — the key-free path stays green through the fixture. And on the current VDA image the live screenshot tool segfaults (see §6 and `workshop/live-rehearsal.md`), so the *live* screenshot cannot be produced until that device tooling is fixed.
+> **Two caveats about the mandatory screenshot.** Making the screenshot a required pass criterion means a device (or its `--platform-replay` fixture) is now mandatory for a green run — the key-free path stays green through the fixture. And on the current VDA image the live screenshot tool segfaults (see §6 and `workshop/live-rehearsal.md`), so the *live* screenshot cannot be produced until that device tooling is fixed.
 
 ---
 
 ## 6. What actually happened in our real run
 
-We ran this end to end. Here is the honest ledger. (These runs were captured under the earlier six-phase pipeline, before the collapse to `analyze → plan → build_test`. The phase names below are the historical ones; the mapping is `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, `vega_port`/`tv_behavior` → `build_test`.)
+We ran this end to end. Here is what happened, including the failures. (These runs were captured under the earlier six-phase pipeline, before the collapse to `analyze → plan → build_test`. The phase names below are the historical ones; the mapping is `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, `vega_port`/`tv_behavior` → `build_test`.)
 
 ### The live port that succeeded (`e5ec5311`)
 A prior live-ADBT port completed all phases: `source_discovery → vega_portability_audit → tv_product_spec → vega_port → tv_behavior`, with `adbt.mode: live`, four git commits in the guarded app, and `tv-focus-result.json` passing.
@@ -161,7 +161,7 @@ A prior live-ADBT port completed all phases: `source_discovery → vega_portabil
 We also tried two fresh fully-live ports (real Claude model + live ADBT):
 - One died on `tv_behavior`, one on `vega_port`, both with `Claude Code executor exited 255`.
 - Root cause: the CLI subprocess was flaky on the long, heavy phases (large tool-using turns under a pricier model your org forces). Also the default `sonnet` was silently swapped to Opus 4.8 by org policy, which burned budget faster.
-- **The harness handled both correctly:** `state: failed`, only verified phases committed, the guarded app rolled back with `git reset --hard`, and the source app never touched. A failed AI run left zero mess. That failure-safety *is* the lesson.
+- **The harness handled both correctly:** `state: failed`, only verified phases committed, the guarded app rolled back with `git reset --hard`, and the source app never touched. A failed run left no mess to clean up.
 
 ### Running the port on the Vega device (the 8-gate lifecycle)
 We ran `vega-run e5ec5311` live against a running VDA. Results:
@@ -183,7 +183,7 @@ Two side-quests along the way, both environmental, both instructive:
 - First live lifecycle attempt failed at `logs` with `vda: more than one device/emulator` — an Android emulator and the Vega device were both attached. Killing the Android emulator fixed it. Lesson: device tooling needs an unambiguous target.
 - Restarting the VDA did not fix the screenshot segfault, confirming it's an image bug, not a transient.
 
-This is the point about evidence discipline: because `capture` failed, the harness reported the whole lifecycle as `state: failed` and would **not** stamp `evidenceMode: live` as complete. It refuses to certify a device run without a real screenshot. Reporting a failure it can prove beats claiming a success it can't, which is what you want from a system you'll trust with production ports.
+Because `capture` failed, the harness reported the whole lifecycle as `state: failed` and did not stamp `evidenceMode: live` as complete. It won't certify a device run without a real screenshot.
 
 ---
 
@@ -218,7 +218,7 @@ const result = await agent.invoke(prompt, {
 });
 ```
 
-What Strands gives you: the model-and-tool loop, provider adapters, schema-validated output, turn/token limits, cancellation, usage metrics. What it deliberately does **not** own: writing files, verification, git, cost policy, ADBT selection. Those stay in the harness. The tools themselves (`src/port-tools.ts`) are guarded hard — they reject absolute paths, `..` traversal, symlinks, `.git`, `.env`, `node_modules`, binaries, and files over 100 KB.
+The SDK handles the loop, the providers, the schema validation, and the limits. Writing files, verification, git, cost policy, and ADBT selection stay in the harness. The tools themselves (`src/port-tools.ts`) are locked down: they reject absolute paths, `..` traversal, symlinks, `.git`, `.env`, `node_modules`, binaries, and files over 100 KB.
 
 ---
 
@@ -234,15 +234,9 @@ You reach for live only to prove the real thing works (real model reasoning, rea
 
 ---
 
-## 10. The mental model to keep
+## 10. Taking it to your own domain
 
-1. **The model proposes; the harness disposes.** Generation is cheap and fallible. Verification, writing, and committing are owned by deterministic code.
-2. **Narrow the model's authority to the minimum.** Read-only tools, one guarded directory, a required output schema, bounded turns/tokens/time/cost.
-3. **Every phase ends in a mechanical check.** Not "does it look done" — a `grep`, a `file_exists`, or an actual executed test.
-4. **Keep receipts.** Per-phase git commits, ADBT document hashes, recorded model turns, a cost figure, a report. Another developer can audit exactly what happened.
-5. **Fail safe and fail honest.** A bad model answer resets the phase and aborts with the source untouched. A device run with no screenshot is reported as failed, not faked.
-
-If you internalize those five, you understand this harness — and you can build one for any workflow in your own domain (the "take it home" lesson: keep `plan → context → run → check → retry → checkpoint → report`, swap the TV skill and Vega commands for yours).
+The pattern transfers to any workflow: keep `plan → context → run → check → retry → checkpoint → report`, and swap the TV skill and Vega commands for yours. The "take it home" lesson walks through it.
 
 ---
 
@@ -272,35 +266,7 @@ This is the actual input and output captured from live run `c9fc9e58` (real Clau
 
 Every model turn is recorded to `out/<runId>/port-recording.json`: the exact prompt sent (`request.messages[0].content`), the raw text the model returned (`response[].result`), and token usage. That file is the audit trail. What follows is that file, made readable.
 
-### The universal prompt template
-
-Every phase prompt is assembled by `prompt()` in `src/port-pipeline.ts` from the same slots:
-
-```
-You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875. Read existing files before proposing edits. Preserve unrelated work.
-
-Phase: <name>
-Goal: <one sentence>
-Skill: <domain instruction for this phase>
-Creative seed: workshop-v1
-
-Approved context:
-<project memory, or "No approved project context.">
-
-Portability findings:
-<the JSON from stage 2's audit>
-
-[ ONLY on vega_port: the ADBT guidance block, with SHA-256 hashes ]
-
-Required checks:
-<each check listed verbatim, so the model knows the bar it must clear>
-
-[ ONLY on a retry: "Previous attempt failed:\n<exact failure lines>\nFix these exact failures." ]
-
-Return ONLY JSON: {"summary":"...","files":{"relative/path":"complete contents"}}. ...
-```
-
-Three things to notice in that template: the model is told the **exact checks** it will be graded against, a failed attempt gets the **verbatim failure text** fed back in, and the output contract is **strict JSON**.
+Every phase prompt is assembled by `prompt()` in `src/port-pipeline.ts` from the same slots — lesson 6 shows the template in full. The model is told the exact checks it will be graded against, a failed attempt gets the verbatim failure text fed back in, and the output contract is strict JSON.
 
 ### Phase `tv_product_spec` — prompt (1,684 chars)
 
@@ -407,7 +373,7 @@ runtime-module = "@pocket-cinema/rn"
 launch-type = "singleton"
 ```
 
-**The most important part of this output** is what the model wrote into `NextSteps.md`. It did not have full MCP document access in that session, and instead of bluffing, it said so:
+The part worth reading closely is what the model wrote into `NextSteps.md`. It didn't have full MCP document access in that session, and instead of bluffing, it said so:
 
 ```markdown
 ## Unverified against SDK docs (MCP doc access not granted)
@@ -423,14 +389,8 @@ relying on them — they are not invented APIs presented as fact.
 3. Build CLI — confirm the exact Kepler/Vega build invocation ...
 ```
 
-That is the skill *"record unsupported gaps instead of inventing APIs"* visibly working: the model flagged its own uncertainty in a machine-checkable file rather than presenting a guess as fact. The check `NextSteps.md contains "ADBT"` passed, all 8 checks passed, and the phase committed as `workshop(vega_port): ...`.
+The skill told the model to record unsupported gaps instead of inventing APIs, and it did: it flagged its own uncertainty in a machine-checkable file rather than presenting a guess as fact. The check `NextSteps.md contains "ADBT"` passed, all 8 checks passed, and the phase committed as `workshop(vega_port): ...`.
 
-### The lesson from the worked example
+### What the worked example shows
 
-Read the two outputs side by side and the design justifies itself:
-
-1. The model produces **large, plausible, well-structured** artifacts — a migration doc and a 13-file package.
-2. It also **wraps JSON in prose** (`tv_product_spec`) and **admits uncertainty** (`vega_port`). Plausible output is not clean output.
-3. The harness does not trust prose or vibes. It extracts the JSON, writes the files to the guarded copy, and runs mechanical `grep`/`file_exists` checks. Only passing work gets committed.
-
-That is `plausible ≠ verified`, made concrete with real bytes from a real run.
+The model produced large, well-structured artifacts — a migration doc and a 13-file package. It also wrapped JSON in prose (`tv_product_spec`) and admitted uncertainty (`vega_port`). The harness read none of that as truth: it extracted the JSON, wrote the files to the guarded copy, and ran mechanical `grep`/`file_exists` checks. Only passing work got committed.
