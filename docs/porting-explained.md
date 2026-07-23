@@ -1,4 +1,4 @@
-# From Zero to Hero: How the Vega Port Actually Works
+# How the Vega Port Works
 
 Written for a React Native developer who has never touched an "agent harness," an LLM tool, or MCP. No prior AI knowledge assumed. Every claim here maps to real code in this repo and to a real run we executed (`e5ec5311`).
 
@@ -36,12 +36,12 @@ The single most important idea: an LLM **generates plausible text**. Plausible i
 
 ## 2. Why a harness at all? (the problem it solves)
 
-Imagine you ask a smart intern: "port this RN app to Vega." They hand you 24,000 characters of new files. Questions you cannot answer by reading it:
+Say you ask a smart intern to port an RN app to Vega, and they hand you 24,000 characters of new files. Questions you cannot answer by reading it:
 
 - Does it compile?
 - Did it invent a Vega API that does not exist?
 - Does the TV remote actually move focus correctly, or does it just *look* right?
-- Did it quietly touch files it shouldn't?
+- Did it touch files it shouldn't?
 - How much did this cost, and can I reproduce it?
 
 A raw model call gives you output and zero answers to those. A harness wraps the model call in machinery that answers all of them, every time, mechanically. That is the whole point of this repo.
@@ -57,7 +57,7 @@ They share the same skeleton. `packages/mini-harness/ISOMORPHISM.md` maps one to
 
 ## 3. The cast: who is allowed to do what
 
-This is the security model, and it is the soul of the design. Read the boundary out loud:
+This is the security model. Read the boundary out loud:
 
 ```
 ADBT (MCP server)  --->  supplies approved Vega knowledge   ---+
@@ -82,7 +82,7 @@ Before anything runs, the harness copies your app into `packages/workshop-harnes
 
 We verified this live: after the whole port, `git status apps/pocket-cinema/` was clean. The `<runId>` (e.g. `e5ec5311`) is a fresh directory per run, so runs never clobber each other.
 
-Inside that copy, the harness makes a git commit **per passing phase**. That is not decoration — it is the recovery mechanism. If phase 3 explodes, phases 1 and 2 are already committed and safe.
+Inside that copy, the harness makes a git commit **per passing phase**. That commit is the recovery mechanism, not decoration. If phase 3 explodes, phases 1 and 2 are already committed and safe.
 
 ---
 
@@ -107,7 +107,7 @@ Before the pipeline runs, `source_discovery` copies your RN app into the guarded
 **Inspect:** `out/<runId>/app/ANALYSIS.md`, `out/<runId>/feasibility-report.json` (the verdict), and `out/<runId>/portability-report.json` (the inventory).
 
 ### Phase 2 — `plan` (model + model-driven ADBT over MCP)
-This is where the AI-plus-platform-knowledge magic happens — and here the model, not the harness, drives ADBT.
+This is where the model combines its own reasoning with Amazon's platform knowledge, and here the model, not the harness, drives ADBT.
 
 **2a. The harness hands the ADBT `McpClient` to the agent** (`createAdbtMcpClient` in `src/context-providers/adbt.ts`). This follows the standard Strands MCP pattern — you pass the client into `Agent({ tools: [...] })` and Strands discovers its tools dynamically. For a live run:
 1. `createAdbtMcpClient` builds a Strands `McpClient` over `StdioClientTransport`, starting the pinned ADBT package as a child process.
@@ -183,7 +183,7 @@ Two side-quests along the way, both environmental, both instructive:
 - First live lifecycle attempt failed at `logs` with `vda: more than one device/emulator` — an Android emulator and the Vega device were both attached. Killing the Android emulator fixed it. Lesson: device tooling needs an unambiguous target.
 - Restarting the VDA did not fix the screenshot segfault, confirming it's an image bug, not a transient.
 
-And the punchline for evidence discipline: because `capture` failed, the harness reported the whole lifecycle as `state: failed` and would **not** stamp `evidenceMode: live` as complete. It refuses to certify a device run without a real screenshot. It would rather say "failed" than lie. That is exactly what you want from a system you'll trust with production ports.
+This is the point about evidence discipline: because `capture` failed, the harness reported the whole lifecycle as `state: failed` and would **not** stamp `evidenceMode: live` as complete. It refuses to certify a device run without a real screenshot. Reporting a failure it can prove beats claiming a success it can't, which is what you want from a system you'll trust with production ports.
 
 ---
 
