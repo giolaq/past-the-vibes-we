@@ -10,7 +10,7 @@ evidence: A successful replay run, one chosen execution path, and a completed re
 ---
 
 :::concept Read this first if you have never built an agent harness
-You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That's fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong>: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself.
+You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That's fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong> with AWS Strands Agents SDK: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself. That structure is why you're here rather than just prompting a coding agent: the harness gives you control (your code owns every write, check, and dollar) and observability (every model turn, document read, cost, and commit is recorded). And it's reusable — swap the skills, the MCP server, or the executor, and the same pipeline works on your own project.
 :::
 
 :::note The one sentence to remember
@@ -101,10 +101,10 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 <h2>4. Choose one execution path</h2>
 
 :::raw
-<table><thead><tr><th>Path</th><th>Use it when</th><th>Needs</th></tr></thead><tbody><tr><td>Claude Code</td><td>Default. A local live coding-agent run.</td><td><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a> installed and authenticated; ADBT via init-context</td></tr><tr><td>Strands + Bedrock</td><td>Alternative live path. The in-process remote executor.</td><td>AWS credentials and <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" rel="noopener">Bedrock</a> model access</td></tr><tr><td>Replay</td><td>Fallback when a live model, ADBT, or device is unavailable.</td><td>Nothing beyond the installed packages</td></tr></tbody></table>
+<table><thead><tr><th>Path</th><th>Use it when</th><th>Needs</th></tr></thead><tbody><tr><td>Your CLI coding agent</td><td>You already run <a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a>, Codex, or a similar CLI agent. The workshop ships a Claude Code executor; the <code>Executor</code> interface in <code>port-executor.ts</code> is where another CLI plugs in.</td><td>That agent installed and authenticated; ADBT via init-context</td></tr><tr><td>Strands + Bedrock</td><td>Run the model in-process through the SDK the harness is built with.</td><td>AWS credentials and <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" rel="noopener">Bedrock</a> model access</td></tr><tr><td>Replay</td><td>Fallback when a live model, ADBT, or device is unavailable.</td><td>Nothing beyond the installed packages</td></tr></tbody></table>
 :::
 
-<p>Run the workshop from scratch against a live model with one of the two live executors. The recorded replay path stays available as a fallback in every lesson. Confirm your live path is ready:</p>
+<p>Both live paths run the same harness — pick whichever you can authenticate today. The recorded replay path stays available as a fallback in every lesson. Confirm your live path is ready:</p>
 
 :::command Claude Code: check the local executor
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json
@@ -119,7 +119,7 @@ yarn doctor
 :::
 
 :::note Pick one live executor
-Choose Claude Code or Strands + Bedrock as your primary path — you do not need both. If your chosen live path fails mid-workshop, save the error and use the replay fallback shown in that lesson.
+Choose your CLI agent or Strands + Bedrock as your primary path — you don't need both. If your chosen live path fails mid-workshop, save the error and use the replay fallback shown in that lesson.
 :::
 
 <h2>5. Optional Vega and VDA setup</h2>
