@@ -14,7 +14,7 @@ If you remember one sentence: **the model is a contractor with read-only access;
 
 ## 1. Vocabulary, translated for a React Native dev
 
-You know these concepts already under different names. Here is the dictionary.
+You already know these concepts under different names — here's the dictionary.
 
 | Term | What it actually is | Your mental model |
 |---|---|---|
@@ -152,7 +152,7 @@ This phase forces the model to *plan in writing*, grounded in real Amazon migrat
 
 ## 6. What actually happened in our real run
 
-We ran this end to end. Here is what happened, including the failures. (These runs were captured under the earlier six-phase pipeline, before the collapse to `analyze → plan → build_test`. The phase names below are the historical ones; the mapping is `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, `vega_port`/`tv_behavior` → `build_test`.)
+We ran this end to end; here's what happened, including the failures. (These runs were captured under the earlier six-phase pipeline, before the collapse to `analyze → plan → build_test`. The phase names below are the historical ones; the mapping is `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, `vega_port`/`tv_behavior` → `build_test`.)
 
 ### The live port that succeeded (`e5ec5311`)
 A prior live-ADBT port completed all phases: `source_discovery → vega_portability_audit → tv_product_spec → vega_port → tv_behavior`, with `adbt.mode: live`, four git commits in the guarded app, and `tv-focus-result.json` passing.
@@ -201,7 +201,7 @@ Same knowledge, three delivery paths, identical JSON contract out. That intercha
 
 ## 8. The Strands SDK pieces, concretely
 
-Strands is the TypeScript agent runtime. In `src/port-executor.ts` the whole model interaction is:
+Strands is the TypeScript agent runtime; in `src/port-executor.ts` the whole model interaction is:
 
 ```ts
 const agent = new Agent({

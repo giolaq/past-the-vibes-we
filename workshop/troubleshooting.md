@@ -27,7 +27,7 @@ Check that the app directory contains `package.json` and runs before the worksho
 
 ## A model call fails
 
-Save the error and logs. Do not keep retrying. Use the lesson recording.
+Save the error and logs, stop retrying, and use the lesson recording.
 
 ## The cost cap is reached
 
@@ -59,7 +59,7 @@ Write down whether the failure came from SDK setup, device attachment, build, or
 
 ## Bee is unavailable
 
-Use `fixtures/bee-context/snapshot.json`. Bee is optional.
+Use `fixtures/bee-context/snapshot.json`; Bee is optional.
 
 ## A detached run appears stuck
 

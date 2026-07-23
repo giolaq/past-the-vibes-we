@@ -4,13 +4,13 @@ number: "04"
 nav: Skills and executors
 time: 20 minutes
 title: Separate knowledge from model access
-lead: A skill supplies domain instructions. An executor calls the model. The pipeline should not depend on one provider.
+lead: Skills carry the domain instructions and executors call the model — kept separate, so the pipeline never depends on one provider.
 objective: Separate domain knowledge, model execution, tools, and deterministic pipeline control.
 evidence: You can point to the file that owns each responsibility in both the mini and complete workshop harnesses.
 ---
 
 :::concept Four responsibilities
-Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.
+Each piece has one job: skills teach domain knowledge, phase context assembles the task, executors talk to the model, tools expose narrow capabilities, and the pipeline decides when side effects are allowed.
 :::
 
 :::predict

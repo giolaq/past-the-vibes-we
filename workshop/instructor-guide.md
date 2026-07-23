@@ -7,7 +7,7 @@
 3. Ask each attendee to report their live-executor status: **Claude Code ready**, **Strands + Bedrock ready**, or **needs replay fallback**. The workshop runs from scratch against a live model; replay is the safety net.
 4. Test both the live path and every replay/checkpoint fallback from a clean clone.
 5. Rehearse ADBT `1.0.5`, Vega SDK `0.22.5875`, and the target VDA image. Confirm `init-context --force` has installed the `amazon-devices-vega-*` skills into `~/.claude/skills` on every demo machine — lesson 4's live runs load them.
-6. Read [the latest live rehearsal](live-rehearsal.md). Do not present the device path as ready until VDA remains attached.
+6. Read [the latest live rehearsal](live-rehearsal.md), and don't present the device path as ready until the VDA stays attached.
 7. Start VDA in a separate system terminal, keep it open, and confirm `vega virtual-device status` plus `vega exec vda devices -l` before attendees arrive.
 8. Keep the completed TV app hidden until the TV exercise ends.
 

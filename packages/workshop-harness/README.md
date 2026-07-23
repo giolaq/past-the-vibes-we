@@ -2,7 +2,7 @@
 
 This package is used in the **Past the Vibes** workshop. It inspects a React Native app, copies it into a safe run directory, applies three small TV changes, verifies each change, and hands the result to Vega tools.
 
-It never edits the source app. Generated work goes to `packages/workshop-harness/out/<runId>/app`. Run every command below from the repository root.
+It never edits the source app — generated work goes to `packages/workshop-harness/out/<runId>/app`. Run every command below from the repository root.
 
 ## What happens during a port
 
@@ -14,7 +14,7 @@ Before the pipeline, `source_discovery` copies the app into a guarded directory 
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause one retry from the clean phase-start commit with the exact failure text. A second failure restores the clean state and stops the run.
 
-The model can inspect and propose. It cannot write files or run shell commands. The device screenshot is a mandatory gate in `build_test`: the run fails unless a launch screenshot is produced, so the key-free path supplies it with `--platform-replay`.
+The model can inspect and propose, but it cannot write files or run shell commands. The device screenshot is a mandatory gate in `build_test`: the run fails unless a launch screenshot is produced, so the key-free path supplies it with `--platform-replay`.
 
 ## How Strands is used
 
@@ -139,7 +139,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run <app> \
   --region us-west-2 --yes --json
 ```
 
-Strands supports `bedrock`, `openai`, and `openrouter`. Configure the provider credentials before running `doctor`.
+Strands supports `bedrock`, `openai`, and `openrouter`; configure the provider credentials before running `doctor`.
 
 ## Vega handoff
 
