@@ -4,9 +4,11 @@
 
 Separate domain instructions, system capabilities, and model access.
 
+The domain instructions here are not ours: each phase loads one of Amazon's vendor-maintained ADBT skills, installed by `init-context` in lesson 0 into `~/.claude/skills`. The harness consumes them without owning their content.
+
 ## Do this
 
-1. Run Step 4 against a live model with your chosen executor:
+1. Run Step 4 against a live model with your chosen executor. Live runs read the ADBT skills from `~/.claude/skills`; if you skipped lesson 0's `init-context`, run it now (`npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force`). Replay needs no install.
 
 ```sh
 # Claude Code CLI
@@ -25,7 +27,7 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
 
 2. Open these files in `packages/mini-harness/steps/04-skills/`:
 
-- `packages/mini-harness/steps/04-skills/skills.ts`: loads the reusable instructions selected by a phase.
+- `packages/mini-harness/steps/04-skills/skills.ts`: loads the ADBT skills a phase names from your agent's skills directory (`~/.claude/skills`, or `MINI_SKILLS_DIR`).
 - `packages/mini-harness/steps/04-skills/phase-context.ts`: builds the prompt for that phase.
 - `packages/mini-harness/steps/04-skills/executor.ts`: passes the phase prompt and selected skills to replay, Claude Code, or Strands.
 - `packages/mini-harness/steps/04-skills/recorder.ts`: records model requests and responses.
@@ -34,7 +36,7 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
    - Claude CLI calls `injectSkillText()` and receives the full instructions in the prompt.
    - Strands wraps the instructions in `Skill`, registers `AgentSkills` through `plugins`, and lets the agent activate them with the `skills` tool.
 4. Compare the teaching modules with the production modules in `packages/mini-harness/ISOMORPHISM.md`.
-5. Open the `react-native-analysis`, `tv-porting-plan`, and `tv-build-test` skills (one per phase). Notice that the target remains React Native; Step 4 changes how the agent receives domain knowledge, not what kind of app it works on.
+5. Open the three ADBT skills in `~/.claude/skills` (one per phase): `amazon-devices-vega-best-practices` (analyze), `amazon-devices-vega-focus-management` (plan), and `amazon-devices-vega-build-and-run` (build_test). Each is a folder with a `SKILL.md` — the same artifact shape you would use for your own skills, except these are written and versioned by the platform vendor. If they are not installed, inspect `workshop/fixtures/adbt-skills.json` for their names, hashes, and excerpts instead.
 
 Fallback if the live model is blocked — replay shows the same module boundaries without credentials:
 
@@ -70,6 +72,8 @@ Read [the full Strands construct reference](strands-constructs.md) for the MCP p
 
 A skill explains what matters. A tool performs a narrow action. An executor hides provider-specific model access and chooses the provider's native skill mechanism when one exists. Keeping them separate makes the pipeline easier to test and change.
 
+Because the skills are ADBT's, the pipeline gets vendor-maintained Vega knowledge without owning any of it: swapping a phase's expertise is a one-line change in `phases.json`, and Amazon updates the skill content independently through the ADBT package.
+
 The full workshop port applies the same rule with Strands Agents SDK:
 
 - `packages/workshop-harness/src/port-tools.ts` defines three Zod-typed tools: list, read, and search.
@@ -86,4 +90,4 @@ You can show where to change domain knowledge without changing the pipeline, and
 
 ## If blocked
 
-Use replay. The architecture is visible without a live model.
+Use replay. The architecture is visible without a live model. If the ADBT skills are not installed, `workshop/fixtures/adbt-skills.json` records their names, descriptions, hashes, and excerpts.

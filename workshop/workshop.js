@@ -104,8 +104,9 @@ focusCheck: `(cd packages/workshop-harness/out/<runId>/app && \\
 cat packages/workshop-harness/out/<runId>/app/tv-focus-result.json`,
   adbt: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json`,
   adbtInitCli: `# Run in a system terminal (not inside the agent). Sets up the ADBT MCP server
-# and skills for Claude Code CLI, so the model can call ADBT tools itself.
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli`,
+# and installs the amazon-devices-vega-* skills that lesson 4 loads.
+# --force skips the confirmation prompts.
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force`,
   adbtCheckStatus: `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli`,
   vegaSetup: `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 vega --version
@@ -195,8 +196,9 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
       <p>Skip this section when you plan to use lifecycle replay. For the live path, install the <a href="https://developer.amazon.com/docs/vega/0.22/install-vega-sdk.html" target="_blank" rel="noopener">Vega SDK</a> <code>0.22.5875</code> and create a Vega Virtual Device.</p>
       <p>How ADBT reaches the model depends on your executor:</p>
       <ul>
-        <li><strong>Replay (default)</strong> and <strong>Strands</strong>: the harness owns the ADBT <code>McpClient</code>. On the live Strands path it hands that client to the agent so the model calls ADBT's tools itself; on replay it reads recorded context. You do <em>not</em> run <code>init-context</code>.</li>
-        <li><strong>Claude Code CLI</strong>: the CLI has its own MCP client, so you register the ADBT server with it once, up front, using Amazon's official installer. Run this in a real system terminal (it completes silently), then reopen your agent:</li>
+        <li><strong>Replay (default)</strong>: recorded context, no <code>init-context</code>, no install.</li>
+        <li><strong>Strands</strong>: the harness owns the ADBT <code>McpClient</code> and hands it to the agent so the model calls ADBT's tools itself. Still run <code>init-context</code> once — lesson 4's live runs load the <code>amazon-devices-vega-*</code> skills it installs.</li>
+        <li><strong>Claude Code CLI</strong>: the CLI has its own MCP client, so the same <code>init-context</code> run registers the ADBT server with it and installs the skills. Run this in a real system terminal, then reopen your agent:</li>
       </ul>
       ${command("Set up ADBT MCP for the Claude Code CLI (one time)","adbtInitCli")}
       ${command("Verify the ADBT MCP setup","adbtCheckStatus")}
@@ -239,7 +241,7 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
     lead: "A skill supplies domain instructions. An executor calls the model. The pipeline should not depend on one provider.",
     objective: "Separate domain knowledge, model execution, tools, and deterministic pipeline control.",
     evidence: "You can point to the file that owns each responsibility in both the mini and complete workshop harnesses.",
-    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}<h2>Run it against a live model</h2>${command("Claude Code CLI","step4Local")}${command("Strands + Bedrock","step4Remote")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find the <code>react-native-analysis</code>, <code>tv-porting-plan</code>, and <code>tv-build-test</code> skills.","Follow them through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Notice that the React Native target is unchanged; only knowledge delivery and model access have become explicit.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${skillDelivery()}
+    body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}<h2>Run it against a live model</h2>${command("Claude Code CLI","step4Local")}${command("Strands + Bedrock","step4Remote")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find the ADBT skill each phase names: <code>amazon-devices-vega-best-practices</code> (analyze), <code>amazon-devices-vega-focus-management</code> (plan), <code>amazon-devices-vega-build-and-run</code> (build_test).","Open one of them in <code>~/.claude/skills</code> — a folder with a <code>SKILL.md</code>, written and versioned by Amazon, installed by lesson 0's <code>init-context</code>.","Follow the names through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${note("The skills are Amazon's, not ours","ADBT ships ten <code>amazon-devices-vega-*</code> skills. The harness consumes three of them without owning their content: swapping a phase's expertise is a one-line change in <code>phases.json</code>, and the vendor updates the skill bodies independently. If they are not installed, <code>workshop/fixtures/adbt-skills.json</code> records their names, hashes, and excerpts.")}${skillDelivery()}
 
       <h2>The whole model interaction, in one code block</h2>
       <p>People expect the AI part of this to be huge and mysterious. It is not. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is this:</p>

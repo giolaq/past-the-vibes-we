@@ -89,14 +89,14 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands 
 
 Install [Vega SDK](https://developer.amazon.com/docs/vega/0.22/install-vega-sdk.html) `0.22.5875` and create a Vega Virtual Device. On the live Strands path the harness builds the ADBT `McpClient` and hands it to the agent during `analyze` and `plan`, so the model discovers ADBT's tools and calls `list_documents` / `read_document` itself; the harness then records what it read. Replay uses a committed ADBT context snapshot.
 
-If you run the **Claude Code CLI** executor, register ADBT with the CLI once, up front (run in a real system terminal; it completes silently):
+Run ADBT's `init-context` once, up front, whichever executor you choose. It registers the ADBT MCP server with the Claude Code CLI **and installs Amazon's `amazon-devices-vega-*` skills into `~/.claude/skills`, which lesson 4 loads on every live run**. Run it in a real system terminal; `--force` skips its confirmation prompts:
 
 ```sh
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force
 npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
 ```
 
-You do not need `init-context` for the replay or Strands paths — the harness owns the ADBT connection there. See the [Vega ADBT setup docs](https://developer.amazon.com/docs/vega/0.22/mcp-server.html).
+Replay never needs `init-context`. On the Strands path the harness owns the ADBT MCP connection itself, but lesson 4's live runs still read the installed skills, so run the command once regardless of executor. See the [Vega ADBT setup docs](https://developer.amazon.com/docs/vega/0.22/mcp-server.html).
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json
