@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "source": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
+  "installedBy": "npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force",
+  "skills": [
+    {
+      "name": "amazon-devices-vega-best-practices",
+      "phase": "analyze",
+      "description": "Performance guidelines, development workflow, and architecture recommendations for Vega apps.",
+      "version": "1.0.0",
+      "sha256": "7e71a4a8bd09c20b961c227b430bf40aa348b9b627cc8900e1d5a0373f02c93a",
+      "excerpt": "# Development Best Practices\n\n## Prerequisites\n\nThis skill requires the `amazon-devices-buildertools-mcp` MCP server. Install the MCP server in your AI agent's MCP configuration. Example:\n\n    {\n      \"amazon-devices-buildertools-mcp\": {\n        \"command\": \"npx\",\n        \"args\": [\"-y\", \"@amazon-devices/amazon-devices-buildertools-mcp@latest\"]\n      }\n    }\n\n## Overview\n\nVega app development has ..."
+    },
+    {
+      "name": "amazon-devices-vega-focus-management",
+      "phase": "plan",
+      "description": "Cartesian focus management for D-Pad navigation with TVFocusGuideView and FocusManager.",
+      "version": "1.0.0",
+      "sha256": "aa825d3cf23a726d6d8bad2ba20f47476797748d47b4b84dbd79995f316e20bd",
+      "excerpt": "# Focus Management\n\n## Prerequisites\n\nThis skill requires the `amazon-devices-buildertools-mcp` MCP server. Install the MCP server in your AI agent's MCP configuration. Example:\n\n    {\n      \"amazon-devices-buildertools-mcp\": {\n        \"command\": \"npx\",\n        \"args\": [\"-y\", \"@amazon-devices/amazon-devices-buildertools-mcp@latest\"]\n      }\n    }\n\n## Overview\n\nTV apps require proper focus ..."
+    },
+    {
+      "name": "amazon-devices-vega-build-and-run",
+      "phase": "build_test",
+      "description": "Complete guide for building, deploying, and running React Native for Vega applications.",
+      "version": "1.0.0",
+      "sha256": "93963a0929aafe4fde761bb374e9c75c8a100081f0a76eb52cfb991b0a3dcb41",
+      "excerpt": "# Build and Run Vega App\n\n## Prerequisites\n\nThis skill requires the `amazon-devices-buildertools-mcp` MCP server. Install the MCP server in your AI agent's MCP configuration. Example:\n\n    {\n      \"amazon-devices-buildertools-mcp\": {\n        \"command\": \"npx\",\n        \"args\": [\"-y\", \"@amazon-devices/amazon-devices-buildertools-mcp@latest\"]\n      }\n    }\n\n## Overview\n\nCovers the full ..."
+    }
+  ]
+}

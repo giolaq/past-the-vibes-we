@@ -58,7 +58,7 @@ Done when the second command runs `focus` instead of repeating `screen` or `cont
 
 ## Step 4: skills and executors
 
-This step adds phase-scoped skills, prompt assembly, a model interface, and recording/replay. Claude CLI receives the full selected skill text in its prompt. Strands receives the same skills through the `AgentSkills` plugin and activates them through its `skills` tool.
+This step adds phase-scoped skills, prompt assembly, a model interface, and recording/replay. The skills are Amazon's `amazon-devices-vega-*` ADBT skills, loaded from `~/.claude/skills` (installed by `init-context`; override the location with `MINI_SKILLS_DIR`). Claude CLI receives the full selected skill text in its prompt. Strands receives the same skills through the `AgentSkills` plugin and activates them through its `skills` tool. Replay needs no skills installed.
 
 ```sh
 yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \

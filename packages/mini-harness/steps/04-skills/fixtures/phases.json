@@ -4,19 +4,19 @@
       "name": "analyze",
       "prompt": "Read the existing Pocket Cinema React Native app. Write out/ANALYSIS.md describing its screens, components, data, and which parts are portable to a TV. Do not change app code yet.",
       "verify": { "type": "file_exists", "path": "out/ANALYSIS.md" },
-      "skills": ["react-native-analysis"]
+      "skills": ["amazon-devices-vega-best-practices"]
     },
     {
       "name": "plan",
       "prompt": "Audit the analyzed app and write out/TV_PORT_PLAN.md. The plan must cover the TV screen layout and how the remote control moves focus, selects, and goes back. Include a section titled ## Remote Control.",
       "verify": { "type": "grep", "path": "out/TV_PORT_PLAN.md", "pattern": "## Remote Control" },
-      "skills": ["tv-porting-plan"]
+      "skills": ["amazon-devices-vega-focus-management"]
     },
     {
       "name": "build_test",
       "prompt": "Produce a build preview and test the ported app. Write out/build/preview.txt with the build result and out/BUILD_TEST.md recording the Screenshot evidence and remote control checks (launch, move, select, back).",
       "verify": { "type": "grep", "path": "out/BUILD_TEST.md", "pattern": "Screenshot" },
-      "skills": ["tv-build-test"]
+      "skills": ["amazon-devices-vega-build-and-run"]
     }
   ]
 }

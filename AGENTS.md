@@ -2,6 +2,8 @@
 
 This repository contains only the Past the Vibes workshop. Keep attendee instructions short, direct, and runnable without credentials through replay.
 
+This file is for agents maintaining or modifying the repository. If you are an agent asked to *take* the workshop, follow `workshop/AGENT_RUNBOOK.md` instead.
+
 ## Map
 
 - `workshop/`: attendee website, lessons, fixtures, checkpoints, and instructor material.
