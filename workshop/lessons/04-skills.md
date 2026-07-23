@@ -53,7 +53,7 @@ ADBT ships nine `amazon-devices-vega-*` skills — manifest configuration, focus
 :::
 
 <h2>The whole model interaction, in one code block</h2>
-      <p>The AI part of this is smaller than most people expect. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is essentially this (the <code>systemPrompt</code> is shortened here — the real one also tells the agent to use the ADBT tools):</p>
+      <p>In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is essentially this (the <code>systemPrompt</code> is shortened here — the real one also tells the agent to use the ADBT tools):</p>
 
 :::snippet packages/workshop-harness/src/port-executor.ts (simplified)
 const agent = new Agent({
@@ -68,7 +68,7 @@ const result = await agent.invoke(prompt, {
   cancelSignal: AbortSignal.timeout(10 * 60_000),  // 10-min hard stop
   limits: { turns: 8, totalTokens: 40_000 },       // bounded loop
 });
->look: What Strands gives you: the model-and-tool loop, provider adapters, schema-validated output, turn/token limits, cancellation, usage metrics. What it deliberately does <em>not</em> own: writing files, verification, Git, cost policy, ADBT selection. Those stay in the harness.
+>look: Strands supplies the model-and-tool loop, provider adapters, schema-validated output, turn/token limits, cancellation, and usage metrics. Writing files, verification, Git, cost policy, and ADBT selection stay in the harness.
 :::
 
 :::note The tools themselves are guarded hard

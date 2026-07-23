@@ -46,7 +46,7 @@ rows:
   Check: >-
     `ANALYSIS.md` must contain `## Portable`.
   Feasibility gate: >-
-    The model returns a verdict — `feasible`, `feasible-with-adapters`, or `blocked`. A `blocked` verdict stops the run with exit code 5 <em>before</em> any build budget is spent. Fail fast, fail honest.
+    The model returns a verdict — `feasible`, `feasible-with-adapters`, or `blocked`. A `blocked` verdict stops the run with exit code 5 <em>before</em> any build budget is spent.
   Inspect: >-
     `out/<runId>/app/ANALYSIS.md`, `feasibility-report.json`, and the deterministic inventory in `portability-report.json`.
   Code: >-
@@ -93,11 +93,11 @@ rows:
 :::
 
 :::note Screenshot is now a mandatory gate {warning}
-We wired the device screenshot as a required pass criterion of `build_test`. Note two consequences the repo records honestly: this makes a device (or its `--platform-replay` fixture) mandatory for a green run, and on the current VDA image the live screenshot tool segfaults, so the <em>live</em> screenshot cannot be produced until that tooling is fixed. The key-free replay path stays green via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`.
+The device screenshot is a required pass criterion of `build_test`. Two consequences: a device (or its `--platform-replay` fixture) is now mandatory for a green run, and on the current VDA image the live screenshot tool segfaults, so the <em>live</em> screenshot can't be produced until that tooling is fixed. The key-free replay path stays green via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`.
 :::
 
 <h2>Every phase is built from the same prompt template</h2>
-      <p>You do not need to guess what the model sees. Every phase prompt is assembled by one function — <code>prompt()</code> in <code>src/port-pipeline.ts</code> — from the same slots. Notice three things: the model is told the <strong>exact checks</strong> it will be graded against, a failed attempt gets the <strong>verbatim failure text</strong> fed back in, and the output contract is <strong>strict JSON</strong>.</p>
+      <p>You don't need to guess what the model sees. Every phase prompt is assembled by one function — <code>prompt()</code> in <code>src/port-pipeline.ts</code> — from the same slots. The model is told the exact checks it will be graded against, a failed attempt gets the verbatim failure text fed back in, and the output contract is strict JSON.</p>
 
 :::snippet The universal prompt template — src/port-pipeline.ts, prompt()
 You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875.
@@ -237,7 +237,7 @@ runtime-module = "@pocket-cinema/rn"
 launch-type = "singleton"
 :::
 
-<p>Just as telling is the <code>NextSteps.md</code> the model wrote back in the <em>plan</em> phase. It did not have full MCP doc access in that session, and instead of bluffing, it said so:</p>
+<p>Also worth reading: the <code>NextSteps.md</code> the model wrote back in the <em>plan</em> phase. It didn't have full MCP doc access in that session, and instead of bluffing, it said so:</p>
 
 :::snippet Generated NextSteps.md (excerpt) — the model admitting uncertainty
 ## Unverified against SDK docs (MCP doc access not granted)
@@ -250,11 +250,11 @@ relying on them — they are not invented APIs presented as fact.
 1. Manifest schema — verify field names and the [[components.interactive]] shape.
 2. App icon asset — vega_app_manifest.md requires a 512x512 PNG.
 3. Build CLI — confirm the exact Kepler/Vega build invocation.
->look: This is the skill "record gaps instead of inventing APIs" visibly working. The plan-phase check `NextSteps.md contains "ADBT"` passed, so the plan committed; the later build_test phase then had to clear all 11 of its own checks before it committed too.
+>look: The skill told the model to record gaps instead of inventing APIs, and this is what that looks like in output. The plan-phase check `NextSteps.md contains "ADBT"` passed, so the plan committed; the later build_test phase then had to clear all 11 of its own checks before it committed too.
 :::
 
-:::note The lesson from the worked example
-The model produces large, plausible, well-structured artifacts — and it also wraps JSON in prose and admits uncertainty. Plausible output is not clean output. The harness does not trust prose or vibes: it extracts the JSON, writes it to the guarded copy, and runs mechanical grep/file_exists checks. Only passing work is committed. That is <code>plausible &ne; verified</code>, made concrete.
+:::note What the worked example shows
+The model produces large, well-structured artifacts — and it also wraps JSON in prose and admits uncertainty. The harness doesn't read any of that as truth: it extracts the JSON, writes it to the guarded copy, and runs mechanical grep/file_exists checks. Only passing work is committed.
 :::
 
 <h2>How ADBT connects during the port</h2>
