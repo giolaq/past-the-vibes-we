@@ -156,7 +156,7 @@ const modules = [
       ${note("The single most important idea","An LLM generates <em>plausible</em> text. Plausible is not correct. <code>plausible &ne; verified</code>. Everything the harness does exists to close that gap — every phase ends in a mechanical check, not a vibe.")}
 
       <h2>Who is allowed to do what</h2>
-      <p>This is the security model, and it is the soul of the design. Read the boundary out loud:</p>
+      <p>This is the security model. Read the boundary out loud:</p>
       ${flow([["ADBT MCP","Approved Vega context"],["Strands","Read and propose"],["Harness","Write and check"],["Git","Commit evidence"]])}
       ${snippet("The boundary, in one diagram",`ADBT (MCP server) <--- model calls list_documents / read_document itself ---+
                                                                             |
@@ -244,7 +244,7 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
     body: `${concept("Four responsibilities","Skills teach domain knowledge. Phase context assembles the task. An executor talks to a model. Tools expose narrow capabilities. The pipeline decides when side effects are allowed.")}${predict("Where should a D-pad focus rule live: the executor, a skill, a read tool, or a verification check?")}<h2>Run it against a live model</h2>${command("Claude Code CLI","step4Local")}${command("Strands + Bedrock","step4Remote")}<h2>Map the teaching harness</h2>${steps(["Open <code>phases.json</code> and find the ADBT skill each phase names: <code>amazon-devices-vega-best-practices</code> (analyze), <code>amazon-devices-vega-focus-management</code> (plan), <code>amazon-devices-vega-build-and-run</code> (build_test).","Open one of them in <code>~/.claude/skills</code> — a folder with a <code>SKILL.md</code>, written and versioned by Amazon, installed by lesson 0's <code>init-context</code>.","Follow the names through <code>skills.ts</code>, <code>pipeline-engine.ts</code>, and <code>executor.ts</code>.","In <code>model-runtime.ts</code>, compare <code>injectSkillText()</code> with <code>createSkillsPlugin()</code>.","Compare every module with <code>packages/mini-harness/ISOMORPHISM.md</code>."])}${note("The skills are Amazon's, not ours","ADBT ships ten <code>amazon-devices-vega-*</code> skills — manifest configuration, focus management, navigation, media playback, performance, build-and-run, and more — versioned and updated by Amazon. The harness consumes three of them without owning their content: real TV domain expertise reaches the agent without you writing or maintaining a word of it, and swapping a phase's expertise is a one-line change in <code>phases.json</code>. If they are not installed, <code>workshop/fixtures/adbt-skills.json</code> records their names, hashes, and excerpts.")}${skillDelivery()}
 
       <h2>The whole model interaction, in one code block</h2>
-      <p>People expect the AI part of this to be huge and mysterious. It is not. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is this:</p>
+      <p>The AI part of this is smaller than most people expect. In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is this:</p>
       ${snippet("packages/workshop-harness/src/port-executor.ts",`const agent = new Agent({
   name: \`workshop-\${phase}\`,
   model: createModel(config),                 // Bedrock / OpenAI / OpenRouter behind one interface
