@@ -23,14 +23,14 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
 ```
 
-2. Open these files:
+2. Open these files in `packages/mini-harness/steps/04-skills/`:
 
-- `skills.ts`: loads the reusable instructions selected by a phase.
-- `phase-context.ts`: builds the prompt for that phase.
-- `executor.ts`: passes the phase prompt and selected skills to replay, Claude Code, or Strands.
-- `recorder.ts`: records model requests and responses.
+- `packages/mini-harness/steps/04-skills/skills.ts`: loads the reusable instructions selected by a phase.
+- `packages/mini-harness/steps/04-skills/phase-context.ts`: builds the prompt for that phase.
+- `packages/mini-harness/steps/04-skills/executor.ts`: passes the phase prompt and selected skills to replay, Claude Code, or Strands.
+- `packages/mini-harness/steps/04-skills/recorder.ts`: records model requests and responses.
 
-3. Open `model-runtime.ts` and trace both delivery paths:
+3. Open `packages/mini-harness/model-runtime.ts` and trace both delivery paths:
    - Claude CLI calls `injectSkillText()` and receives the full instructions in the prompt.
    - Strands wraps the instructions in `Skill`, registers `AgentSkills` through `plugins`, and lets the agent activate them with the `skills` tool.
 4. Compare the teaching modules with the production modules in `packages/mini-harness/ISOMORPHISM.md`.

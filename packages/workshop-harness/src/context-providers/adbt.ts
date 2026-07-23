@@ -82,9 +82,6 @@ export class AdbtMcpContextProvider implements AdbtContextProvider {
   private timeoutMs(): number { return this.options.timeoutMs ?? 60_000; }
 }
 
-/** @deprecated Use AdbtMcpContextProvider. */
-export const AdbtCliContextProvider = AdbtMcpContextProvider;
-
 export function renderAdbtPrompt(context: AdbtPortContext): string {
   const sources = context.documents.map((document) => `- ${document.name} (sha256: ${document.sha256})`).join("\n");
   const guidance = context.documents.map((document) => `### ${document.name}\n${document.excerpt}`).join("\n\n");
