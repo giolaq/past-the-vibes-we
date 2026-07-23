@@ -4,7 +4,7 @@ number: "05"
 nav: Project memory
 time: 15 minutes
 title: Review facts before saving them
-lead: Use a disposable input copy. Proposed context becomes project memory only after you review it.
+lead: Work on a disposable copy of the inputs — proposed context becomes project memory only after you review and apply it.
 objective: Turn selected source material into small, reviewable project facts with provenance.
 evidence: The saved PROJECT_CONTEXT.md separates decisions, facts, questions, and source ids.
 ---

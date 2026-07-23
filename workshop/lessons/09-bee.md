@@ -4,7 +4,7 @@ number: "09"
 nav: Optional Bee context
 time: 15 minutes
 title: Import selected context, not a transcript
-lead: Run this only when Bee is configured and participants consent. The synthetic fixture is the normal workshop path.
+lead: Run this only if Bee is configured and participants have consented — the synthetic fixture is the normal workshop path.
 objective: Select useful context without turning a private conversation into unreviewed agent memory.
 evidence: A scrubbed snapshot has source ids, dates, a query, a summary, and a stable hash.
 ---

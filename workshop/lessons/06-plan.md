@@ -4,7 +4,7 @@ number: "06"
 nav: Plan and port
 time: 35 minutes
 title: Inspect first, then change a guarded copy
-lead: Review scope, checks, ADBT context, seed, and cost before approving a port. The source app stays untouched.
+lead: Review the scope, checks, ADBT context, seed, and cost before approving a port — the run edits a guarded copy, and your source app stays untouched.
 objective: Follow the complete port boundary from plan approval to a checked, committed app copy.
 evidence: The report links approved ADBT context, a typed patch, check results, cost, and Git commits.
 ---
