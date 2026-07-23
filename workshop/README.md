@@ -1,6 +1,6 @@
 # Past the Vibes
 
-In this workshop, you build a small coding harness and use it to adapt one React Native flow for Vega TV.
+In this workshop, you build a coding harness with AWS Strands Agents SDK and use it to port one React Native flow to Vega TV. The harness is what you take home: swap its skills, its MCP server, or its executor and point it at your own use case.
 
 Use the [workshop web app](index.html) during the session. It gives you the commands, shows what to inspect, and tracks your progress. The web app is generated from the Markdown lessons in `lessons/`, which are the single source of truth for every exercise. If the hosted copy is unavailable, open `index.html` from your clone.
 
@@ -21,6 +21,8 @@ guarded app -> read-only tools -------+                         |
 ```
 
 The Strands agent can list, read, and search the guarded app. It cannot write files or run shell commands. ADBT joins the agent's tools during `analyze` and `plan` through a Strands `McpClient`; the model decides which Vega workflows to read, and the harness reconstructs and hashes every read so the run stays reproducible. The harness validates the patch, writes it, runs checks, enforces cost, and commits only passing work.
+
+This split is why you build a harness instead of prompting a coding agent. You get control — writes, checks, retries, cost, and commits happen in your code — and you get observability: every model turn is recorded, every ADBT read is hashed, every phase has a cost figure and a Git commit, and every run ends in a structured report you can hand to another developer.
 
 Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a code-level explanation of every Strands API used here and the boundaries that remain outside the SDK.
 

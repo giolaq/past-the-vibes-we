@@ -6,7 +6,7 @@ Written for a React Native developer who has never touched an "agent harness," a
 
 ## 0. The one-paragraph version
 
-We took a small React Native app (Pocket Cinema) and ported one screen flow to run on Vega, Amazon's TV OS. We did not do it by hand, and we did not just ask an AI "please port this app." Instead we built a **harness**: a plain TypeScript program that runs a fixed pipeline of steps, lets an AI model *propose* code inside tight walls, and keeps for itself every dangerous or irreversible action — writing files, running checks, committing to git, spending money, talking to the device.
+We took a small React Native app (Pocket Cinema) and ported one screen flow to run on Vega, Amazon's TV OS. We did not do it by hand, and we did not just ask an AI "please port this app." Instead we built a **harness** on Strands Agents SDK: a plain TypeScript program that runs a fixed pipeline of steps, lets an AI model *propose* code inside tight walls, and keeps for itself every dangerous or irreversible action — writing files, running checks, committing to git, spending money, talking to the device.
 
 If you remember one sentence: **the model is a contractor with read-only access; the harness is the foreman who checks the work and signs off.**
 

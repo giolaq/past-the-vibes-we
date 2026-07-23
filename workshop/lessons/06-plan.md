@@ -179,6 +179,8 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 6. Confirm <code>apps/pocket-cinema</code> is unchanged.
 :::
 
+<p>This chain is the observability you built the harness for: the prompts, the document reads, the cost, and the commits of the whole run are on disk, inspectable by anyone, without asking the model what it did.</p>
+
 :::knowledge The model fetches ADBT docs itself now. How does the run stay auditable and reproducible?
 The harness reconstructs every ADBT read from the agent's messages after the phase — document name, excerpt, and a SHA-256 hash into `adbt-port-context.json`. So even though the model chose what to read, there is an exact, hashed record of the knowledge it used — and replay can rerun from that recorded context with no live MCP server.
 :::
