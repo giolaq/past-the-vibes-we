@@ -46,7 +46,7 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
 :::
 
 :::note The skills are Amazon's, not ours
-ADBT ships nine `amazon-devices-vega-*` skills — manifest configuration, focus management, navigation, media playback, performance, build-and-run, and more — versioned and updated by Amazon. The harness consumes three of them without owning their content: real TV domain expertise reaches the agent without you writing or maintaining a word of it, and swapping a phase's expertise is a one-line change in `phases.json`. If they are not installed, `workshop/fixtures/adbt-skills.json` records their names, hashes, and excerpts.
+ADBT ships nine `amazon-devices-vega-*` skills — manifest configuration, focus management, navigation, media playback, performance, build-and-run, and more — versioned and updated by Amazon. The harness consumes three of them without owning their content: real TV domain expertise reaches the agent without you writing or maintaining a word of it, and swapping a phase's expertise is a one-line change in `phases.json`. The executor is the same kind of swap point: the workshop ships a Claude Code executor, and the `Executor` interface is where another CLI agent would plug in. If they are not installed, `workshop/fixtures/adbt-skills.json` records their names, hashes, and excerpts.
 :::
 
 :::include skillDelivery

@@ -14,7 +14,7 @@ evidence: A worksheet names the phases, checks, approval point, budget, and evid
 :::
 
 :::concept Transfer the pattern
-The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point.
+The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you saw in lesson 6: authority stays in your code, and every run leaves prompts, reads, costs, and commits you can audit.
 :::
 
 ## Draft your harness
@@ -25,7 +25,7 @@ The reusable idea is a bounded workflow that gives a model strong context, limit
 3. Choose the fewest useful phases.
 4. Give every phase one independent, mechanical check.
 5. Define the approval point, cost limit, stop conditions, and saved evidence.
-6. Name your replacement for the TV skill, Vega adapter, and D-pad check.
+6. Name your replacement for the TV skill, the ADBT MCP server, the Vega adapter, the D-pad check — and, if you use a different CLI agent, the executor.
 :::
 
 :::knowledge What is the smallest useful first version of your harness?
