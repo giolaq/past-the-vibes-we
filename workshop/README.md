@@ -6,7 +6,7 @@ Use the [workshop web app](index.html) during the session. It gives you the comm
 
 ## Strands Agents SDK in this workshop
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the TypeScript agent runtime used by the live remote executor. The complete workshop harness pins `1.10.0`; the staged mini-harness pins `1.7.0`. It provides the model loop, model providers, Zod-typed tools, structured output, execution limits, and usage metrics.
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the TypeScript agent runtime used by the live remote executor. Both the complete workshop harness and the staged mini-harness pin `1.10.0`. It provides the model loop, model providers, Zod-typed tools, structured output, execution limits, and usage metrics.
 
 The workshop starts with React Native, not a website. Every mini-harness step modifies a reduced Pocket Cinema app, so the target stays familiar while the harness grows from one model call into phases, checks, skills, and executors.
 
@@ -20,7 +20,7 @@ guarded app -> read-only tools -------+                         |
                      harness writes -> checks -> retry -> commit -> report
 ```
 
-The Strands agent can list, read, and search the guarded app. It cannot write files or run shell commands. ADBT is called by the harness through Strands `McpClient`; only the two Vega port workflows enter the `plan` prompt. The harness validates the patch, writes it, runs checks, enforces cost, and commits only passing work.
+The Strands agent can list, read, and search the guarded app. It cannot write files or run shell commands. ADBT joins the agent's tools during `analyze` and `plan` through a Strands `McpClient`; the model decides which Vega workflows to read, and the harness reconstructs and hashes every read so the run stays reproducible. The harness validates the patch, writes it, runs checks, enforces cost, and commits only passing work.
 
 Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a code-level explanation of every Strands API used here and the boundaries that remain outside the SDK.
 
@@ -31,7 +31,7 @@ Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a cod
 3. Split the work into phases, commits, and checkpoints.
 4. Separate skills, tools, and model executors.
 5. Review project context before saving it as memory.
-6. Copy and inspect a React Native app, then inject ADBT migration context into its guarded Vega port.
+6. Copy and inspect a React Native app, then port it to Vega with model-fetched, hash-recorded ADBT migration context.
 7. Adapt one flow for TV remote navigation.
 8. Replay the full Vega lifecycle, then optionally run it on a VDA device.
 9. Sketch a harness for your own work.

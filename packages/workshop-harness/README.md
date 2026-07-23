@@ -32,6 +32,8 @@ yarn verify
 yarn doctor
 ```
 
+`openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
+
 ## Run the port
 
 ```sh

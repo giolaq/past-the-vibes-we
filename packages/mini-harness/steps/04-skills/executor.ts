@@ -7,13 +7,16 @@ import type { Skill } from "./skills.js";
 export type ModelResult = { text: string; costUsd: number };
 export interface Executor { call(phase: string, prompt: string, skills: Skill[]): Promise<ModelResult>; }
 
-export function createExecutor(ctx: RunContext, replayPath?: string): Executor {
-  return replayPath ? new ReplayExecutor(replayPath) : new LiveExecutor(ctx);
+export function createExecutor(ctx: RunContext, replayPath?: string, resumePhase?: string): Executor {
+  return replayPath ? new ReplayExecutor(replayPath, resumePhase) : new LiveExecutor(ctx);
 }
 
 class ReplayExecutor implements Executor {
   private client: ReplayClient;
-  constructor(replay: string) { this.client = new ReplayClient(replay); }
+  constructor(replay: string, resumePhase?: string) {
+    this.client = new ReplayClient(replay);
+    if (resumePhase) this.client.seek(resumePhase);
+  }
   async call(phase: string): Promise<ModelResult> {
     const turn = this.client.next(phase);
     const usage = turn.usage ?? { input_tokens: 0, output_tokens: 0 };

@@ -121,7 +121,7 @@ function detach(sourcePath: string): void {
   const out = join(root, runId);
   mkdirSync(out, { recursive: true });
   const log = join(out, "run.log");
-  const fd = BunFreeOpen(log);
+  const fd = openLogFile(log);
   const forwarded = args.concat(["--child", "--run-id", runId]).filter((arg) => arg !== "--detach");
   const childArgs = ["--import", "tsx", fileURLToPath(import.meta.url), ...forwarded];
   const child = spawn(process.execPath, childArgs, { detached: true, stdio: ["ignore", fd, fd] });
@@ -273,7 +273,7 @@ async function vegaRunCommand(): Promise<void> {
 }
 
 function flag(name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
-function BunFreeOpen(path: string): number { mkdirSync(dirname(path), { recursive: true }); return openSync(path, "a"); }
+function openLogFile(path: string): number { mkdirSync(dirname(path), { recursive: true }); return openSync(path, "a"); }
 function help(): void { process.stdout.write("Workshop Harness\n\nCommands: doctor, plan, run, status, logs, memory, context adbt, context bee, vega-run\n\nModel execution:\n  --executor claude-cli                 Local Claude Code (default)\n  --executor strands --provider <name>  Remote model through Strands\n  --model <id> [--region <aws-region>]  Provider model settings\n  --replay <recording.json>             No-model workshop path\n  --adbt-replay <context.json>          Recorded ADBT context (otherwise inferred beside replay)\n  --adbt-live                           Call pinned ADBT even when model output uses replay\n\nLive ports call pinned ADBT workflows at runtime during analyze and plan.\nStrands providers: bedrock, openai, openrouter\n"); }
 
 main().catch((error) => { if (!(error instanceof CliFailure)) failure("unexpected_error", error instanceof Error ? error.message : String(error), "Read the workshop troubleshooting guide.", 3); });

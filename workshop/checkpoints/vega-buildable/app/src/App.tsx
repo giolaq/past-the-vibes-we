@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BackHandler, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
-import { movieById, movies, rails, type Movie } from "./catalog";
-import { focusItem, heroPreferredFocus, initialFocusState, openFrom, preferredFocus, type FocusState } from "./tv/focus-state";
+import { movieById, movies, rails, type Movie } from "./catalog.js";
+import { focusItem, heroPreferredFocus, initialFocusState, openFrom, preferredFocus, type FocusState } from "./tv/focus-state.js";
 
 export default function App() {
   const [selected, setSelected] = useState<Movie | null>(null);
