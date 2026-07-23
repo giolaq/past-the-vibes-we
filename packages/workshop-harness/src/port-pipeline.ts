@@ -19,7 +19,11 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; executor: PortExecutor; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; executor: PortExecutor; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
+  // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
+  // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
+  // phase — repeating a failure the model cannot fix only spends budget.
+  const maxAttempts = options.maxAttempts ?? 2;
   mkdirSync(options.outDir, { recursive: true });
   initializeGit(options.appDir);
   const result: PortResult = { phases: [], costUsd: 0 };
@@ -34,8 +38,9 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       const replayContext = usesAdbt && !options.adbtClient && options.adbt ? await options.adbt.load() : undefined;
       const start = gitHead(options.appDir);
       let failures: string[] = [];
+      let previousFailures = "";
       try {
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           if (attempt > 1) reset(options.appDir, start);
           const extraTools = usesAdbt && options.adbtClient ? [options.adbtClient] : undefined;
           const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), undefined, extraTools);
@@ -59,7 +64,10 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
             result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label) });
             break;
           }
-          if (attempt === 2) throw new Error(`${phase.name} failed after retry: ${failures.join("; ")}`);
+          const signature = failures.join("; ");
+          if (attempt === maxAttempts) throw new Error(`${phase.name} failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${signature}`);
+          if (signature === previousFailures) throw new Error(`${phase.name} stopped after ${attempt} attempts: no progress, the same failures repeated: ${signature}`);
+          previousFailures = signature;
         }
       } catch (error) {
         reset(options.appDir, start);

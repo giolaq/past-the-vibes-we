@@ -14,6 +14,9 @@ type Phase = z.infer<typeof Phase>;
 const args = process.argv.slice(2);
 const phasesPath = args[0] === "run" ? args[1] : flag("--phases") ?? args[0] ?? "fixtures/phases.json";
 const replayPath = flag("--replay");
+// Default is one retry. A higher --max-attempts loops until the check passes; the loop
+// still stops when the same failure comes back twice in a row (more attempts buy nothing).
+const maxAttempts = Number(flag("--max-attempts") ?? 2);
 const outDir = resolve("out");
 let replayIndex = 0;
 const turns: RecordedTurn[] = replayPath ? JSON.parse(readFileSync(resolve(replayPath), "utf-8")) : [];
@@ -30,15 +33,18 @@ async function main() {
 
 async function runPhase(phase: Phase) {
   let failure = "";
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let previous = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const prompt = [`Phase: ${phase.name}`, failure && `Previous verification failed: ${failure}`, phase.prompt].filter(Boolean).join("\n\n");
     const output = Output.parse(JSON.parse((await call(phase.name, prompt)).match(/\{[\s\S]*\}/)?.[0] ?? "{}"));
     for (const [path, content] of Object.entries(output.files)) writeFile(path, content);
     failure = verify(phase.verify) ?? "";
     if (!failure) return output;
     console.log(`${phase.name}: verify failed: ${failure}`);
+    if (attempt < maxAttempts && failure === previous) throw new Error(`Phase ${phase.name} stopped after ${attempt} attempts: no progress, the same failure repeated: ${failure}`);
+    previous = failure;
   }
-  throw new Error(`Phase ${phase.name} failed after retry: ${failure}`);
+  throw new Error(`Phase ${phase.name} failed after ${maxAttempts} attempts: ${failure}`);
 }
 
 async function call(phase: string, prompt: string): Promise<string> {
