@@ -50,6 +50,8 @@ Follow lessons 1–8, skip optional lesson 9, and finish with lesson 10. The sch
 
 Start with [Before You Arrive](00-before-you-arrive.md). Keep [Troubleshooting](troubleshooting.md) open during the session.
 
+Handing this workshop to an AI agent instead of a person? Point it at the [agent runbook](AGENT_RUNBOOK.md) — it maps the lessons to replay commands, evidence, and a completion report.
+
 ## Lessons
 
 1. [From prompt to loop](01-from-prompt-to-loop.md)
