@@ -18,7 +18,7 @@ The model can inspect and propose. It cannot write files or run shell commands. 
 
 ## How Strands is used
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the in-process agent runtime for `--executor strands`. This package pins TypeScript SDK `1.10.0`. It supplies model providers, the agent loop, Zod-typed tools, structured output, MCP, limits, cancellation, and metrics.
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime and the in-process engine for `--executor strands`. This package pins TypeScript SDK `1.10.0`. It supplies model providers behind one interface (Bedrock, OpenAI, OpenRouter), the agent loop, Zod-typed tools, schema-enforced structured output, a native MCP client, limits, cancellation, and metrics — which is why the executor fits in about a hundred lines of workshop code.
 
 The port agent receives three tools from `src/port-tools.ts`: list project files, read one project file, and search project text. All three are read-only and limited to the guarded app. `src/port-contract.ts` defines the validated patch result. The agent is limited to eight turns, 40,000 total tokens, and ten minutes per phase.
 

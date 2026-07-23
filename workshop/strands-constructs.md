@@ -2,6 +2,8 @@
 
 This is a code-reading guide, not a list of everything Strands Agents SDK can do. Both the complete workshop harness and the staged mini-harness pin `@strands-agents/sdk` `1.10.0`. Both use bounded agents around React Native work. The complete harness inspects a guarded app and proposes a Vega patch.
 
+Worth noticing as you read: everything in these tables is SDK-supplied. The harness gets provider adapters, validated tools, enforced output schemas, limits, cancellation, metrics, skills, and an MCP client from one dependency, and gives up nothing in return — writes, checks, retries, cost, and commits stay in workshop code.
+
 Use these files while reading this guide:
 
 - `packages/workshop-harness/src/port-executor.ts`

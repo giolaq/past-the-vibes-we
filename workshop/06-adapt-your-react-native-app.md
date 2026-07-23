@@ -54,6 +54,8 @@ Changing the executor does not change the pipeline's authority. The harness alwa
 
 The `analyze` phase needs current Vega compatibility guidance to judge feasibility, and `plan` needs current migration workflows to describe the port. `build_test` already has a concrete focus contract and the plan to work from, so it does not query ADBT.
 
+This is ADBT's core value in one sentence: the workflows the model reads are the same versioned migration guidance Amazon maintains for Vega, served from a local process over MCP — so the plan is grounded in vendor documentation instead of the model's memory of APIs that may not exist.
+
 In a live Strands run the harness builds the ADBT `McpClient` and passes it into the agent's tools; Strands discovers ADBT's tools dynamically and the model calls `list_documents`, then `read_document` for whichever workflows it needs — the harness pre-selects nothing. After the phase the harness reconstructs those reads from the agent's messages and saves each with a SHA-256 hash to `adbt-port-context.json`. If ADBT is unavailable the run stops with exit code `3` instead of letting the model invent Vega APIs. (The Claude Code CLI reaches ADBT through its own MCP config from `init-context`; replay reads a recorded `adbt-port-context.json`.)
 
 ## What each phase must prove
