@@ -66,5 +66,5 @@ Every saved fact has a source and the repository fixture is unchanged.
 :::
 
 :::fallback
-Use the synthetic Bee snapshot. Live Bee access is not required.
+Use the synthetic Bee snapshot — live Bee access isn't required.
 :::
