@@ -9,11 +9,16 @@ const files = walk(root).filter((path) => path.endsWith(".md"));
 const missing: string[] = [];
 const android: string[] = [];
 
+// Paths the port pipeline generates at run time (into out/<runId>/app/), so
+// they do not exist in the committed tree. Same intent as skipping `<...>`
+// template paths below — these are produced, not authored.
+const generated = new Set(["apps/vega"]);
+
 for (const file of files) {
   const text = readFileSync(file, "utf8");
   for (const match of text.matchAll(/`((?:packages|workshop|apps|scripts)\/[^`\n]+)`/g)) {
     const path = match[1].replace(/:\d+$/, "").replace(/[.,;:]$/, "");
-    if (!path.includes("<") && !existsSync(path)) missing.push(`${file}: ${path}`);
+    if (!path.includes("<") && !generated.has(path) && !existsSync(path)) missing.push(`${file}: ${path}`);
   }
   for (const match of text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
     const target = match[1].split("#")[0];

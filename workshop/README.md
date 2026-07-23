@@ -2,7 +2,7 @@
 
 In this workshop, you build a small coding harness and use it to adapt one React Native flow for Vega TV.
 
-Use the [workshop web app](index.html) during the session. It gives you the commands, shows what to inspect, and tracks your progress. The Markdown lessons use the same numbering and exercises. If the hosted copy is unavailable, open `index.html` from your clone.
+Use the [workshop web app](index.html) during the session. It gives you the commands, shows what to inspect, and tracks your progress. The web app is generated from the Markdown lessons in `lessons/`, which are the single source of truth for every exercise. If the hosted copy is unavailable, open `index.html` from your clone.
 
 ## Strands Agents SDK in this workshop
 
@@ -48,22 +48,22 @@ Follow lessons 1–8, skip optional lesson 9, and finish with lesson 10. The sch
 - **Claude Code:** run a local model session with `--executor claude-cli`.
 - **Strands:** use the in-process Strands Agents SDK with Bedrock, OpenAI, or OpenRouter via `--executor strands`.
 
-Start with [Before You Arrive](00-before-you-arrive.md). Keep [Troubleshooting](troubleshooting.md) open during the session.
+Start with [Before You Arrive](lessons/00-welcome.md). Keep [Troubleshooting](troubleshooting.md) open during the session.
 
 Handing this workshop to an AI agent instead of a person? Point it at the [agent runbook](AGENT_RUNBOOK.md) — it maps the lessons to replay commands, evidence, and a completion report.
 
 ## Lessons
 
-1. [From prompt to loop](01-from-prompt-to-loop.md)
-2. [Verification and retry](02-verification-and-retry.md)
-3. [Phases, checkpoints, and cost](03-phases-checkpoints-and-cost.md)
-4. [Tools, skills, and executors](04-tools-skills-and-executors.md)
-5. [Project memory](05-project-memory.md)
-6. [Adapt your React Native app](06-adapt-your-react-native-app.md)
-7. [TV as the stress test](07-tv-as-the-stress-test.md)
-8. [Vega platform adapter](08-vega-platform-adapter.md)
-9. [Optional: Bee context](09-bee-context-agent.md)
-10. [Take it home](10-take-it-home.md)
+1. [From prompt to loop](lessons/01-single-agent.md)
+2. [Verification and retry](lessons/02-verify.md)
+3. [Phases, checkpoints, and cost](lessons/03-phases.md)
+4. [Tools, skills, and executors](lessons/04-skills.md)
+5. [Project memory](lessons/05-memory.md)
+6. [Adapt your React Native app](lessons/06-plan.md)
+7. [TV as the stress test](lessons/07-tv.md)
+8. [Vega platform adapter](lessons/08-vega.md)
+9. [Optional: Bee context](lessons/09-bee.md)
+10. [Take it home](lessons/10-finish.md)
 
 The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a physical or virtual device passed. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 
