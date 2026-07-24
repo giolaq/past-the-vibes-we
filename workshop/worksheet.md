@@ -42,6 +42,12 @@ What exact failure text should be sent into the retry for each phase?
 
 ```
 
+If you loop until done instead of retrying once: what is the done predicate (a check, never the model's opinion), what budget stops the loop, and what counts as no progress?
+
+```text
+
+```
+
 ## 5. Human control
 
 Where must a person review or approve the work?
