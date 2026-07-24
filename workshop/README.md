@@ -1,6 +1,6 @@
 # Past the Vibes
 
-In this workshop, you build a coding harness with AWS Strands Agents SDK and use it to port one React Native flow to Vega TV. The harness is what you take home: swap its skills, its MCP server, or its executor and point it at your own use case.
+In this workshop, you build a coding harness with AWS Strands Agents SDK and use it to port one React Native flow to Vega TV. The harness is what you take home: swap its skills, its MCP server, or its executor — run it with the CLI coding agent you already use, or directly with Strands + Bedrock — and point it at your own use case.
 
 Use the [workshop web app](index.html) during the session. It gives you the commands, shows what to inspect, and tracks your progress. The web app is generated from the Markdown lessons in `lessons/`, which are the single source of truth for every exercise. If the hosted copy is unavailable, open `index.html` from your clone.
 

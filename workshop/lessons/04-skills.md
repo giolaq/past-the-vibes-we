@@ -2,7 +2,7 @@
 id: skills
 number: "04"
 nav: Skills and executors
-time: 20 minutes
+time: 30 minutes
 title: Separate knowledge from model access
 lead: Skills carry the domain instructions and executors call the model — kept separate, so the pipeline never depends on one provider.
 objective: Separate domain knowledge, model execution, tools, and deterministic pipeline control.
@@ -90,6 +90,43 @@ In `src/port-tools.ts`, the read tools reject absolute paths, `..` traversal, sy
 4. Follow the result into usage accounting and `port-recorder.ts`.
 5. Confirm the workshop port agent has no write or shell tool. Its pipeline owns both.
 :::
+
+## Assignment: ship a team skill
+
+Amazon ships its conventions as skills — now ship one of yours. Pick a rule your team actually has, teach it to the model as a skill, and enforce it with a check. The pairing is the point: the skill carries the knowledge, the check does the enforcement, and they live in different files on purpose.
+
+:::steps
+1. Create the skill: `mkdir -p ~/.claude/skills/team-open-questions`, then write `~/.claude/skills/team-open-questions/SKILL.md` with one instruction — for example: "End every document you produce with a section titled ## Open Questions listing what you could not verify." (Or use your own team rule; keep it one paragraph. If your agent keeps skills elsewhere, point `MINI_SKILLS_DIR` at that directory instead.)
+2. Copy the config: `cp steps/04-skills/fixtures/phases.json /tmp/my-skills-phases.json`.
+3. In the copy, add `team-open-questions` to the `plan` phase's `skills` array, and change that phase's `verify` pattern to `## Open Questions`.
+4. Run it live. If the first run fails after its retry, just run it again — a fresh run is cheap.
+:::
+
+:::command Run with your skill and your check
+yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
+  /tmp/my-skills-phases.json \
+  --executor claude-cli --model sonnet
+:::
+
+:::done
+The run passes, `packages/mini-harness/out/TV_PORT_PLAN.md` ends with your `## Open Questions` section, and you can point at which file taught the rule (your `SKILL.md`) and which file enforced it (the `verify` entry in your phases copy). Swapping either one never touches pipeline code.
+:::
+
+:::fallback
+On replay your check fails and your skill is never read — no model runs, so nothing can follow an instruction. The run ends with `Replay phase mismatch: wanted plan, got build_test`: the failed check triggered a retry, and the recording has no second plan answer to give. Note the split — replay honors checks (deterministic code) but cannot honor skills (model behavior) — and the assignment is complete on the replay path.
+:::
+
+## Swap in your own CLI agent
+
+The executor is the same kind of swap point as a skill, and the recipe fits in three steps. Everything lives in `packages/workshop-harness/src/port-executor.ts`:
+
+:::steps
+1. Implement `PortExecutor` — a one-method interface: `call(phase, prompt)` returns `{text, costUsd}` where `text` carries the JSON patch. Model it on `ClaudeCodePortExecutor`: spawn your CLI non-interactively with the prompt on stdin and the guarded app as the working directory, collect the response text, and record each turn with `PortRecorder` so your runs replay like everyone else's.
+2. Register it: add a `kind` to `ExecutorConfig`, a branch in `resolveExecutorConfig()` for your `--executor <name>` value, and a branch in `createPortExecutor()`.
+3. Keep the contract: the harness applies only the returned typed patch — anything your CLI writes directly to disk is ignored and rolled back — and your agent reaches ADBT through its own MCP config (`init-context` supports Cursor, Cline, Kiro, Copilot, and `other`).
+:::
+
+The mini-harness has the identical seam in `steps/04-skills/executor.ts` if you want to practice on the small version first. Either way, the pipeline, checks, retries, cost cap, and commits never change — that is what "swap the executor" means.
 
 :::knowledge Why use AgentSkills with Strands but prompt injection with Claude CLI?
 Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.
