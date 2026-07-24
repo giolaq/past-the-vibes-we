@@ -105,6 +105,26 @@ yarn doctor
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 :::
 
+<h3>Prove the starting point is not TV-ready</h3>
+      <p>Don't take our word that Pocket Cinema is touch-only — run the TV-readiness check against it. The same command goes green on the ported copy in lesson 7. If you brought your own app, run it on that too:</p>
+
+:::command Run the TV-readiness check on the starter app
+yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
+:::
+
+:::expected
+"tvReady": false
+"failures": [
+  "Focus state module: missing src/tv/focus-state.ts",
+  "App wires shared focus state: src/App.tsx must contain \"./tv/focus-state\"",
+  "Initial focus declared: src/App.tsx must contain \"hasTVPreferredFocus\"",
+  "Vega package manifest: missing apps/vega/manifest.toml",
+  ...
+]
+:::
+
+<p>That failure list is the workshop's to-do list: everything on it is produced by the port in lesson 6 and verified in lesson 7.</p>
+
 <h2>4. Choose one execution path</h2>
 
 :::raw
