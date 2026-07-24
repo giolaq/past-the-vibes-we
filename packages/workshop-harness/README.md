@@ -34,6 +34,14 @@ yarn doctor
 
 `openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
 
+## Bring your own CLI agent
+
+The harness ships two live executors (Claude Code CLI and in-process Strands). Adding your own CLI agent takes three steps, all in `src/port-executor.ts`:
+
+1. Implement `PortExecutor` — one `call(phase, prompt)` method returning `{text, costUsd}` with the JSON patch in `text`. Model it on `ClaudeCodePortExecutor`: spawn your CLI non-interactively with the prompt on stdin and the guarded app as cwd, and record turns with `PortRecorder` so replay keeps working.
+2. Register it: a new `kind` in `ExecutorConfig`, a branch in `resolveExecutorConfig()` for your `--executor <name>` value, and a branch in `createPortExecutor()`.
+3. Keep the contract: only the returned typed patch is applied — direct writes by your CLI are ignored and rolled back — and your agent reaches ADBT through its own MCP config (`init-context` supports Cursor, Cline, Kiro, Copilot, and `other`).
+
 ## Run the port
 
 ```sh

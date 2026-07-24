@@ -116,6 +116,18 @@ The run passes, `packages/mini-harness/out/TV_PORT_PLAN.md` ends with your `## O
 On replay your check fails and your skill is never read — no model runs, so nothing can follow an instruction. The run ends with `Replay phase mismatch: wanted plan, got build_test`: the failed check triggered a retry, and the recording has no second plan answer to give. Note the split — replay honors checks (deterministic code) but cannot honor skills (model behavior) — and the assignment is complete on the replay path.
 :::
 
+## Swap in your own CLI agent
+
+The executor is the same kind of swap point as a skill, and the recipe fits in three steps. Everything lives in `packages/workshop-harness/src/port-executor.ts`:
+
+:::steps
+1. Implement `PortExecutor` — a one-method interface: `call(phase, prompt)` returns `{text, costUsd}` where `text` carries the JSON patch. Model it on `ClaudeCodePortExecutor`: spawn your CLI non-interactively with the prompt on stdin and the guarded app as the working directory, collect the response text, and record each turn with `PortRecorder` so your runs replay like everyone else's.
+2. Register it: add a `kind` to `ExecutorConfig`, a branch in `resolveExecutorConfig()` for your `--executor <name>` value, and a branch in `createPortExecutor()`.
+3. Keep the contract: the harness applies only the returned typed patch — anything your CLI writes directly to disk is ignored and rolled back — and your agent reaches ADBT through its own MCP config (`init-context` supports Cursor, Cline, Kiro, Copilot, and `other`).
+:::
+
+The mini-harness has the identical seam in `steps/04-skills/executor.ts` if you want to practice on the small version first. Either way, the pipeline, checks, retries, cost cap, and commits never change — that is what "swap the executor" means.
+
 :::knowledge Why use AgentSkills with Strands but prompt injection with Claude CLI?
 Strands can expose skill metadata and let the agent progressively activate instructions through a plugin. The CLI subprocess has no shared in-process plugin, so the executor sends the selected instructions directly in its prompt.
 :::
