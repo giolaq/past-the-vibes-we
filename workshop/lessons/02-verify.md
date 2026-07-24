@@ -2,7 +2,7 @@
 id: verify
 number: "02"
 nav: Check and retry
-time: 20 minutes
+time: 30 minutes
 title: Turn a failure into a useful retry
 lead: Run a mechanical check and send its exact failure into one bounded retry.
 objective: Trace a requirement through a failed check, a contextual retry, and a passing result.
@@ -70,6 +70,31 @@ caption: "The recording forces one useful failure. Notice that the retry receive
 2. Open `steps/02-verify-loop/verify.ts` and locate that check.
 3. Find the same failure text in the retry request.
 4. Open `out/TV_PORT_PLAN.md` and confirm the second attempt adds the remote control section.
+:::
+
+## Assignment: own the requirement
+
+A requirement just landed: the TV plan must also cover accessibility. Your job is to make the harness enforce it — without touching harness code.
+
+:::steps
+1. Copy the phase config so the committed fixture stays clean: `cp steps/02-verify-loop/fixtures/phases.json /tmp/my-phases.json`.
+2. In the copy, extend the `plan` phase prompt: the plan must also include a section titled `## Accessibility` covering focus visibility, text size, and contrast.
+3. In the same phase, change the `verify` pattern from `## Remote Control` to `## Accessibility`.
+4. Run it live and watch your own check drive the loop.
+:::
+
+:::command Run against your requirement
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
+  /tmp/my-phases.json \
+  --executor claude-cli --model sonnet
+:::
+
+:::done
+The run passes and `grep "## Accessibility" packages/mini-harness/out/TV_PORT_PLAN.md` finds your section. You changed what the harness accepts by editing one prompt and one check — the loop did the rest.
+:::
+
+:::fallback
+On replay your new check fails on purpose — run it and read the output. The recording was made before your requirement existed, so both recorded plan answers miss it and the run ends with `Phase plan failed after 2 attempts: Pattern "## Accessibility" not found in out/TV_PORT_PLAN.md`. Write down why in one sentence: a recording is a frozen answer, and a new requirement needs a live model. That observation completes the assignment on the replay path.
 :::
 
 ## Stretch: loop until the check passes
