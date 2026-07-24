@@ -21,23 +21,22 @@ During lesson 4, trace one ADBT skill (for example `amazon-devices-vega-focus-ma
 | --- | --- | --- |
 | 00:00 | Set up, choose an app, and run doctor | Use Pocket Cinema and replay |
 | 00:10 | Lesson 1: run one model call and list missing evidence | Show the Step 1 replay |
-| 00:25 | Lesson 2: trace a failed check into one retry | Read the retry recording together |
-| 00:45 | Lesson 3: pause after one phase, inspect the checkpoint, and resume | Use the resume fixture |
-| 01:10 | Lesson 4: trace skills, executors, and recording | Use Step 4 replay |
-| 01:30 | **Break** | Keep it a full 10 minutes |
-| 01:40 | Lesson 5: review and apply a synthetic memory proposal | Use the copied fixture |
-| 01:55 | Lesson 6: trace runtime ADBT context into the guarded Pocket Cinema port | Use the recorded ADBT context and Vega-buildable checkpoint |
-| 02:30 | Lesson 7: run the focus state checks and inspect a failure | Use the focus fixture |
-| 02:50 | **Break** | Keep it a full 10 minutes |
-| 03:00 | Lesson 8: run the complete Vega lifecycle on an attached VDA | Fall back to platform replay or the complete checkpoint |
-| 03:25 | Lesson 10: draft a harness for another domain | Use the worksheet example |
-| 03:40 | Recovery, questions, and optional Bee demo | Stay with replay if setup is slow |
+| 00:25 | Lesson 2: trace a failed check into one retry, then the accessibility assignment | Run the assignment on replay and explain the honest failure |
+| 00:55 | Lesson 3: pause after one phase, inspect the checkpoint, and resume | Use the resume fixture |
+| 01:20 | Lesson 4: trace skills, executors, and recording, then the team-skill assignment | Run the assignment on replay and explain which artifact replay honors |
+| 01:50 | **Break** | Keep it a full 10 minutes |
+| 02:00 | Lesson 5: review and apply a synthetic memory proposal | Use the copied fixture |
+| 02:15 | Lesson 6: trace runtime ADBT context into the guarded Pocket Cinema port | Use the recorded ADBT context and Vega-buildable checkpoint |
+| 02:50 | Lesson 7: run the focus state checks and inspect a failure | Use the focus fixture |
+| 03:10 | **Break** | Keep it a full 10 minutes |
+| 03:20 | Lesson 8: run the complete Vega lifecycle on an attached VDA | Fall back to platform replay or the complete checkpoint |
+| 03:45 | Lesson 10: draft a harness for another domain | Use the worksheet example |
 
-Lesson 9, Bee context, is optional. Run it only during the final recovery block and only if setup, consent, and time allow.
+Lesson 9, Bee context, is optional. Run it only if a lesson finishes early and a slot frees up, and only if setup, consent, and time allow.
 
 For lesson 6, show the five boundaries on screen: native ADBT MCP connection, approved workflow lookup, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
-The core path takes 200 minutes. Two breaks and a 20-minute recovery block bring the session to four hours.
+The core path takes 220 minutes; two 10-minute breaks bring the session to four hours. The former recovery buffer now lives inside the lesson 2 and lesson 4 assignments — the 10-minute rule and the per-lesson replay fallbacks are the remaining slack, so an attendee who falls behind treats the assignment as the thing to drop first and catches up during a break.
 
 ## Teaching rule
 
