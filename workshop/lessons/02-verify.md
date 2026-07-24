@@ -72,6 +72,27 @@ caption: "The recording forces one useful failure. Notice that the retry receive
 4. Open `out/TV_PORT_PLAN.md` and confirm the second attempt adds the remote control section.
 :::
 
+## Stretch: loop until the check passes
+
+One retry is a teaching default, not a law. Step 2 takes `--max-attempts`, so the same loop can run until the check goes green:
+
+:::command Loop with a bigger attempt budget (live model)
+yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
+  steps/02-verify-loop/fixtures/phases.json \
+  --executor claude-cli --model sonnet \
+  --max-attempts 5
+:::
+
+The loop still can't run away, because it has three exits and "done" is never the model's opinion:
+
+:::steps
+1. The check passes — the verifier decides the loop is done.
+2. The attempt budget runs out.
+3. The same failure comes back twice in a row — no progress, so more attempts only spend money. The loop stops instead of retrying the failure the model can't fix.
+:::
+
+The complete harness has the same extension: the port command takes `--max-attempts N` or `--until-done`, and its loop answers to the cost cap and the same no-progress rule. (On replay this lesson always ends after one repair — the recording holds exactly two turns.)
+
 :::knowledge Why pass the exact failure into the retry instead of saying try again?
 The exact failure narrows the problem, preserves the original requirement, and makes the retry explainable. A generic retry buys another guess.
 :::

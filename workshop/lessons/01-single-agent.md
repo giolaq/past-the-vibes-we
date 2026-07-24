@@ -23,7 +23,7 @@ Before you run it, name one bug that could hide inside the model's analysis that
 
 ## Run it against a live model
 
-Pick the executor you set up in lesson 0. It calls a real model and writes files into `out/`.
+Pick the executor you set up in lesson 0. It calls a real model and writes files into `out/`. The prompt carries the entire reduced app source — a few KB — so the model analyzes the real code, not its memory of apps like it.
 
 :::command Claude Code CLI
 # Claude Code CLI
@@ -44,9 +44,13 @@ yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
 
 :::steps
 1. Open `steps/01-single-agent/index.ts`.
-2. Find where it copies the starter app, builds the prompt, reads the model response, and writes files.
+2. Find where it copies the starter app, builds the prompt (the whole app source goes in via `app-source.ts`), reads the model response, and writes files.
 3. Open the generated `out/ANALYSIS.md` (the analyze phase output).
-4. Write down three claims that need an independent check: the analysis is accurate, a component it named really exists, a part it called portable actually runs on TV.
+4. Write down three claims that need an independent check — even with the full source in the prompt, nothing proves the analysis is complete, that the portability calls are right, or that a later phase won't invent an API.
+:::
+
+:::note Pasting the whole app works — for now
+The fixture app fits in a prompt because it is a few KB. A real codebase does not. The complete harness replaces this paste with read-only tools, so the model reads what it needs on demand — that switch is lesson 4's second half.
 :::
 
 :::knowledge Why is this an agent script, but not yet a reliable harness?

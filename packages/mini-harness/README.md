@@ -12,7 +12,7 @@ yarn setup
 
 ## Step 1: one model call
 
-The program sends a prompt and writes files — nothing checks the result.
+The program sends a prompt carrying the whole reduced app source and writes whatever files come back — nothing checks the result.
 
 ```sh
 yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \

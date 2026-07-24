@@ -1,3 +1,4 @@
+import { appSourceBlock } from "../../app-source.js";
 import type { Phase } from "./harness-config.js";
 import type { RunContext } from "./run-context.js";
 
@@ -9,5 +10,6 @@ export function buildPhasePrompt(phase: Phase, ctx: RunContext, failure = ""): s
     "Read and modify the existing React Native TV app in ./out. Preserve unrelated work.",
     "Output only JSON with summary and files.",
     phase.prompt,
+    appSourceBlock(ctx.outDir),
   ].filter(Boolean).join("\n\n");
 }

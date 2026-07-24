@@ -155,7 +155,9 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     const liveStrands = !replayPath && plan.executor.kind === "strands";
     const adbtClient = liveStrands ? createAdbtMcpClient({ cwd: appDir }) : undefined;
     const adbt = adbtClient ? undefined : resolveAdbtProvider(appDir);
-    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, executor, adbt, adbtClient, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: [] }, null, 2)) });
+    // --until-done removes the attempt cap; the cost cap and the no-progress rule still stop the loop.
+    const maxAttempts = args.includes("--until-done") ? Infinity : Number(flag("--max-attempts") ?? 2);
+    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, maxAttempts, executor, adbt, adbtClient, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: [] }, null, 2)) });
     port.costUsd += plan.feasibility.costUsd;
     writeFileSync(join(out, "port-result.json"), JSON.stringify({ schemaVersion: 1, ...port }, null, 2));
 
