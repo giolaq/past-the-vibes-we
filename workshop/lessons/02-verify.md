@@ -13,6 +13,13 @@ evidence: The failed grep message appears in the retry request and the second at
 A retry is useful only when it carries new information. The check turns a vague failure into precise context the next attempt can act on.
 :::
 
+:::flow
+Propose | Plan omits a requirement
+Verify | Grep returns an exact failure
+Retry | Failure text joins the prompt
+Accept | Original check passes
+:::
+
 :::predict
 The plan phase must document the remote control. Predict what the check greps for, and what happens if the model's first plan omits it.
 :::
@@ -47,6 +54,13 @@ yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
 
 :::expected
 Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md
+:::
+
+:::visual
+src: assets/retry-terminal.png
+alt: Terminal output showing the plan verification failure, the same failure used as retry context, and the repaired plan
+label: Actual replay output
+caption: "The recording forces one useful failure. Notice that the retry receives evidence, not the vague instruction 'try again'."
 :::
 
 ## Follow the evidence

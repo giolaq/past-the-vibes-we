@@ -18,7 +18,8 @@ for (const file of files) {
   const text = readFileSync(file, "utf8");
   for (const match of text.matchAll(/`((?:packages|workshop|apps|scripts)\/[^`\n]+)`/g)) {
     const path = match[1].replace(/:\d+$/, "").replace(/[.,;:]$/, "");
-    if (!path.includes("<") && !generated.has(path) && !existsSync(path)) missing.push(`${file}: ${path}`);
+    const generatedOutput = path.includes("/out/");
+    if (!path.includes("<") && !generatedOutput && !generated.has(path) && !existsSync(path)) missing.push(`${file}: ${path}`);
   }
   for (const match of text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
     const target = match[1].split("#")[0];
