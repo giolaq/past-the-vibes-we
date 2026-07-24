@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { appSourceBlock } from "../app-source.js";
 import { createSkillsPlugin, injectSkillText } from "../model-runtime.js";
 import { buildPhasePrompt } from "../steps/04-skills/phase-context.js";
 import { loadSkills } from "../steps/04-skills/skills.js";
@@ -44,6 +45,22 @@ test("base phase prompt does not duplicate skill bodies", () => {
     { outDir: "out", summaries: [], costUsd: 0 },
   );
   assert.doesNotMatch(prompt, /closest item in the D-Pad direction/);
+});
+
+test("the phase prompt embeds the whole app source", () => {
+  const appDir = mkdtempSync(join(tmpdir(), "mini-app-"));
+  mkdirSync(join(appDir, "src"));
+  writeFileSync(join(appDir, "src", "App.tsx"), "export const App = 1;");
+  writeFileSync(join(appDir, "notes.md"), "ignore me");
+  const prompt = buildPhasePrompt(
+    { name: "analyze", prompt: "Analyze.", skills: [], verify: { type: "file_exists", path: "out/ANALYSIS.md" } },
+    { outDir: appDir, summaries: [], costUsd: 0 },
+  );
+  assert.match(prompt, /## Current app source/);
+  assert.match(prompt, /src\/App\.tsx/);
+  assert.match(prompt, /export const App = 1;/);
+  assert.doesNotMatch(prompt, /ignore me/);
+  assert.equal(appSourceBlock(join(appDir, "does-not-exist")), "");
 });
 
 function writeSkill(name: string, body: string): void {

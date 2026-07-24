@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
 import { VerifySchema, verify } from "./verify.js";
+import { appSourceBlock } from "../../app-source.js";
 import { callLiveModel } from "../../model-runtime.js";
 
 type RecordedTurn = { phase: string; response: unknown };
@@ -35,7 +36,7 @@ async function runPhase(phase: Phase) {
   let failure = "";
   let previous = "";
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const prompt = [`Phase: ${phase.name}`, failure && `Previous verification failed: ${failure}`, phase.prompt].filter(Boolean).join("\n\n");
+    const prompt = [`Phase: ${phase.name}`, failure && `Previous verification failed: ${failure}`, phase.prompt, appSourceBlock(outDir)].filter(Boolean).join("\n\n");
     const output = Output.parse(JSON.parse((await call(phase.name, prompt)).match(/\{[\s\S]*\}/)?.[0] ?? "{}"));
     for (const [path, content] of Object.entries(output.files)) writeFile(path, content);
     failure = verify(phase.verify) ?? "";

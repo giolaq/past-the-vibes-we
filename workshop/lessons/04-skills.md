@@ -53,7 +53,7 @@ ADBT ships nine `amazon-devices-vega-*` skills — manifest configuration, focus
 :::
 
 <h2>The whole model interaction, in one code block</h2>
-      <p>In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is essentially this (the <code>systemPrompt</code> is shortened here — the real one also tells the agent to use the ADBT tools):</p>
+      <p>In <code>src/port-executor.ts</code>, the entire live model interaction for one phase is essentially this (the <code>systemPrompt</code> is shortened here — the real one also tells the agent to use the ADBT tools). One difference from the mini steps matters: the mini pastes the whole app into the prompt, which works for a few-KB fixture; here the agent gets read-only tools instead, because a real codebase does not fit in a prompt:</p>
 
 :::snippet packages/workshop-harness/src/port-executor.ts (simplified)
 const agent = new Agent({
