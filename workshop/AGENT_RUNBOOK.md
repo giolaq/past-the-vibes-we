@@ -19,7 +19,7 @@ yarn verify
 yarn doctor
 ```
 
-Proceed when `yarn verify` passes and `yarn doctor` reports `state: ready`. Model, ADBT, Vega, and Bee checks marked `optional` are expected in replay mode.
+Proceed when `yarn verify` passes and `yarn doctor` reports `state: ready`. Model, ADBT, Vega, and Bee checks marked `optional` are expected in replay mode. Also run `yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema` and record `tvReady: false` with its failure list — the workshop's "before" evidence.
 
 ## Lesson sequence and evidence
 
@@ -33,7 +33,7 @@ Run each lesson's replay command from its "If blocked" or fallback section, then
 | 4 | `workshop/lessons/04-skills.md` | The replay run completes. ADBT skills are not installed in your environment: inspect `workshop/fixtures/adbt-skills.json` and report which skill maps to which phase, and which file owns skills, prompts, executors, and checks. Then run the assignment's replay variant (own skill + `## Open Questions` check): it must end with `Replay phase mismatch: wanted plan, got build_test`; report which artifact replay honors (the check) and which it cannot (the skill). |
 | 5 | `workshop/lessons/05-memory.md` | `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md` exists, every entry names a source, and the committed fixture is unchanged. |
 | 6 | `workshop/lessons/06-plan.md` | The replay port reports `run_complete` with phases `analyze`, `plan`, `build_test`. Record the `runId`. Confirm `apps/pocket-cinema` is unchanged (`git status`). |
-| 7 | `workshop/lessons/07-tv.md` | `tv-focus-result.json` in the lesson 6 run output (or in `workshop/checkpoints/vega-buildable/app`) shows `"passed": true` with the full transition list. |
+| 7 | `workshop/lessons/07-tv.md` | `tv-focus-result.json` in the lesson 6 run output (or in `workshop/checkpoints/vega-buildable/app`) shows `"passed": true` with the full transition list. Run `tv-check` against that app and record `tvReady: true` — the "after" to setup's "before". |
 | 8 | `workshop/lessons/08-vega.md` | `vega-run` with `--platform-replay` passes all eight gates and reports `evidenceMode: replay`. State explicitly that this proves control flow, not device behavior. |
 | 9 | `workshop/lessons/09-bee.md` | Skip. It is optional and requires live Bee access and human consent. Note the skip and the reason in the report. |
 | 10 | `workshop/lessons/10-finish.md` | Answer `workshop/worksheet.md` in the report for a domain of your choice: phases, one mechanical check per phase, approval point, budget, and retained evidence. |

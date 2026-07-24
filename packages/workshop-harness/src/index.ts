@@ -14,6 +14,7 @@ import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memo
 import { assembleProjectContext } from "./phase-context.js";
 import { createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
 import { PortBudgetError, runPortPipeline } from "./port-pipeline.js";
+import { tvReadyChecks, verifyPort } from "./port-verification.js";
 import { ADBT_PACKAGE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "./platform/vega.js";
 import { copySource, discoverSource } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
@@ -31,7 +32,19 @@ async function main(): Promise<void> {
   if (command === "memory") return memoryCommand();
   if (command === "context") return contextCommand();
   if (command === "vega-run") return vegaRunCommand();
+  if (command === "tv-check") return tvCheckCommand();
   help();
+}
+
+// Runs the mechanical TV-readiness checks against any app directory. Red on the
+// touch-first starter, green on the ported output — the workshop's before/after.
+function tvCheckCommand(): void {
+  const target = resolve(args[1] ?? ".");
+  // Skip executing the focus test when its script is absent — the file_exists
+  // check already reports that, and running it would only add a stack trace.
+  const checks = tvReadyChecks().filter((check) => check.type !== "command" || existsSync(join(target, "tests/verify-tv-focus.ts")));
+  const failures = verifyPort(target, checks);
+  json({ schemaVersion: 1, command: "tv-check", target, tvReady: failures.length === 0, failures });
 }
 
 async function doctor(): Promise<void> {
@@ -276,6 +289,6 @@ async function vegaRunCommand(): Promise<void> {
 
 function flag(name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
 function openLogFile(path: string): number { mkdirSync(dirname(path), { recursive: true }); return openSync(path, "a"); }
-function help(): void { process.stdout.write("Workshop Harness\n\nCommands: doctor, plan, run, status, logs, memory, context adbt, context bee, vega-run\n\nModel execution:\n  --executor claude-cli                 Local Claude Code (default)\n  --executor strands --provider <name>  Remote model through Strands\n  --model <id> [--region <aws-region>]  Provider model settings\n  --replay <recording.json>             No-model workshop path\n  --adbt-replay <context.json>          Recorded ADBT context (otherwise inferred beside replay)\n  --adbt-live                           Call pinned ADBT even when model output uses replay\n\nLive ports call pinned ADBT workflows at runtime during analyze and plan.\nStrands providers: bedrock, openai, openrouter\n"); }
+function help(): void { process.stdout.write("Workshop Harness\n\nCommands: doctor, plan, run, status, logs, memory, context adbt, context bee, vega-run, tv-check <dir>\n\nModel execution:\n  --executor claude-cli                 Local Claude Code (default)\n  --executor strands --provider <name>  Remote model through Strands\n  --model <id> [--region <aws-region>]  Provider model settings\n  --replay <recording.json>             No-model workshop path\n  --adbt-replay <context.json>          Recorded ADBT context (otherwise inferred beside replay)\n  --adbt-live                           Call pinned ADBT even when model output uses replay\n\nLive ports call pinned ADBT workflows at runtime during analyze and plan.\nStrands providers: bedrock, openai, openrouter\n"); }
 
 main().catch((error) => { if (!(error instanceof CliFailure)) failure("unexpected_error", error instanceof Error ? error.message : String(error), "Read the workshop troubleshooting guide.", 3); });
