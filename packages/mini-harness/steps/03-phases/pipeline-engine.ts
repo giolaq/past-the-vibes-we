@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { appSourceBlock } from "../../app-source.js";
 import type { Phase } from "./harness-config.js";
 import { writeCheckpoint } from "./checkpoint.js";
 import { commitPhase, RunContext, writeFiles, writeReport } from "./run-context.js";
@@ -24,7 +25,7 @@ async function runPhase(phase: Phase, ctx: RunContext, callModel: CallModel) {
   let failure = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const prior = ctx.summaries.at(-1) ?? "No prior phase has run.";
-    const prompt = [`Phase: ${phase.name}`, `Prior summary: ${prior}`, failure && `Previous verification failed: ${failure}`, phase.prompt].filter(Boolean).join("\n\n");
+    const prompt = [`Phase: ${phase.name}`, `Prior summary: ${prior}`, failure && `Previous verification failed: ${failure}`, phase.prompt, appSourceBlock(ctx.outDir)].filter(Boolean).join("\n\n");
     const result = await callModel(phase.name, prompt);
     ctx.costUsd += result.costUsd;
     const output = Output.parse(JSON.parse(result.text.match(/\{[\s\S]*\}/)?.[0] ?? "{}"));

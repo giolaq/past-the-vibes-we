@@ -2,6 +2,7 @@
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
+import { appSourceBlock } from "../../app-source.js";
 import { callLiveModel } from "../../model-runtime.js";
 
 type RecordedTurn = { phase: string; response: unknown; usage?: { input_tokens: number; output_tokens: number } };
@@ -21,7 +22,7 @@ async function main() {
   rmSync(outDir, { recursive: true, force: true });
   cpSync(resolve("fixtures/react-native-app"), outDir, { recursive: true });
   for (const phase of config.phases) {
-    const text = await call(phase.name, `Phase: ${phase.name}\n\n${phase.prompt}`);
+    const text = await call(phase.name, `Phase: ${phase.name}\n\n${phase.prompt}\n\n${appSourceBlock(outDir)}`);
     const output = Output.parse(JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? text));
     for (const [path, content] of Object.entries(output.files)) writeFile(path, content);
     console.log(`${phase.name}: ${output.summary}`);
