@@ -7,6 +7,7 @@ import { createModel, defaultModel, type ModelConfig, type RemoteProvider } from
 import { PortOutputSchema } from "./port-contract.js";
 import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
+import { createSkillsPlugin, injectSkillText, loadSkills } from "./skills.js";
 
 /** messages carries the agent's turn history so the pipeline can reconstruct ADBT provenance. */
 export type PortModelResult = { text: string; costUsd: number; messages?: unknown[] };
@@ -17,10 +18,13 @@ export type PortModelResult = { text: string; costUsd: number; messages?: unknow
  */
 export type ExtraTools = (Tool | McpClient)[];
 /**
- * Optional schema lets a phase demand its own structured output (e.g. the feasibility verdict).
- * Optional extraTools give the model additional tool providers for the phase.
+ * What a phase can ask of one model call beyond the prompt:
+ * - schema: demand a different structured output (e.g. the feasibility verdict).
+ * - extraTools: extra tool providers for this phase (e.g. the ADBT MCP client).
+ * - skills: names of skills to deliver; each executor delivers them its own way.
  */
-export interface PortExecutor { call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult>; }
+export type PortCall = { schema?: ZodTypeAny; extraTools?: ExtraTools; skills?: string[] };
+export interface PortExecutor { call(phase: string, prompt: string, options?: PortCall): Promise<PortModelResult>; }
 export type ExecutorConfig = { kind: "claude-cli"; command: string; model: string } | { kind: "strands"; model: ModelConfig };
 
 /**
@@ -54,7 +58,9 @@ export function createPortExecutor(options: { appDir: string; outDir: string; re
 class ReplayPortExecutor implements PortExecutor {
   private replay: PortReplay;
   constructor(path: string) { this.replay = new PortReplay(path); }
-  async call(phase: string, _prompt?: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
+  // Skills are model behavior, and replay has no model: a recording cannot follow an
+  // instruction it was made before. Checks still run, because checks are code.
+  async call(phase: string, _prompt?: string, _options?: PortCall): Promise<PortModelResult> {
     const turn = this.replay.next(phase);
     // Recordings written by PortRecorder always carry costUsd; fall back to the same rates the
     // live path uses so a hand-written recording cannot silently under-report.
@@ -65,15 +71,19 @@ class ReplayPortExecutor implements PortExecutor {
 class StrandsPortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: ModelConfig) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, schema?: ZodTypeAny, extraTools?: ExtraTools): Promise<PortModelResult> {
-    const outputSchema = schema ?? PortOutputSchema;
+  async call(phase: string, prompt: string, options: PortCall = {}): Promise<PortModelResult> {
+    const outputSchema = options.schema ?? PortOutputSchema;
+    // Strands can carry skills as a plugin: the agent sees their descriptions and loads the
+    // instructions it decides it needs, instead of every skill body filling the prompt.
+    const skills = loadSkills(options.skills ?? []);
     const agent = new Agent({
       name: `workshop-${phase}`,
       description: "Inspects a guarded React Native app and proposes a bounded Vega port patch.",
       model: createModel(this.config),
-      tools: [...createProjectReadTools(this.appDir), ...(extraTools ?? [])],
+      tools: [...createProjectReadTools(this.appDir), ...(options.extraTools ?? [])],
+      plugins: skills.length ? [createSkillsPlugin(skills)] : [],
       structuredOutputSchema: outputSchema,
-      systemPrompt: "Inspect the guarded app with the read-only tools. When ADBT tools are available, use them to discover and read the Vega migration workflows you need instead of guessing. Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.",
+      systemPrompt: `Inspect the guarded app with the read-only tools. When ADBT tools are available, use them to discover and read the Vega migration workflows you need instead of guessing.${skills.length ? " Load the available phase skills before answering." : ""} Return a complete answer through the required schema. Never claim a file or API exists without reading evidence.`,
       printer: false,
     });
     const result = await agent.invoke(prompt, {
@@ -95,8 +105,10 @@ class StrandsPortExecutor implements PortExecutor {
 class ClaudeCodePortExecutor implements PortExecutor {
   private recorder: PortRecorder;
   constructor(private appDir: string, recordingPath: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>, private allowedTools: string) { this.recorder = new PortRecorder(recordingPath); }
-  async call(phase: string, prompt: string, _schema?: ZodTypeAny, _extraTools?: ExtraTools): Promise<PortModelResult> {
-    const result = await invokeClaude(this.config.command, this.appDir, prompt, this.config.model, this.allowedTools);
+  async call(phase: string, prompt: string, options: PortCall = {}): Promise<PortModelResult> {
+    // A CLI subprocess shares no in-process plugin, so the executor sends the skill text itself.
+    const withSkills = injectSkillText(prompt, loadSkills(options.skills ?? []));
+    const result = await invokeClaude(this.config.command, this.appDir, withSkills, this.config.model, this.allowedTools);
     this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: result.text }], usage: result.usage, costUsd: result.costUsd });
     return { text: result.text, costUsd: result.costUsd };
   }

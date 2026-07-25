@@ -5,14 +5,15 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdbtContextProvider, AdbtPortContext } from "../src/context-providers/adbt.js";
-import type { PortExecutor, PortModelResult } from "../src/port-executor.js";
-import { PortBudgetError, runPortPipeline } from "../src/port-pipeline.js";
+import type { PortCall, PortExecutor, PortModelResult } from "../src/port-executor.js";
+import { PortReplay } from "../src/port-recorder.js";
+import { PortBudgetError, phases, runPortPipeline } from "../src/port-pipeline.js";
 
 class FakeExecutor implements PortExecutor {
-  calls: { phase: string; prompt: string }[] = [];
+  calls: { phase: string; prompt: string; skills?: string[] }[] = [];
   constructor(private responses: PortModelResult[]) {}
-  async call(phase: string, prompt: string): Promise<PortModelResult> {
-    this.calls.push({ phase, prompt });
+  async call(phase: string, prompt: string, options?: PortCall): Promise<PortModelResult> {
+    this.calls.push({ phase, prompt, skills: options?.skills });
     const result = this.responses.shift();
     if (!result) throw new Error("fake exhausted");
     return result;
@@ -77,6 +78,57 @@ test("budget abort restores a clean generated tree", async () => {
   assert.throws(() => readFileSync(join(app, "VEGA_PORT.md")));
 });
 
+test("runs only the requested phases and leaves the rest for later", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor(successResponses());
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze"], executor, adbt: fakeAdbt() });
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze"]);
+  assert.equal(executor.calls.length, 1);
+  // The guarded copy keeps the import commit plus the one phase that ran.
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "2");
+});
+
+test("a second pipeline run continues in the same guarded copy", async () => {
+  const app = fixtureApp();
+  const first = new FakeExecutor(successResponses());
+  await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze", "plan"], executor: first, adbt: fakeAdbt() });
+  const second = new FakeExecutor(successResponses().slice(2));
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build_test"], executor: second, adbt: fakeAdbt() });
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["build_test"]);
+  // import + analyze + plan + build_test: git init did not wipe the earlier history.
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
+  assert.match(readFileSync(join(app, "ANALYSIS.md"), "utf8"), /## Portable/);
+});
+
+test("replay serves a partial run the turns it asks for, in order", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "port-replay-")), "recording.json");
+  writeFileSync(path, JSON.stringify(["analyze", "plan", "plan", "build_test"].map(recordedTurn)));
+  const replay = new PortReplay(path);
+  // A resumed run skips the phases it is not executing, and a recorded retry still replays.
+  assert.equal(replay.next("plan").phase, "plan");
+  assert.equal(replay.next("plan").phase, "plan");
+  assert.equal(replay.next("build_test").phase, "build_test");
+  assert.throws(() => replay.next("plan"), /Replay has no turn left for plan/);
+});
+
+test("phases are ordered by the plan, not by the request, and unknown names are named", () => {
+  assert.deepEqual(phases(["build_test", "analyze"]).map((phase) => phase.name), ["analyze", "build_test"]);
+  assert.throws(() => phases(["analyse"]), /Unknown phase analyse; use analyze, plan, build_test/);
+});
+
+test("each phase asks its executor for its own skills", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor(successResponses());
+  await pipeline(app, executor);
+  assert.deepEqual(executor.calls.map((call) => call.skills), [
+    ["amazon-devices-vega-best-practices"],
+    ["amazon-devices-vega-focus-management"],
+    ["amazon-devices-vega-build-and-run"],
+  ]);
+  // The phase instruction reaches the prompt; skill bodies do not — the executor delivers those.
+  assert.match(executor.calls[0].prompt, /Instruction: Discovery first/);
+});
+
 test("rejects model paths outside the guarded app", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([response({ "../escape.txt": "bad" })]);
@@ -119,6 +171,10 @@ function successResponses(): PortModelResult[] {
       "TV_VERIFICATION.md": "Back restores the originating card.",
     }),
   ];
+}
+
+function recordedTurn(phase: string) {
+  return { timestamp: "2026-01-01T00:00:00.000Z", phase, request: { model: "replay", system: "workshop-vega-port", messages: [] }, response: [{ type: "result", result: "{}" }], usage: { input_tokens: 0, output_tokens: 0 } };
 }
 
 function response(files: Record<string, string>): PortModelResult {
