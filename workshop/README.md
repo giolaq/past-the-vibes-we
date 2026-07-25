@@ -6,9 +6,9 @@ Use the [workshop web app](index.html) during the session. It gives you the comm
 
 ## Strands Agents SDK in this workshop
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime, used here as the live remote executor. Both the complete workshop harness and the staged mini-harness pin `1.10.0`. It provides the model loop, provider-agnostic model access (Bedrock, OpenAI, OpenRouter behind one interface), Zod-typed tools, schema-enforced structured output, execution limits, cancellation, and usage metrics — and it stays a library, so the harness keeps ownership of writes, checks, and commits.
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime, used here as the live remote executor, pinned at `1.10.0`. It provides the model loop, provider-agnostic model access (Bedrock, OpenAI, OpenRouter behind one interface), Zod-typed tools, schema-enforced structured output, execution limits, cancellation, and usage metrics — and it stays a library, so the harness keeps ownership of writes, checks, and commits.
 
-The workshop starts with React Native, not a website. Every mini-harness step modifies a reduced Pocket Cinema app, so the target stays familiar while the harness grows from one model call into phases, checks, skills, and executors.
+The workshop starts with React Native, not a website. Every lesson works on the same Pocket Cinema app and the same harness, which grows from one model call into checks, a verified loop, skills, and executors.
 
 The workshop harness stays in control around that runtime:
 
@@ -29,9 +29,9 @@ Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a cod
 ## What you will do
 
 1. Run one model call and identify what it cannot prove.
-2. Add checks and retry once with the exact failure.
-3. Split the work into phases, commits, and checkpoints.
-4. Separate skills, tools, and model executors.
+2. Read the checks that decide, and write one of your own.
+3. Close the loop: a typed patch, a check, a retry carrying the exact failure, a commit.
+4. Separate skills, tools, and model executors, and swap one.
 5. Review project context before saving it as memory.
 6. Copy and inspect a React Native app, then port it to Vega with model-fetched, hash-recorded ADBT migration context.
 7. Adapt one flow for TV remote navigation.
@@ -56,10 +56,10 @@ Handing this workshop to an AI agent instead of a person? Point it at the [agent
 
 ## Lessons
 
-1. [From prompt to loop](lessons/01-single-agent.md)
-2. [Verification and retry](lessons/02-verify.md)
-3. [Phases, checkpoints, and cost](lessons/03-phases.md)
-4. [Tools, skills, and executors](lessons/04-skills.md)
+1. [One model call](lessons/01-single-agent.md)
+2. [The checks you own](lessons/02-verify.md)
+3. [Close the loop](lessons/03-phases.md)
+4. [Skills, tools, and executors](lessons/04-skills.md)
 5. [Project memory](lessons/05-memory.md)
 6. [Adapt your React Native app](lessons/06-plan.md)
 7. [TV as the stress test](lessons/07-tv.md)
@@ -67,6 +67,6 @@ Handing this workshop to an AI agent instead of a person? Point it at the [agent
 9. [Optional: Bee context](lessons/09-bee.md)
 10. [Take it home](lessons/10-finish.md)
 
-The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a physical or virtual device passed. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
+The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`; `fixtures/port-retry/` holds the recording whose first plan attempt fails a check on purpose. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a physical or virtual device passed. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 
 Read [the live rehearsal record](live-rehearsal.md) before teaching the Vega section. The SDK build and manifest validation pass. Install, launch, logs, and screenshots still need a VDA process that remains attached outside the automation session.

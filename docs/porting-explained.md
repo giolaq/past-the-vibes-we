@@ -46,12 +46,7 @@ Say you ask a smart intern to port an RN app to Vega, and they hand you 24,000 c
 
 A raw model call gives you output and zero answers to those. A harness wraps the model call in machinery that answers all of them, every time, mechanically. That is the whole point of this repo.
 
-This project teaches it in two sizes:
-
-- **`packages/mini-harness/`** — the idea in ~40-line files you can read in one sitting. Lessons 1–4. Deliberately incomplete so the missing pieces are visible.
-- **`packages/workshop-harness/`** — the production-shaped version that did the real Vega port. Lessons 5–9. This document is about this one.
-
-They share the same skeleton. `packages/mini-harness/ISOMORPHISM.md` maps one to the other file by file.
+There is one implementation: **`packages/workshop-harness/`**, the pipeline that did the real Vega port. The workshop teaches it by building it up rather than by reimplementing it in miniature — lessons 1–4 add one element at a time (`plan` is one model call, `tv-check` is the checks alone, `--phases` runs part of the pipeline), and lessons 5–9 run it whole. This document is about that pipeline.
 
 ---
 
@@ -88,7 +83,7 @@ Inside that copy, the harness makes a git commit **per passing phase**. That com
 
 ## 5. The pipeline: every phase, in order
 
-The port is a fixed sequence of **three phases** — the same shape as the mini-harness (`analyze → plan → build_test`). Each is a model phase that ends in a mechanical check; two draw on ADBT. Source of truth: `src/index.ts` (`phases: [...]`) and `src/port-pipeline.ts` (`phases()`).
+The port is a sequence of **three phases** (`analyze → plan → build_test`). Each is a model phase that ends in a mechanical check; two draw on ADBT. Source of truth: `phases()` in `src/port-pipeline.ts` — `--phases analyze,plan` runs a subset of it, and the CLI derives its reported phase list from the same function.
 
 ```
 analyze  ->  plan  ->  build_test
@@ -257,7 +252,6 @@ The retry is also where you extend the harness toward "loop until the port is do
 | Guarded copy + provenance | `packages/workshop-harness/src/source-app.ts` |
 | The 8-gate Vega device lifecycle | `packages/workshop-harness/src/platform/vega.ts` |
 | The 3 domain skills | `packages/workshop-harness/skills/*/SKILL.md` |
-| Mini ↔ production file map | `packages/mini-harness/ISOMORPHISM.md` |
 | The device-screenshot limitation we hit | `workshop/live-rehearsal.md` |
 
 ---

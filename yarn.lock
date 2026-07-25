@@ -1686,23 +1686,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@past-the-vibes-we/mini-harness@workspace:packages/mini-harness":
-  version: 0.0.0-use.local
-  resolution: "@past-the-vibes-we/mini-harness@workspace:packages/mini-harness"
-  dependencies:
-    "@modelcontextprotocol/sdk": "npm:^1.29.0"
-    "@opentelemetry/api": "npm:^1.9.1"
-    "@strands-agents/sdk": "npm:1.10.0"
-    "@types/node": "npm:^22.0.0"
-    openai: "npm:^6.44.0"
-    tsx: "npm:^4.19.0"
-    typescript: "npm:^5.6.0"
-    zod: "npm:4"
-  bin:
-    mini-harness: dist/src/index.js
-  languageName: unknown
-  linkType: soft
-
 "@past-the-vibes-we/workshop-harness@workspace:packages/workshop-harness":
   version: 0.0.0-use.local
   resolution: "@past-the-vibes-we/workshop-harness@workspace:packages/workshop-harness"

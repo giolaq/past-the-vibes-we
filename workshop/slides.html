@@ -450,8 +450,8 @@ h2 {
           <div class="panel">
             <h3 style="color:var(--muted)">The arc</h3>
             <ul>
-              <li><strong>1–4</strong> · build a mini-harness from one model call</li>
-              <li><strong>5–8</strong> · run the real React&nbsp;Native → Vega TV port</li>
+              <li><strong>1–4</strong> · build the harness up, one element per lesson</li>
+              <li><strong>5–8</strong> · run the whole React&nbsp;Native → Vega TV port</li>
               <li><strong>9</strong> · optional: Bee context, with consent</li>
               <li><strong>10</strong> · design a harness for <strong>your</strong> domain</li>
             </ul>
@@ -475,51 +475,51 @@ h2 {
       <div class="tag"><b>Lesson 1</b> · from prompt to loop</div>
       <div class="wrap" style="gap:46px;">
         <h2 class="reveal" style="--d:0ms">Start with <span class="accent">one model call</span>.<br>Then ask what it cannot prove.</h2>
-        <div class="codeline reveal" style="--d:160ms">$ tsx steps/01-single-agent/index.ts run fixtures/phases.json
-<span class="g">✓</span> out/ANALYSIS.md written        <span class="r">✗</span> <span class="c">…is any of it true?</span></div>
-        <div class="support reveal" style="--d:300ms">The file exists — that is all we know. The analysis could name components that don’t exist and call unportable code portable. <strong>Your job: write down three claims this script cannot prove.</strong></div>
+        <div class="codeline reveal" style="--d:160ms">$ workshop-harness plan apps/pocket-cinema
+<span class="g">✓</span> "verdict": "feasible-with-adapters"   <span class="r">✗</span> <span class="c">…checked by what?</span></div>
+        <div class="support reveal" style="--d:300ms">One call, read-only, writes nothing. The findings name the file they came from; the verdict names nothing — it is a well-written opinion. <strong>Your job: write down three claims nothing in this run has checked.</strong></div>
       </div>
-      <div class="foot"><span>lesson 01 · 15 min</span><span>a model call with side effects is not yet a harness</span></div>
+      <div class="foot"><span>lesson 01 · 15 min</span><span>a model call is not yet a harness</span></div>
     </section>
 
     <!-- 8 ▸ LESSON 2 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 2</b> · verification and retry</div>
+      <div class="tag"><b>Lesson 2</b> · the checks you own</div>
       <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">A retry is only useful when it<br>carries <span class="accent">new information</span></h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md
-<span class="c">→ exact failure text goes into attempt 2 …</span>
-<span class="g">✓</span> plan repaired: remote control section added</div>
-        <div class="support reveal" style="--d:300ms">“Try again” buys another guess. <strong>The exact failure narrows the problem</strong> and keeps the original requirement. One retry by default — or loop until green, stopped by the cost cap and a no-progress rule.</div>
+        <h2 class="reveal" style="--d:0ms">A check is <span class="accent">code you own</span>,<br>not a cleverer prompt</h2>
+        <div class="codeline reveal" style="--d:160ms">{ type: "file_exists" }   <span class="c">a file arrived</span>
+{ type: "contains"    }   <span class="c">a decision was written down</span>
+{ type: "command"     }   <span class="c">something ran and exited 0</span></div>
+        <div class="support reveal" style="--d:300ms">Fifty lines decide what “TV-ready” means. <strong>You add one rule and re-run</strong> — red on the starter app, green on the ported one. No model, no device, no dollar.</div>
       </div>
-      <div class="foot"><span>lesson 02 · 20 min</span><span>steps/02-verify-loop/verify.ts</span></div>
+      <div class="foot"><span>lesson 02 · 25 min</span><span>src/port-verification.ts</span></div>
     </section>
 
     <!-- 9 ▸ LESSON 3 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 3</b> · phases, checkpoints, cost</div>
+      <div class="tag"><b>Lesson 3</b> · close the loop</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Long runs fail.<br>Plan for the failure.</h2>
+        <h2 class="reveal" style="--d:0ms">A retry is only useful when it<br>carries <span class="accent">new information</span></h2>
         <div class="cols reveal" style="--d:160ms" role="presentation">
           <div class="panel">
-            <h3 style="color:var(--muted)">Three different memories</h3>
+            <h3 style="color:var(--muted)">The cycle</h3>
             <ul>
-              <li><strong>Phases</strong> limit the size of each change</li>
-              <li><strong>Checkpoints</strong> remember run progress → <code style="font-family:var(--mono)">--resume</code></li>
-              <li><strong>Git commits</strong> preserve each verified code state</li>
+              <li><strong>Propose</strong> a typed patch — the model never writes</li>
+              <li><strong>Verify</strong>, and on failure retry with the <strong>exact</strong> text</li>
+              <li><strong>Commit</strong> only what passed; reset what didn’t</li>
             </ul>
           </div>
           <div class="panel">
             <h3 style="color:var(--muted)">Watch for</h3>
             <ul>
-              <li><code style="font-family:var(--mono)">checkpoint.json: {"nextPhase": 2}</code></li>
-              <li>Resume runs <strong>only</strong> <code style="font-family:var(--mono)">build_test</code></li>
-              <li>Cost visible on every phase — and capped</li>
+              <li><code style="font-family:var(--mono)">plan attempt 1 failed: …</code></li>
+              <li><code style="font-family:var(--mono)">--phases analyze</code> then resume with the rest</li>
+              <li>Three exits — none is the model’s opinion</li>
             </ul>
           </div>
         </div>
       </div>
-      <div class="foot"><span>lesson 03 · 25 min</span><span>they answer different recovery questions</span></div>
+      <div class="foot"><span>lesson 03 · 30 min</span><span>“try again” buys another guess</span></div>
     </section>
 
     <!-- 10 ▸ LESSON 4 -->
