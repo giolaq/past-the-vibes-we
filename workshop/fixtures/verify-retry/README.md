@@ -1,3 +1,3 @@
 # Verify-retry Fixture
 
-Use `packages/mini-harness/steps/02-verify-loop/fixtures/retry-recording.json` with the Step 2 command. Find the failed `grep` check, then find the same text in the retry request. You are done when the repair passes.
+Use `../port-retry/port-recording.json` with the lesson 3 command. Its first `plan` turn omits the required remote-flow section, so the check fails, the exact failure joins the retry prompt, and the second turn repairs it. You are done when you can find that failure text in your terminal and in `port-result.json`.

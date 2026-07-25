@@ -3,7 +3,7 @@
 // Two matchers, because the material names files two different ways:
 //   1. Backticked paths and Markdown links, resolved from the repository root.
 //   2. Paths inside runnable command blocks, which are written relative to the block's
-//      own `--cwd` (for example `yarn --cwd packages/mini-harness tsx steps/03-phases/…`).
+//      own `--cwd` (for example `yarn --cwd packages/workshop-harness tsx src/index.ts …`).
 //      Without (2), renaming a step directory keeps `yarn verify` green while every
 //      lesson command breaks.
 

@@ -55,7 +55,7 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
 <p>The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keep irreversible actions in deterministic code, and the worst a bad answer can do is <em>fail a check and get rejected</em>.</p>
 
 :::note What is Strands Agents SDK?
-<a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path. Both the complete workshop harness and the staged mini-harness pin 1.10.0. It fits this workshop for two reasons: the plumbing (provider adapters, typed tools, structured output, limits, cancellation, usage metrics) is built in, and it's a library, not a framework — it doesn't try to own writes or orchestration, so the harness boundary stays where we put it.
+<a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path, pinned at 1.10.0. It fits this workshop for two reasons: the plumbing (provider adapters, typed tools, structured output, limits, cancellation, usage metrics) is built in, and it's a library, not a framework — it doesn't try to own writes or orchestration, so the harness boundary stays where we put it.
 :::
 
 :::raw

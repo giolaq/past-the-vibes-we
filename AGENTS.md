@@ -9,8 +9,7 @@ This file is for agents maintaining or modifying the repository. If you are an a
 - `workshop/lessons/*.md`: the single source of truth for all lesson content (YAML frontmatter + `:::directive` blocks). Edit these to change the website.
 - `workshop/workshop.data.js`: generated from `lessons/` by `scripts/build-site.mjs`. Do not edit by hand.
 - `workshop/`: attendee website chrome (`index.html`, `workshop.css`, `workshop.js` — runtime only), fixtures, checkpoints, and instructor material.
-- `packages/mini-harness/`: staged teaching implementation used in lessons 1-4.
-- `packages/workshop-harness/`: guarded React Native-to-Vega pipeline used in lessons 5-9.
+- `packages/workshop-harness/`: the guarded React Native-to-Vega pipeline. Lessons 1-4 build it up one element at a time (`--phases` runs a subset); lessons 5-9 run it whole.
 - `apps/pocket-cinema/`: prepared React Native target.
 - `scripts/`: `build-site.mjs` (lessons → site data), workshop link checks, checkpoint packaging, and the static site server.
 

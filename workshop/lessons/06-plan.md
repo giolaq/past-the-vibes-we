@@ -10,7 +10,7 @@ evidence: The report links approved ADBT context, a typed patch, check results, 
 ---
 
 :::welcome The one we came here for
-Everything so far was practice on a reduced app. Now we run the real thing: the complete harness ports a React Native flow to Vega, with ADBT supplying the platform knowledge and you approving the plan before a dollar is spent. Read the plan carefully when it appears — that approval is the moment you are actually in charge.
+Until now you have run the harness a piece at a time. This is the whole thing in one command: all three phases, ADBT supplying the platform knowledge, the device gate at the end, and you approving the plan before a dollar is spent. Read the plan carefully when it appears — that approval is the moment you are actually in charge.
 :::
 
 :::concept The production loop
@@ -29,7 +29,7 @@ Before anything runs, the harness copies your app into `out/<runId>/app/` and ru
 :::
 
 <h2>The three phases of a port</h2>
-      <p>The port is a fixed sequence of three phases that mirror the mini-harness exactly: <strong>analyze → plan → build_test</strong>. Each is a model phase that ends in a mechanical check; two of them draw on ADBT. Source of truth: <code>src/index.ts</code> (the <code>phases: [...]</code> array) and <code>src/port-pipeline.ts</code> (the <code>phases()</code> function).</p>
+      <p>The port is the sequence you have been building since lesson 1: <strong>analyze → plan → build_test</strong>. You ran the first two with <code>--phases</code>; today they run together and <code>build_test</code> joins them. Each is a model phase that ends in a mechanical check; two of them draw on ADBT. Source of truth: <code>phases()</code> in <code>src/port-pipeline.ts</code> — the same function whose skills and checks you edited in lessons 2 and 4.</p>
 
 :::snippet The phase order — packages/workshop-harness/src/port-pipeline.ts
 analyze  ->  plan  ->  build_test

@@ -215,7 +215,7 @@ const partials = {
       ["Strands", "<code>Skill</code> objects enter an <code>AgentSkills</code> plugin. Metadata appears first; the agent activates instructions with the <code>skills</code> tool."],
       ["Replay", "No model runs. A recorded response replaces the live executor while the same phase plan remains visible."],
     ])}
-    ${comp.note("Why Strands gets three turns", "With a selected skill, the mini agent needs room to discover the skill, activate it, and return JSON. Without skills it keeps the one-turn limit.")}`,
+    ${comp.note("A missing skill never blocks a run", "<code>loadSkills()</code> reports a skill it cannot find and continues. An uninstalled ADBT skill costs the model that knowledge, not the run.")}`,
   strandsConstructs: () =>
     `<h2>Strands constructs used here</h2>
     <p>Read this table from setup to result. These are the Strands APIs the workshop uses — and everything in it is SDK-supplied: one dependency provides the loop, providers, validated tools, enforced schemas, limits, and metrics, while writes, checks, retries, cost, and commits stay in workshop code.</p>
@@ -226,13 +226,13 @@ const partials = {
       ["<code>tool()</code>", "Turns a named callback into a model-callable capability. The description tells the model when to use it.", "<code>port-tools.ts</code>"],
       ["<code>inputSchema</code>", "Uses Zod to validate tool arguments and type the callback input before project code runs.", "<code>port-tools.ts</code>"],
       ["<code>tools</code>", "Registers only list, read, and literal search. No write or shell capability enters the agent loop.", "<code>port-executor.ts</code>"],
-      ["<code>Skill</code>", "Represents one selected mini-harness instruction with a name, description, and full body.", "<code>model-runtime.ts</code>"],
-      ["<code>AgentSkills</code>", "Adds progressive skill disclosure and the model-callable <code>skills</code> activation tool.", "<code>model-runtime.ts</code>"],
-      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent. Claude CLI does not use this field.", "<code>model-runtime.ts</code>"],
+      ["<code>Skill</code>", "Represents one selected phase skill with a name, description, and full body.", "<code>skills.ts</code>"],
+      ["<code>AgentSkills</code>", "Adds progressive skill disclosure and the model-callable <code>skills</code> activation tool.", "<code>skills.ts</code>"],
+      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent. Claude CLI does not use this field.", "<code>port-executor.ts</code>"],
       ["<code>structuredOutputSchema</code>", "Requires the final answer to match <code>{ summary, files }</code>. Strands validates it and can feed schema failures back to the model.", "<code>port-contract.ts</code>"],
       ["<code>printer: false</code>", "Disables Strands' automatic console renderer so the CLI keeps stdout reserved for versioned JSON events.", "<code>port-executor.ts</code>"],
       ["<code>agent.invoke()</code>", "Starts one bounded run with the assembled phase prompt.", "<code>port-executor.ts</code>"],
-      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Bound the loop. The mini-harness allows three turns with skills and one without; the port allows 8 turns and 40,000 tokens.", "<code>port-executor.ts</code>, <code>model-runtime.ts</code>"],
+      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Bound the loop at 8 turns and 40,000 tokens per phase.", "<code>port-executor.ts</code>"],
       ["<code>cancelSignal</code>", "Lets a native ten-minute <code>AbortSignal</code> cancel the invocation at Strands cancellation points.", "<code>port-executor.ts</code>"],
       ["<code>AgentResult</code>", "Carries validated <code>structuredOutput</code>, messages, stop state, and metrics after invocation.", "returned by <code>invoke()</code>"],
       ["<code>StructuredOutputError</code>", "Makes a missing structured patch an explicit executor failure.", "<code>port-executor.ts</code>"],
