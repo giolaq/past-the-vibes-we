@@ -13,6 +13,7 @@
     "check:workshop": "yarn --cwd packages/workshop-harness tsx ../../scripts/check-workshop.ts",
     "build:site": "node scripts/build-site.mjs",
     "check:site": "node scripts/build-site.mjs --check",
+    "package:checkpoint": "yarn --cwd packages/workshop-harness tsx ../../scripts/package-workshop-checkpoint.ts",
     "verify": "yarn typecheck && yarn test && yarn check:workshop && yarn check:site",
     "replay": "yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run steps/01-single-agent/fixtures/phases.json --replay steps/01-single-agent/fixtures/demo-recording.json",
     "doctor": "yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --json",
