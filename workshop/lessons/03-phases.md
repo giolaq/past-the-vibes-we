@@ -4,13 +4,13 @@ number: "03"
 nav: Phases and resume
 time: 25 minutes
 title: Split the work and resume it
-lead: Use phases for small changes, commits for verified code, and checkpoints for run progress.
+lead: "Long runs fail, so now we make failure survivable: phases for small changes, commits for verified code, checkpoints for run progress."
 objective: Explain the different jobs of a phase, a checkpoint, and a Git commit.
 evidence: A paused run resumes at focus, while the Git log keeps one commit per completed phase.
 ---
 
-:::concept Why this step exists
-Long agent runs fail. Small phases limit the damage, checkpoints remember orchestration progress, and commits preserve code that already passed its checks.
+:::welcome Plan for the run that dies halfway
+Long agent runs fail — that's not pessimism, it's Tuesday. So we're going to give the harness three different memories, and the point of this lesson is telling them apart: small phases limit the damage, checkpoints remember how far the run got, and commits preserve code that already passed its checks. You'll stop a run on purpose and bring it back.
 :::
 
 :::flow
@@ -24,7 +24,11 @@ Resume | Run build_test only
 The run stops after plan. Which phase should resume next, and which phases must not run again?
 :::
 
-## Run it against a live model, pausing after plan
+## Run it, then stop it on purpose
+
+:::yourturn
+Run the phased harness and pause it after the plan phase, so you can look at the checkpoint before anything else happens.
+:::
 
 :::command Claude Code CLI
 # Claude Code CLI. Stop after the plan phase to inspect the checkpoint.
@@ -48,7 +52,7 @@ Paused after plan.
 checkpoint.json: { "nextPhase": 2 }
 :::
 
-## Inspect before resuming
+## Look at what it remembered
 
 :::steps
 1. Open `out/checkpoint.json`.
@@ -64,7 +68,7 @@ yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   --resume
 :::
 
-## Compare the result
+## Now bring it back
 
 :::steps
 1. Confirm only build_test ran after resume.

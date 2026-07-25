@@ -4,13 +4,13 @@ number: "08"
 nav: Run the Vega lifecycle
 time: 25 minutes
 title: Hand the guarded app to Vega tools
-lead: Run the complete lifecycle against a live Vega SDK and VDA, with recorded replay as the fallback when no device is attached.
+lead: Time to hand the app to real Vega tools — eight gates on a live device, with recorded replay standing by if no device is attached.
 objective: Distinguish reproducible lifecycle rehearsal from evidence produced by a real Vega device.
 evidence: Eight lifecycle gates pass, with evidenceMode labeled replay or live.
 ---
 
-:::concept Two kinds of evidence
-A live VDA run proves this app built, installed, launched, and produced a screenshot on an attached device. Replay proves you can study the lifecycle and its contracts without one. Keep those claims separate.
+:::welcome Two kinds of evidence, never mixed
+This lesson is about honesty as much as tooling. The harness will run eight gates against a real device, and it labels what it can actually prove — so by the end you'll be able to say precisely which claims your run earned and which it didn't. A live VDA run proves this app built, installed, launched, and produced a screenshot on an attached device. Replay proves you can study the lifecycle and its contracts without one. Keep those claims separate.
 :::
 
 :::note Device screenshot caveat {warning}
@@ -38,6 +38,10 @@ If the SDK build passes but the device list is empty, which lifecycle gates must
 
 ## Run the lifecycle on a live VDA
 
+:::yourturn
+Start the virtual device, show the plan, then run the lifecycle. Keep an eye on which gates pass — that list is your evidence.
+:::
+
 :::steps
 1. Replace `<runId>` with the id from lesson 6.
 :::
@@ -63,7 +67,7 @@ npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
 yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --json
 :::
 
-## Claim live evidence only when
+## You can claim live evidence only when
 
 :::steps
 1. The SDK reports `0.22.5875`.
@@ -72,7 +76,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --j
 4. The result says `evidenceMode: live` and the screenshot came from the device.
 :::
 
-## Inspect all eight gates
+## Inspect all eight gates yourself
 
 :::steps
 1. Confirm SDK version and device status were checked before build.

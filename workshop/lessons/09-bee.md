@@ -4,13 +4,13 @@ number: "09"
 nav: Optional Bee context
 time: 15 minutes
 title: Import selected context, not a transcript
-lead: Run this only if Bee is configured and participants have consented — the synthetic fixture is the normal workshop path.
+lead: "An optional last layer: if Bee is configured and everyone has consented, we feed real conversations into the harness. The synthetic fixture is the normal path."
 objective: Select useful context without turning a private conversation into unreviewed agent memory.
 evidence: A scrubbed snapshot has source ids, dates, a query, a summary, and a stable hash.
 ---
 
-:::concept Why this step is optional
-[Bee](https://www.aboutamazon.com/news/devices/bee-amazon-wearable-ai-device-new-features) is Amazon's wearable AI device: it listens to your day (when you let it) and turns conversations into searchable summaries, decisions, and to-dos. Conversation search can recover useful decisions, but it also crosses a privacy boundary. Use it only with consent, select the smallest useful excerpt, and store a scrubbed snapshot rather than a transcript.
+:::welcome Optional, and here is why
+This is the one lesson we may skip together, and the reason is worth stating out loud: it touches private conversations. Run it only with consent, and know that the synthetic fixture gives you the same mechanics with none of the risk. [Bee](https://www.aboutamazon.com/news/devices/bee-amazon-wearable-ai-device-new-features) is Amazon's wearable AI device: it listens to your day (when you let it) and turns conversations into searchable summaries, decisions, and to-dos. Conversation search can recover useful decisions, but it also crosses a privacy boundary. Use it only with consent, select the smallest useful excerpt, and store a scrubbed snapshot rather than a transcript.
 :::
 
 :::predict
@@ -28,6 +28,10 @@ yarn --cwd packages/workshop-harness tsx src/index.ts context bee snapshot <conv
 :::
 
 ## Review the boundary
+
+:::yourturn
+You are the same approval gate you were in lesson 5, with higher stakes: this material came from someone's conversation.
+:::
 
 :::steps
 1. Check source ids, dates, query, summary, and hash.

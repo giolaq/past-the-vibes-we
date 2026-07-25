@@ -4,13 +4,13 @@ number: "01"
 nav: One model call
 time: 15 minutes
 title: Start with one model call
-lead: Run the smallest example against a React Native app and identify what it cannot prove.
+lead: We start with the smallest thing that works — one model call — and then find out what it can't prove.
 objective: Locate the model boundary and distinguish generated output from verified output.
 evidence: Three concrete claims that the one-call script cannot prove by itself.
 ---
 
-:::concept Why this step exists
-A model can produce plausible files, but plausibility is not evidence. Start with the smallest possible agent so its missing guarantees are easy to see.
+:::welcome We start where you already are
+Paste your code into a model, get files back, trust them — that's most people's AI workflow today, and it's exactly what this lesson runs. A model can produce plausible files, but plausibility is not evidence. We start with the smallest possible agent so the missing guarantees are easy to see, and every later lesson fills one of them in.
 :::
 
 :::note One app from the first minute
@@ -23,7 +23,9 @@ Before you run it, name one bug that could hide inside the model's analysis that
 
 ## Run it against a live model
 
-Pick the executor you set up in lesson 0. It calls a real model and writes files into `out/`. The prompt carries the entire reduced app source — a few KB — so the model analyzes the real code, not its memory of apps like it.
+:::yourturn
+Pick the executor you set up in lesson 0 and run it — this one calls a real model and writes real files into `out/`. The prompt carries the entire reduced app source, a few KB, so the model analyzes your actual code rather than its memory of apps like it.
+:::
 
 :::command Claude Code CLI
 # Claude Code CLI
@@ -40,7 +42,7 @@ yarn --cwd packages/mini-harness tsx steps/01-single-agent/index.ts run \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
 :::
 
-## Trace the model boundary
+## Now check what it couldn't prove
 
 :::steps
 1. Open `steps/01-single-agent/index.ts`.

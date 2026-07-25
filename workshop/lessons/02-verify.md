@@ -4,13 +4,13 @@ number: "02"
 nav: Check and retry
 time: 30 minutes
 title: Turn a failure into a useful retry
-lead: Run a mechanical check and send its exact failure into one bounded retry.
+lead: "Now we teach the harness to catch its own mistakes: one mechanical check, and the exact failure fed back into a retry."
 objective: Trace a requirement through a failed check, a contextual retry, and a passing result.
 evidence: The failed grep message appears in the retry request and the second attempt passes.
 ---
 
-:::concept Why this step exists
-A retry is useful only when it carries new information. The check turns a vague failure into precise context the next attempt can act on.
+:::welcome The smallest fix for lesson 1's problem
+Lesson 1 left us holding output nobody had verified. We're going to add the smallest possible fix: one check that can't be charmed by good writing, and one retry that carries the exact failure back to the model. A retry is only useful when it carries new information — that's the whole idea, and it's the pattern every later lesson reuses.
 :::
 
 :::flow
@@ -25,6 +25,10 @@ The plan phase must document the remote control. Predict what the check greps fo
 :::
 
 ## Run it against a live model
+
+:::yourturn
+Run the step-2 harness on your live path, then read the note below before you judge the result.
+:::
 
 A live model may pass every check on the first try. To see the retry loop deterministically, use the committed recording — its first plan attempt is missing the required section, so the harness feeds the exact failure back and the second attempt fixes it.
 
@@ -43,7 +47,7 @@ yarn --cwd packages/mini-harness tsx steps/02-verify-loop/index.ts run \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
 :::
 
-## See the retry loop (recording)
+## Watch the loop work
 
 :::command Replay the failed check and repair
 # Fallback: the committed recording forces the check to fail, then pass
@@ -63,7 +67,7 @@ label: Actual replay output
 caption: "The recording forces one useful failure. Notice that the retry receives evidence, not the vague instruction 'try again'."
 :::
 
-## Follow the evidence
+## Follow the evidence yourself
 
 :::steps
 1. Find the failed `grep` check in the output.
@@ -74,7 +78,9 @@ caption: "The recording forces one useful failure. Notice that the retry receive
 
 ## Assignment: own the requirement
 
-A requirement just landed: the TV plan must also cover accessibility. Your job is to make the harness enforce it — without touching harness code.
+:::yourturn
+A requirement just landed: the TV plan must also cover accessibility. Make the harness enforce it — without touching harness code.
+:::
 
 :::steps
 1. Copy the phase config so the committed fixture stays clean: `cp steps/02-verify-loop/fixtures/phases.json /tmp/my-phases.json`.

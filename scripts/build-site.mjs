@@ -165,6 +165,12 @@ function renderTable(headers, rows) {
 const comp = {
   concept: (title, text) =>
     `<section class="concept"><p class="eyebrow">Concept</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
+  // The lesson opener: what we build here and why it matters.
+  welcome: (title, text) =>
+    `<section class="welcome"><p class="eyebrow">Welcome</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
+  // Marks the moment the attendee stops reading and starts running things.
+  yourturn: (text) =>
+    `<aside class="yourturn"><p class="eyebrow">Over to you</p><strong>Now it's your turn</strong><p>${inline(text)}</p></aside>`,
   note: (title, text, type = "") =>
     `<aside class="note ${type}"><strong>${inline(title)}</strong><br>${inline(text)}</aside>`,
   predict: (text) =>
@@ -311,6 +317,10 @@ function renderDirective(name, header, modifier, content) {
   switch (name) {
     case "concept":
       return comp.concept(header, content.trim());
+    case "welcome":
+      return comp.welcome(header, content.trim());
+    case "yourturn":
+      return comp.yourturn(content.trim());
     case "note":
       return comp.note(header, content.trim(), modifier);
     case "predict":
