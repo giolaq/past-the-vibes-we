@@ -53,7 +53,7 @@ export async function runFeasibility(options: {
   executor: PortExecutor;
 }): Promise<FeasibilityResult> {
   const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt);
-  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, FeasibilityOutputSchema);
+  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, { schema: FeasibilityOutputSchema });
   const parsed = parseJsonBlock(model.text, FeasibilityOutputSchema, "feasibility");
   return { ...parsed, costUsd: model.costUsd };
 }

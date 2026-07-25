@@ -23,9 +23,12 @@ export class PortReplay {
   private turns: RecordedTurn[];
   constructor(path: string) { this.turns = JSON.parse(readFileSync(path, "utf8")) as RecordedTurn[]; }
   next(phase: string): RecordedTurn {
+    // A recording holds a whole run. A partial run (`--phases`) or a resumed one consumes only
+    // its own phases, so skip forward past turns belonging to phases this run is not executing.
+    // Turns within a phase keep their order, which is what makes a recorded retry replay.
+    while (this.index < this.turns.length && this.turns[this.index].phase !== phase) this.index++;
     const turn = this.turns[this.index++];
-    if (!turn) throw new Error(`Replay exhausted before ${phase}`);
-    if (turn.phase !== phase) throw new Error(`Replay phase mismatch: expected ${phase}, found ${turn.phase}`);
+    if (!turn) throw new Error(`Replay has no turn left for ${phase}`);
     return turn;
   }
   static exists(path?: string): path is string { return Boolean(path && existsSync(path)); }
