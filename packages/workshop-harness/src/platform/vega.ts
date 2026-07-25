@@ -26,6 +26,12 @@ export interface VegaCommandAdapter {
   execute(capability: VegaCapability, ...values: string[]): Promise<ProcessResult>;
 }
 
+/** Where the device writes the launch screenshot before the harness pulls it. */
+export const VEGA_SCREENSHOT_REMOTE = "/tmp/tv-build-launch.png";
+
+/** Shape of a `--platform-replay` fixture: recorded results for each lifecycle capability. */
+export type VegaReplayFixture = { packagePath: string; appId: string; turns: Array<{ capability: VegaCapability; result: ProcessResult }> };
+
 export class VegaAdapter implements VegaCommandAdapter {
   constructor(private vega = process.env.VEGA_BIN ?? "vega", private cwd?: string) {}
 
@@ -117,12 +123,10 @@ export async function runVegaLifecycle(options: {
 
   const screenshots: string[] = [];
   if (!blockers.length) {
-    const remote = "/tmp/tv-build-launch.png";
-    const local = screenshotPath;
-    const capture = await run("capture", remote);
+    const capture = await run("capture", VEGA_SCREENSHOT_REMOTE);
     if (capture.code === 0) {
-      const pull = await run("pull", remote, local);
-      if (pull.code === 0 && (existsSync(local) || options.evidenceMode === "replay")) screenshots.push(local);
+      const pull = await run("pull", VEGA_SCREENSHOT_REMOTE, screenshotPath);
+      if (pull.code === 0 && existsSync(screenshotPath)) screenshots.push(screenshotPath);
     }
   }
 

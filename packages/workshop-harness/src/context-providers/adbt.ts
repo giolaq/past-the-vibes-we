@@ -159,16 +159,7 @@ function parseCatalog(output: string): Array<{ name: string; description?: strin
 }
 
 function createAdbtClient(options: { command?: string; commandArgs?: string[]; cwd?: string }): AdbtToolClient {
-  const mcp = new McpClient({
-    applicationName: "Past the Vibes Workshop",
-    applicationVersion: "0.1.0",
-    transport: new StdioClientTransport({
-      command: options.command ?? "npx",
-      args: options.commandArgs ?? ["-y", ADBT_PACKAGE],
-      cwd: options.cwd,
-      stderr: "pipe",
-    }),
-  });
+  const mcp = createAdbtMcpClient(options);
   let tools: Awaited<ReturnType<McpClient["listTools"]>> = [];
   return {
     async listTools() { tools = await mcp.listTools(); return tools.map((tool) => tool.name); },
