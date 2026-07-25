@@ -15,7 +15,8 @@ import { FOCUS_TEST_CHECK, verifyPort, type PortCheck } from "./port-verificatio
  */
 export type PortPhase = { name: string; goal: string; instruction: string; skills: string[]; checks: PortCheck[] };
 export type PortResult = {
-  phases: { name: string; summary: string; attempts: number; checks: string[] }[];
+  /** failures holds the checks that failed on each earlier attempt, oldest first. */
+  phases: { name: string; summary: string; attempts: number; checks: string[]; failures: string[][] }[];
   costUsd: number;
   adbt?: { mode: "live" | "replay"; documents: string[]; evidence: string };
 };
@@ -42,6 +43,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       const start = gitHead(options.appDir);
       let failures: string[] = [];
       let previousFailures = "";
+      const rejected: string[][] = [];
       try {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           if (attempt > 1) reset(options.appDir, start);
@@ -63,9 +65,13 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           failures = verifyPort(options.appDir, phase.checks);
           if (failures.length === 0) {
             commit(options.appDir, `workshop(${phase.name}): ${output.summary.slice(0, 60)}`);
-            result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label) });
+            result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label), failures: rejected });
             break;
           }
+          rejected.push(failures);
+          // A retry that happens silently is a retry nobody can audit. stdout stays JSON-only,
+          // so this goes to stderr — and it is the exact text the next prompt carries.
+          process.stderr.write(`${phase.name} attempt ${attempt} failed:\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`);
           const signature = failures.join("; ");
           if (attempt === maxAttempts) throw new Error(`${phase.name} failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${signature}`);
           if (signature === previousFailures) throw new Error(`${phase.name} stopped after ${attempt} attempts: no progress, the same failures repeated: ${signature}`);
