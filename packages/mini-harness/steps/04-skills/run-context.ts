@@ -6,10 +6,14 @@ export type RunContext = { outDir: string; summaries: string[]; costUsd: number 
 
 export function createRunContext(resume: boolean): RunContext {
   const outDir = resolve("out");
-  if (!resume) rmSync(outDir, { recursive: true, force: true });
-  if (!resume) cpSync(resolve("fixtures/react-native-app"), outDir, { recursive: true });
-  else mkdirSync(outDir, { recursive: true });
-  if (!resume) initGit(outDir);
+  // Resuming keeps whatever the earlier phases produced; a fresh run starts from the fixture app.
+  if (resume) {
+    mkdirSync(outDir, { recursive: true });
+    return { outDir, summaries: [], costUsd: 0 };
+  }
+  rmSync(outDir, { recursive: true, force: true });
+  cpSync(resolve("fixtures/react-native-app"), outDir, { recursive: true });
+  initGit(outDir);
   return { outDir, summaries: [], costUsd: 0 };
 }
 

@@ -8,6 +8,8 @@ This package improves the same small React Native TV app four times. Every step 
 yarn setup
 ```
 
+The `--executor`, `--provider`, and `--model` flags can also be set with the `MINI_EXECUTOR`, `MINI_PROVIDER`, and `MINI_MODEL` environment variables, and `MINI_SKILLS_DIR` overrides where skills are loaded from.
+
 `openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
 
 ## Step 1: one model call

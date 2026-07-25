@@ -3,8 +3,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
+// `contains` requires its value: an optional one would let a check with no value pass
+// forever, since "".includes("") is true — a green check that verifies nothing.
 export type PortCheck =
-  | { type: "file_exists" | "contains"; path: string; value?: string; label: string }
+  | { type: "file_exists"; path: string; label: string }
+  | { type: "contains"; path: string; value: string; label: string }
   | { type: "command"; command: string; args: string[]; label: string };
 
 /** Runs a TypeScript file with the tsx loader, the way the generated app's verifier expects. */
@@ -41,7 +44,7 @@ export function verifyPort(appDir: string, checks: PortCheck[]): string[] {
     }
     const path = join(appDir, check.path);
     if (!existsSync(path)) { failures.push(`${check.label}: missing ${check.path}`); continue; }
-    if (check.type === "contains" && !readFileSync(path, "utf8").includes(check.value ?? "")) failures.push(`${check.label}: ${check.path} must contain ${JSON.stringify(check.value)}`);
+    if (check.type === "contains" && !readFileSync(path, "utf8").includes(check.value)) failures.push(`${check.label}: ${check.path} must contain ${JSON.stringify(check.value)}`);
   }
   return failures;
 }
