@@ -4,7 +4,7 @@ number: "10"
 nav: Build your own
 time: 15 minutes
 title: Design one harness for your work
-lead: Keep the pipeline and replace the TV skill, Vega commands, and D-pad checks with your domain.
+lead: "Last stretch, and it's yours: keep the pipeline, swap the TV skill, Vega commands, and D-pad checks for your own domain."
 objective: Draft the smallest useful harness for one task in your own engineering domain.
 evidence: A worksheet names the phases, checks, approval point, budget, and evidence the run must retain.
 ---
@@ -13,11 +13,15 @@ evidence: A worksheet names the phases, checks, approval point, budget, and evid
 <div class="takeaway"><code>plan → context → run → check → retry → checkpoint → report</code></div>
 :::
 
-:::concept Transfer the pattern
-The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you saw in lesson 6: authority stays in your code, and every run leaves prompts, reads, costs, and commits you can audit.
+:::welcome Now take it home
+You've built the loop and watched it hold. The last thing to do is point it at work you actually care about, so this lesson is a worksheet rather than a command — you design the harness and we'll help you check it. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you saw in lesson 6: authority stays in your code, and every run leaves prompts, reads, costs, and commits you can audit.
 :::
 
 ## Draft your harness
+
+:::yourturn
+This one has no command to copy. Design your own harness on the worksheet, and we'll come round to help you check it.
+:::
 
 :::steps
 1. Open `worksheet.md`.

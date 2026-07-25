@@ -4,13 +4,13 @@ number: "05"
 nav: Project memory
 time: 15 minutes
 title: Review facts before saving them
-lead: Work on a disposable copy of the inputs — proposed context becomes project memory only after you review and apply it.
+lead: "Here you are the approval gate: proposed context becomes project memory only after you read it and apply it."
 objective: Turn selected source material into small, reviewable project facts with provenance.
 evidence: The saved PROJECT_CONTEXT.md separates decisions, facts, questions, and source ids.
 ---
 
-:::concept Why this step exists
-Project context should stay small, and every entry needs a source and a human sign-off. A raw transcript has none of that: it's noisy, private, and easy for an agent to misread as instruction.
+:::welcome You are the gate
+Every run so far started from nothing. Now we give the harness memory — and immediately put a human in front of it. Project context should stay small, and every entry needs a source and a sign-off, because a raw transcript is noisy, private, and easy for an agent to misread as an instruction. You'll review candidate facts before any of them become durable truth.
 :::
 
 :::predict
@@ -34,7 +34,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts memory propose /tmp/past-t
   --json
 :::
 
-## Review before applying
+## Your review, before anything is saved
 
 :::steps
 1. Read every proposed fact.
@@ -49,7 +49,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts memory apply /tmp/past-the
   --yes --json
 :::
 
-## Inspect the saved context
+## Check what you just approved
 
 :::steps
 1. Open `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md`.

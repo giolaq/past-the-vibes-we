@@ -4,10 +4,14 @@ number: "06"
 nav: Plan and port
 time: 35 minutes
 title: Inspect first, then change a guarded copy
-lead: Review the scope, checks, ADBT context, seed, and cost before approving a port — the run edits a guarded copy, and your source app stays untouched.
+lead: "This is the main event: you approve a plan, then watch the real port run against a guarded copy while your source app stays untouched."
 objective: Follow the complete port boundary from plan approval to a checked, committed app copy.
 evidence: The report links approved ADBT context, a typed patch, check results, cost, and Git commits.
 ---
+
+:::welcome The one we came here for
+Everything so far was practice on a reduced app. Now we run the real thing: the complete harness ports a React Native flow to Vega, with ADBT supplying the platform knowledge and you approving the plan before a dollar is spent. Read the plan carefully when it appears — that approval is the moment you are actually in charge.
+:::
 
 :::concept The production loop
 The plan is the human approval boundary. During analyze and plan the model calls ADBT over MCP itself to gather Vega knowledge. Strands proposes a typed patch from read-only project tools. The harness records every ADBT read, applies the patch, checks it, retries once (or loops until green with `--max-attempts`/`--until-done`, under the cost cap and a no-progress rule), and commits only verified work.
@@ -135,7 +139,11 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
   --seed workshop-v1 --max-cost 3 --json
 :::
 
-## Review the plan before approval
+## Read the plan before you approve it
+
+:::yourturn
+Generate the plan and actually read it. This is the human approval boundary, so check the scope, the feasibility verdict, the phase list, the seed, and the cost cap before you say yes.
+:::
 
 :::steps
 1. Confirm the source app and target flow.
@@ -146,7 +154,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
 6. Notice that build_test folds in the device screenshot lifecycle from lesson 8.
 :::
 
-## Run the port against a live model
+## Now run the port
 
 Approve and run with a real model. On the Claude CLI path the model reaches ADBT through the MCP config you set up in lesson 0; on the Strands path the harness hands it the ADBT client. `build_test` needs an attached VDA to capture the launch screenshot.
 
@@ -168,7 +176,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
   --yes --seed workshop-v1 --max-cost 3 --json
 :::
 
-## Build an evidence chain
+## Follow the evidence it left behind
 
 :::steps
 1. Copy the <code>runId</code> from the output.

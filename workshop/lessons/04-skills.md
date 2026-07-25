@@ -4,13 +4,13 @@ number: "04"
 nav: Skills and executors
 time: 30 minutes
 title: Separate knowledge from model access
-lead: Skills carry the domain instructions and executors call the model — kept separate, so the pipeline never depends on one provider.
+lead: "We separate the parts that keep getting tangled: skills carry the domain knowledge, executors call the model, and the pipeline depends on neither."
 objective: Separate domain knowledge, model execution, tools, and deterministic pipeline control.
 evidence: You can point to the file that owns each responsibility in both the mini and complete workshop harnesses.
 ---
 
-:::concept Four responsibilities
-Each piece has one job: skills teach domain knowledge, phase context assembles the task, executors talk to the model, tools expose narrow capabilities, and the pipeline decides when side effects are allowed.
+:::welcome One job per piece
+This is the lesson where the harness stops being one script and becomes parts you can swap. Watch for the payoff: by the end you'll change the model's expertise by editing one line, and you'll know where your own CLI agent would plug in. Each piece has one job: skills teach domain knowledge, phase context assembles the task, executors talk to the model, tools expose narrow capabilities, and the pipeline decides when side effects are allowed.
 :::
 
 :::predict
@@ -18,6 +18,10 @@ Where should a D-pad focus rule live: the executor, a skill, a read tool, or a v
 :::
 
 ## Run it against a live model
+
+:::yourturn
+Run step 4 on your live path. The skills it loads are Amazon's, not ours — installed by the `init-context` you ran in lesson 0.
+:::
 
 :::command Claude Code CLI
 # Claude Code CLI
@@ -35,7 +39,7 @@ yarn --cwd packages/mini-harness tsx steps/04-skills/index.ts run \
   --region us-west-2
 :::
 
-## Map the teaching harness
+## Follow one skill through the code
 
 :::steps
 1. Open `phases.json` and find the ADBT skill each phase names: `amazon-devices-vega-best-practices` (analyze), `amazon-devices-vega-focus-management` (plan), `amazon-devices-vega-build-and-run` (build_test).
@@ -93,7 +97,11 @@ In `src/port-tools.ts`, the read tools reject absolute paths, `..` traversal, sy
 
 ## Assignment: ship a team skill
 
-Amazon ships its conventions as skills — now ship one of yours. Pick a rule your team actually has, teach it to the model as a skill, and enforce it with a check. The pairing is the point: the skill carries the knowledge, the check does the enforcement, and they live in different files on purpose.
+:::yourturn
+Amazon ships its conventions as skills — now ship one of yours. Pick a rule your team actually has, teach it to the model as a skill, and enforce it with a check.
+:::
+
+The pairing is the point: the skill carries the knowledge, the check does the enforcement, and they live in different files on purpose.
 
 :::steps
 1. Create the skill: `mkdir -p ~/.claude/skills/team-open-questions`, then write `~/.claude/skills/team-open-questions/SKILL.md` with one instruction — for example: "End every document you produce with a section titled ## Open Questions listing what you could not verify." (Or use your own team rule; keep it one paragraph. If your agent keeps skills elsewhere, point `MINI_SKILLS_DIR` at that directory instead.)

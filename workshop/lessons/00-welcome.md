@@ -4,10 +4,14 @@ number: "00"
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
-lead: Do this setup before the workshop starts. If anything live fights you for more than 10 minutes — model account, ADBT, device — stop and use replay instead. Every lesson also runs from recordings, so a broken setup never has to stop you.
+lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. If anything live fights you for more than 10 minutes — model account, ADBT, device — stop and use replay instead. Every lesson also runs from recordings, so a broken setup never has to stop you.
 objective: Choose a reliable workshop path and explain where Strands, ADBT, the harness, and Git each fit.
 evidence: A successful replay run, one chosen execution path, and a completed readiness checklist.
 ---
+
+:::welcome Welcome to Past the Vibes
+Over the next four hours we're going to build a harness together: first a small one you can read end to end, then the real one that ports a React Native app to Vega TV. You'll leave with something you can point at your own codebase. This page is the setup — work through it before we begin, then meet us at lesson 1.
+:::
 
 :::concept Read this first if you have never built an agent harness
 You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That's fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong> with AWS Strands Agents SDK: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself. That structure is why you're here rather than just prompting a coding agent: the harness gives you control (your code owns every write, check, and dollar) and observability (every model turn, document read, cost, and commit is recorded). And it's reusable — swap the skills, the MCP server, or the executor, and the same pipeline works on your own project, driven by the CLI coding agent you already use or directly by Strands + Bedrock.
