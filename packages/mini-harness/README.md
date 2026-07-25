@@ -42,7 +42,7 @@ This step adds phase config, checkpoints, cost tracking, reports, and one Git co
 yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   steps/03-phases/fixtures/phases.json \
   --replay steps/03-phases/fixtures/demo-recording.json \
-  --stop-after content
+  --stop-after plan
 ```
 
 Inspect `packages/mini-harness/out/checkpoint.json`, then resume without deleting the output directory:
@@ -54,7 +54,7 @@ yarn --cwd packages/mini-harness tsx steps/03-phases/index.ts run \
   --resume
 ```
 
-Done when the second command runs `focus` instead of repeating `screen` or `content`.
+Done when the second command runs `build_test` instead of repeating `analyze` or `plan`.
 
 ## Step 4: skills and executors
 

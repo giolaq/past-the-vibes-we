@@ -1,5 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
+/** Keeps earlier turns when a resumed run appends to an existing recording. */
+export function loadTurns(path: string): RecordedTurn[] {
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf-8")) : [];
+}
+
 export type RecordedTurn = {
   timestamp: string;
   phase: string;

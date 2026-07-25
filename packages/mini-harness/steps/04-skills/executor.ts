@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { callLiveModel } from "../../model-runtime.js";
 import type { RunContext } from "./run-context.js";
-import { Recorder, ReplayClient, responseText } from "./recorder.js";
+import { Recorder, ReplayClient, loadTurns, responseText } from "./recorder.js";
 import type { Skill } from "./skills.js";
 
 export type ModelResult = { text: string; costUsd: number };
@@ -26,7 +26,10 @@ class ReplayExecutor implements Executor {
 
 class LiveExecutor implements Executor {
   private recorder: Recorder;
-  constructor(ctx: RunContext) { this.recorder = new Recorder(join(ctx.outDir, "recording.json")); }
+  constructor(ctx: RunContext) {
+    const path = join(ctx.outDir, "recording.json");
+    this.recorder = new Recorder(path, loadTurns(path));
+  }
   async call(phase: string, prompt: string, skills: Skill[]): Promise<ModelResult> {
     const result = await callLiveModel(prompt, skills);
     const skillNames = skills.map((skill) => skill.name).join(",") || "none";
