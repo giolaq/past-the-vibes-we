@@ -12,7 +12,7 @@ import { BeeContextProvider } from "./context-providers/bee.js";
 import { CliFailure, failure, json } from "./output.js";
 import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memory.js";
 import { assembleProjectContext } from "./phase-context.js";
-import { createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
+import { READ_ONLY_TOOLS, createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
 import { PortBudgetError, runPortPipeline } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
 import { ADBT_PACKAGE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "./platform/vega.js";
@@ -75,12 +75,12 @@ async function buildPlan(sourcePath: string, outDir: string) {
   const memory = loadMemory(inputDir ?? sourcePath);
   const phaseContext = assembleProjectContext(memory, "vega_port");
   const executorConfig = resolveExecutorConfig({ executor: flag("--executor"), provider: flag("--provider"), model: flag("--model"), region: flag("--region") });
-  const adbtMode = !flag("--replay") || args.includes("--adbt-live") ? "live" : "replay";
 
   // The audit interrogates ADBT and a bounded model to judge whether the port is possible
   // before any spec/port budget is spent. Live path calls the model + ADBT MCP; replay reads fixtures.
+  // This runs before copySource, so the model sees the attendee's real app: read-only tools only.
   const adbt = await resolveAdbtProvider(source.source).load();
-  const feasibilityExecutor = createPortExecutor({ appDir: source.source, outDir, replayPath: feasibilityReplayPath(), recordingName: "feasibility-recording.json", config: executorConfig });
+  const feasibilityExecutor = createPortExecutor({ appDir: source.source, outDir, replayPath: feasibilityReplayPath(), recordingName: "feasibility-recording.json", config: executorConfig, allowedTools: READ_ONLY_TOOLS });
   const feasibility = await runFeasibility({ source, findings, adbt, executor: feasibilityExecutor });
 
   return {
@@ -94,7 +94,7 @@ async function buildPlan(sourcePath: string, outDir: string) {
     feasibility,
     contextEntryIds: phaseContext.entryIds,
     phaseContext: phaseContext.text,
-    adbt: { package: ADBT_PACKAGE, mode: adbtMode, phase: "analyze (feasibility) + plan", workflows: ADBT_PORT_WORKFLOWS },
+    adbt: { package: ADBT_PACKAGE, mode: adbt.mode, phase: "analyze (feasibility) + plan", workflows: ADBT_PORT_WORKFLOWS },
     phases: ["analyze", "plan", "build_test"],
   };
 }
