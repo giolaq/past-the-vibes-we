@@ -32,6 +32,8 @@ yarn verify
 yarn doctor
 ```
 
+Set `WORKSHOP_OUT` to move run directories somewhere other than `out/`.
+
 `openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
 
 ## Bring your own CLI agent

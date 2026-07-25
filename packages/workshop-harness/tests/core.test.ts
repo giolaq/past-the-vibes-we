@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { z } from "zod";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { auditSource, summarize } from "../src/portability-audit.js";
-import { tvReadyChecks, verifyPort } from "../src/port-verification.js";
+import { FOCUS_TEST_CHECK, tvReadyChecks, verifyPort } from "../src/port-verification.js";
+import { parseJsonBlock } from "../src/port-contract.js";
 import { applyProposal, loadMemory, loadSnapshot, propose, renderMemory, snapshotHash } from "../src/project-memory.js";
 import { copySource, discoverSource } from "../src/source-app.js";
 import { assembleProjectContext } from "../src/phase-context.js";
@@ -114,4 +116,17 @@ test("tv-ready checks fail on a touch-first app and pass on a ported one", () =>
   writeFileSync(join(ported, "apps", "vega", "manifest.toml"), "schema-version = 1");
   writeFileSync(join(ported, "tests", "verify-tv-focus.ts"), "process.exit(0);");
   assert.deepEqual(verifyPort(ported, staticChecks), []);
+});
+
+test("tv-check and the build_test gate run the focus verifier the same way", async () => {
+  const { phases } = await import("../src/port-pipeline.js");
+  const gate = phases().find((phase) => phase.name === "build_test")!.checks.find((check) => check.type === "command");
+  assert.deepEqual(gate, FOCUS_TEST_CHECK);
+  assert.ok(tvReadyChecks().includes(FOCUS_TEST_CHECK));
+});
+
+test("parseJsonBlock names the phase instead of blaming the schema", () => {
+  const schema = z.object({ summary: z.string() });
+  assert.deepEqual(parseJsonBlock('prose {"summary":"ok"} tail', schema, "analyze"), { summary: "ok" });
+  assert.throws(() => parseJsonBlock("I cannot do that.", schema, "analyze"), /analyze returned no JSON object/);
 });

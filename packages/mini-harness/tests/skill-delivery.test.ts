@@ -67,3 +67,23 @@ function writeSkill(name: string, body: string): void {
   mkdirSync(join(skillsDir, name), { recursive: true });
   writeFileSync(join(skillsDir, name, "SKILL.md"), body);
 }
+
+test("app source excludes the harness's own bookkeeping files", () => {
+  const appDir = mkdtempSync(join(tmpdir(), "mini-bookkeeping-"));
+  writeFileSync(join(appDir, "package.json"), '{"name":"app"}');
+  writeFileSync(join(appDir, "checkpoint.json"), '{"nextPhase":2}');
+  writeFileSync(join(appDir, "recording.json"), '[{"phase":"analyze"}]');
+  const block = appSourceBlock(appDir);
+  assert.match(block, /package\.json/);
+  assert.doesNotMatch(block, /checkpoint\.json/);
+  assert.doesNotMatch(block, /recording\.json/);
+});
+
+test("a resumed recording keeps the turns already on disk", async () => {
+  const { loadTurns } = await import("../steps/04-skills/recorder.js");
+  const dir = mkdtempSync(join(tmpdir(), "mini-recording-"));
+  const path = join(dir, "recording.json");
+  assert.deepEqual(loadTurns(path), []);
+  writeFileSync(path, JSON.stringify([{ phase: "analyze" }]));
+  assert.equal(loadTurns(path).length, 1);
+});

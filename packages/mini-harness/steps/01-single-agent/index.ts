@@ -5,7 +5,7 @@ import { z } from "zod";
 import { appSourceBlock } from "../../app-source.js";
 import { callLiveModel } from "../../model-runtime.js";
 
-type RecordedTurn = { phase: string; response: unknown; usage?: { input_tokens: number; output_tokens: number } };
+type RecordedTurn = { phase: string; response: unknown };
 const Phase = z.object({ name: z.string(), prompt: z.string() });
 const Config = z.object({ phases: z.array(Phase).min(1) });
 const Output = z.object({ summary: z.string(), files: z.record(z.string(), z.string()) });

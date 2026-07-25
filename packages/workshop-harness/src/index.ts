@@ -44,7 +44,7 @@ function tvCheckCommand(): void {
   // check already reports that, and running it would only add a stack trace.
   const checks = tvReadyChecks().filter((check) => check.type !== "command" || existsSync(join(target, "tests/verify-tv-focus.ts")));
   const failures = verifyPort(target, checks);
-  json({ schemaVersion: 1, command: "tv-check", target, tvReady: failures.length === 0, failures });
+  json({ command: "tv-check", target, tvReady: failures.length === 0, failures });
 }
 
 async function doctor(): Promise<void> {
@@ -125,11 +125,11 @@ async function runCommand(): Promise<void> {
   const sourcePath = args[1];
   if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness run <app> --inputs <dir> --yes --json.");
   if (!args.includes("--yes")) failure("confirmation_required", "Run requires explicit confirmation.", "Show the plan, then rerun with --yes.");
-  if (args.includes("--detach") && !args.includes("--child")) return detach(sourcePath);
+  if (args.includes("--detach") && !args.includes("--child")) return detach();
   await executeRun(sourcePath, flag("--run-id") ?? randomUUID().slice(0, 8));
 }
 
-function detach(sourcePath: string): void {
+function detach(): void {
   const runId = randomUUID().slice(0, 8);
   const out = join(root, runId);
   mkdirSync(out, { recursive: true });

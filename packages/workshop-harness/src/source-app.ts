@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
 const EXCLUDED = new Set(["node_modules", ".git", ".env", ".env.local", "build", "dist", ".gradle", ".kepler", "coverage"]);
@@ -15,7 +15,7 @@ export type SourceDiscovery = {
 export function discoverSource(path: string): SourceDiscovery {
   const source = resolve(path);
   const packagePath = join(source, "package.json");
-  if (!existsSync(packagePath) || !statSync(source).isDirectory()) throw new Error(`Not a JavaScript project: ${source}`);
+  if (!existsSync(packagePath)) throw new Error(`Not a JavaScript project: ${source}`);
   const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as { name?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
   return {
     source,

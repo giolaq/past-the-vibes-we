@@ -39,7 +39,7 @@ function listFiles(root: string, input: string): string[] {
   if (!statSync(start).isDirectory()) throw new Error(`Not a directory: ${input}`);
   const files: string[] = [];
   walk(start, files, root);
-  return files.sort().slice(0, MAX_FILES);
+  return files.sort();
 }
 
 function walk(dir: string, files: string[], root: string): void {

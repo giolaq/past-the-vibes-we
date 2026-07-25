@@ -48,9 +48,8 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           writeOutput(options.appDir, output.files);
           // Record ADBT provenance: reconstructed from the model's tool calls (live) or the
           // recorded fixture (replay).
-          const adbtContext = usesAdbt
-            ? (options.adbtClient ? extractAdbtProvenance(model.messages ?? []) : replayContext)
-            : undefined;
+          // replayContext is only set when this phase uses ADBT without a live client.
+          const adbtContext = options.adbtClient && usesAdbt ? extractAdbtProvenance(model.messages ?? []) : replayContext;
           if (adbtContext) {
             ensureAdbtNextSteps(options.appDir, adbtContext);
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
@@ -89,7 +88,11 @@ export function phases(): PortPhase[] {
 }
 
 function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], failures: string[], adbt?: AdbtPortContext): string {
-  const checks = phase.checks.map((check) => check.type === "command" ? `- ${check.label}: ${check.command} ${check.args.join(" ")}` : `- ${check.label}: ${check.path}${check.value ? ` contains ${check.value}` : " exists"}`).join("\n");
+  const checks = phase.checks.map((check) => {
+    if (check.type === "command") return `- ${check.label}: ${check.command} ${check.args.join(" ")}`;
+    if (check.type === "contains") return `- ${check.label}: ${check.path} contains ${check.value}`;
+    return `- ${check.label}: ${check.path} exists`;
+  }).join("\n");
   // Model-driven: instruct the agent to use the ADBT MCP tools itself. In replay (no live tools)
   // the recorded context is shown so the offline path still has authoritative guidance.
   const adbtGuidance = phase.name === ADBT_PHASE
@@ -108,7 +111,20 @@ function ensureAdbtNextSteps(appDir: string, context: AdbtPortContext) {
   const sources = context.documents.map((document) => `- ${document.name} (${document.sha256})`).join("\n");
   writeFileSync(path, `${current}\n\n## ADBT sources\n\n${sources}\n\n## Unsupported mappings\n\nAdd Vega gaps or manual work here during the port.\n`);
 }
-function writeOutput(appDir: string, files: Record<string, string>) { const root = resolve(appDir); for (const [name, content] of Object.entries(files)) { const path = resolve(root, name); if (!path.startsWith(`${root}${sep}`) || /(^|[\\/])(?:\.git|node_modules)(?:[\\/]|$)|(^|[\\/])\.env(?:\.|[\\/]|$)/.test(name)) throw new Error(`Unsafe model output path: ${name}`); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, content); } }
+/** Paths the model may never write, however it spells them. */
+const PROTECTED_PATHS = /(^|[\\/])(?:\.git|node_modules)(?:[\\/]|$)|(^|[\\/])\.env(?:\.|[\\/]|$)/;
+
+// The write boundary of the whole harness: every model-proposed path must resolve inside the
+// guarded app and must not touch Git, dependencies, or environment files.
+function writeOutput(appDir: string, files: Record<string, string>) {
+  const root = resolve(appDir);
+  for (const [name, content] of Object.entries(files)) {
+    const path = resolve(root, name);
+    if (!path.startsWith(`${root}${sep}`) || PROTECTED_PATHS.test(name)) throw new Error(`Unsafe model output path: ${name}`);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content);
+  }
+}
 function git(appDir: string, args: string[]) { return execFileSync("git", args, { cwd: appDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim(); }
 function initializeGit(appDir: string) { git(appDir, ["init"]); git(appDir, ["config", "user.email", "workshop@local"]); git(appDir, ["config", "user.name", "Workshop Harness"]); git(appDir, ["add", "-A"]); git(appDir, ["commit", "-m", "workshop: import guarded source"]); }
 function gitHead(appDir: string) { return git(appDir, ["rev-parse", "HEAD"]); }
