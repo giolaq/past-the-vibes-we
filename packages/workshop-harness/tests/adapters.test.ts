@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BeeContextProvider } from "../src/context-providers/bee.js";
-import { VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "../src/platform/vega.js";
+import { PLACEHOLDER_PIXEL_PNG, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "../src/platform/vega.js";
 import { runProcess } from "../src/process.js";
 import { resolveExecutorConfig } from "../src/port-executor.js";
 
@@ -39,20 +39,82 @@ test("Vega adapter executes inside the guarded apps/vega directory", async () =>
   assert.equal(result.stdout.trim(), realpathSync(cwd));
 });
 
+/** The full ten-gate sequence: the launch frame, then the dwell, log, and second frame. */
+const LIFECYCLE: VegaCapability[] = ["sdk_version", "device_status", "build", "install", "launch", "capture", "pull", "logs", "capture", "pull"];
+
+function lifecycleTurns(log = "Pocket Cinema started\ninitial focus featured-action") {
+  return LIFECYCLE.map((capability) => ({ capability, result: { code: 0, stdout: capability === "sdk_version" ? "Active SDK Version: 0.22.5875" : capability === "logs" ? log : "ok", stderr: "", timedOut: false } }));
+}
+
+const PASSING_FOCUS = JSON.stringify({ passed: true, transitions: ["launch-hero", "down-to-first-rail", "left-boundary", "right-boundary", "open-details", "back-restore"] });
+const RENDERED_FRAME = readFileSync(join(import.meta.dirname, "../../../workshop/fixtures/vega-lifecycle/launch-frame.png"));
+
+function check(result: { checks: { name: string; passed: boolean; evidence: string }[] }, name: string) {
+  const found = result.checks.find((candidate) => candidate.name === name);
+  assert.ok(found, `expected a check named "${name}", saw ${result.checks.map((candidate) => candidate.name).join(", ")}`);
+  return found;
+}
+
 test("Vega lifecycle records every successful gate and evidence file", async () => {
   const root = mkdtempSync(join(tmpdir(), "vega-lifecycle-"));
   const app = join(root, "app");
   const vega = join(app, "apps", "vega");
   mkdirSync(vega, { recursive: true });
-  writeFileSync(join(app, "tv-focus-result.json"), JSON.stringify({ passed: true, transitions: ["launch-hero", "down-to-first-rail", "left-boundary", "right-boundary", "open-details", "back-restore"] }));
-  const capabilities: VegaCapability[] = ["sdk_version", "device_status", "build", "install", "launch", "logs", "capture", "pull"];
-  const turns = capabilities.map((capability) => ({ capability, result: { code: 0, stdout: capability === "sdk_version" ? "Active SDK Version: 0.22.5875" : capability === "logs" ? "Pocket Cinema started" : "ok", stderr: "", timedOut: false } }));
-  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(turns), appDir: vega, focusDir: app, outDir: root, evidenceMode: "replay", packagePath: "build/pocket.vpkg", appId: "com.tvbuild.pocketcinema.main" });
-  assert.deepEqual(result.steps.map((step) => step.capability), capabilities);
-  assert.equal(result.checks[0].passed, true);
+  writeFileSync(join(app, "tv-focus-result.json"), PASSING_FOCUS);
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(), RENDERED_FRAME), appDir: vega, focusDir: app, outDir: root, evidenceMode: "replay", packagePath: "build/pocket.vpkg", appId: "com.tvbuild.pocketcinema.main" });
+  assert.deepEqual(result.steps.map((step) => step.capability), LIFECYCLE);
   assert.equal(result.blockers.length, 0);
+  assert.equal(check(result, "focus transition suite").passed, true);
+  assert.equal(check(result, "launch screenshot renders content").passed, true);
+  assert.equal(check(result, "post-launch screenshot renders content").passed, true);
+  assert.equal(check(result, "device log free of crash signatures").passed, true);
+  assert.match(check(result, "launch screenshot renders content").evidence, /1280x720/);
+  assert.deepEqual(result.screenshots, [join(root, "01-launch.png"), join(root, "02-postlaunch.png")]);
   assert.ok(existsSync(join(root, "01-launch.png")));
+  assert.ok(existsSync(join(root, "02-postlaunch.png")));
   assert.match(readFileSync(join(root, "vega-device.log"), "utf8"), /Pocket Cinema started/);
+});
+
+test("Vega lifecycle refuses a placeholder screenshot", async () => {
+  const root = mkdtempSync(join(tmpdir(), "vega-placeholder-"));
+  writeFileSync(join(root, "tv-focus-result.json"), PASSING_FOCUS);
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(), PLACEHOLDER_PIXEL_PNG), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main" });
+  assert.equal(check(result, "launch screenshot renders content").passed, false);
+  assert.match(result.blockers.join(" "), /frame is 1x1, smaller than the 640x360 minimum/);
+  // The launch frame already failed, so the lifecycle never spends the remaining gates.
+  assert.deepEqual(result.steps.map((step) => step.capability), ["sdk_version", "device_status", "build", "install", "launch", "capture", "pull"]);
+});
+
+test("Vega lifecycle fails when the device log reports a crash after launch", async () => {
+  const root = mkdtempSync(join(tmpdir(), "vega-crash-"));
+  writeFileSync(join(root, "tv-focus-result.json"), PASSING_FOCUS);
+  const log = "PocketCinema: component started\nFATAL EXCEPTION: main\nprocess com.tvbuild.pocketcinema has died";
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(log), RENDERED_FRAME), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main" });
+  assert.equal(check(result, "device log free of crash signatures").passed, false);
+  assert.match(result.blockers.join(" "), /the app crashed after launch: fatal exception: FATAL EXCEPTION: main/);
+  // A crash stops the run before the second frame is even requested.
+  assert.equal(result.screenshots.length, 1);
+});
+
+test("Vega lifecycle waits before reading the log on a live device", async () => {
+  const root = mkdtempSync(join(tmpdir(), "vega-dwell-"));
+  writeFileSync(join(root, "tv-focus-result.json"), PASSING_FOCUS);
+  const started = Date.now();
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(), RENDERED_FRAME), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main", dwellMs: 120 });
+  assert.ok(Date.now() - started >= 120, "the lifecycle returned before the dwell elapsed");
+  assert.equal(result.dwellMs, 120);
+  assert.match(check(result, "post-launch screenshot renders content").evidence, /captured 120ms after launch/);
+});
+
+test("Vega lifecycle asks an optional judge about the post-launch frame", async () => {
+  const root = mkdtempSync(join(tmpdir(), "vega-judge-"));
+  writeFileSync(join(root, "tv-focus-result.json"), PASSING_FOCUS);
+  const judged: string[] = [];
+  const judge = async (path: string) => { judged.push(path); return { verdict: "not-app" as const, reasoning: "the frame shows a system error dialog" }; };
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(), RENDERED_FRAME), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main", judge });
+  assert.deepEqual(judged, [join(root, "02-postlaunch.png")]);
+  assert.equal(check(result, "screenshot review").passed, false);
+  assert.match(result.blockers.join(" "), /screenshot review rejected the frame: the frame shows a system error dialog/);
 });
 
 test("Vega lifecycle stops after a failed gate", async () => {
@@ -95,10 +157,8 @@ test("Vega lifecycle rejects a different active SDK", async () => {
 test("Vega lifecycle rejects incomplete focus evidence", async () => {
   const root = mkdtempSync(join(tmpdir(), "vega-focus-incomplete-"));
   writeFileSync(join(root, "tv-focus-result.json"), JSON.stringify({ passed: true, transitions: ["launch-hero"] }));
-  const capabilities: VegaCapability[] = ["sdk_version", "device_status", "build", "install", "launch", "logs", "capture", "pull"];
-  const turns = capabilities.map((capability) => ({ capability, result: { code: 0, stdout: capability === "sdk_version" ? "0.22.5875" : "ok", stderr: "", timedOut: false } }));
-  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(turns), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main" });
-  assert.equal(result.checks[0].passed, false);
+  const result = await runVegaLifecycle({ adapter: new VegaReplayAdapter(lifecycleTurns(), RENDERED_FRAME), appDir: root, outDir: root, evidenceMode: "replay", packagePath: "app.vpkg", appId: "app.main" });
+  assert.equal(check(result, "focus transition suite").passed, false);
   assert.match(result.blockers.at(-1) ?? "", /every required transition/);
 });
 

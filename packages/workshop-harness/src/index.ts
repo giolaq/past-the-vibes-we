@@ -15,7 +15,8 @@ import { assembleProjectContext } from "./phase-context.js";
 import { READ_ONLY_TOOLS, createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
 import { PortBudgetError, runPortPipeline } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
-import { ADBT_PACKAGE, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
+import { createScreenshotJudge } from "./platform/screenshot-vision.js";
+import { ADBT_PACKAGE, VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type ScreenshotJudge, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
 import { copySource, discoverSource } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
 
@@ -174,11 +175,13 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     port.costUsd += plan.feasibility.costUsd;
     writeFileSync(join(out, "port-result.json"), JSON.stringify({ schemaVersion: 1, ...port }, null, 2));
 
-    // build_test requires device evidence: build, launch, and a real screenshot.
+    // build_test requires device evidence: the app builds, installs, launches, is still running
+    // after the dwell, leaves no crash in the log, and renders both captured frames.
     // Replay fixture keeps the workshop key-free; otherwise it runs live against the VDA.
     const platform = await runLifecycle(out, appDir);
-    if (platform.screenshots.length === 0 || platform.blockers.length > 0) {
-      throw new Error(`build_test screenshot evidence missing: ${platform.blockers.join("; ") || "no screenshot captured"}`);
+    if (platform.screenshots.length < 2 || platform.blockers.length > 0) {
+      const failed = platform.checks.filter((check) => !check.passed).map((check) => `${check.name} (${check.evidence})`);
+      throw new Error(`build_test device evidence incomplete: ${[...platform.blockers, ...failed].join("; ") || "no screenshot captured"}`);
     }
 
     const executionMode = replayPath ? "Replay (recorded model turns)" : plan.executor.kind === "strands" ? `Strands (${plan.executor.model.provider}:${plan.executor.model.modelId})` : `Claude Code (${plan.executor.model})`;
@@ -196,10 +199,24 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
   }
 }
 
-function loadPlatformReplay(): VegaReplayFixture | null {
+/** The fixture plus the frame its recorded `pull` writes, resolved beside the fixture file. */
+function loadPlatformReplay(): { fixture: VegaReplayFixture; screenshot?: Buffer } | null {
   const replayPath = flag("--platform-replay");
   if (!replayPath) return null;
-  return JSON.parse(readFileSync(resolve(replayPath), "utf8")) as VegaReplayFixture;
+  const path = resolve(replayPath);
+  const fixture = JSON.parse(readFileSync(path, "utf8")) as VegaReplayFixture;
+  return { fixture, screenshot: fixture.screenshot ? readFileSync(resolve(dirname(path), fixture.screenshot)) : undefined };
+}
+
+/**
+ * The optional model review of the device frame. Needs a multimodal model, so it requires the
+ * Strands executor — the Claude CLI wrapper here only passes text.
+ */
+function screenshotJudge(): ScreenshotJudge | undefined {
+  if (!args.includes("--evaluate-screenshot")) return undefined;
+  const config = resolveExecutorConfig({ executor: flag("--executor"), provider: flag("--provider"), model: flag("--model"), region: flag("--region") });
+  if (config.kind !== "strands") failure("screenshot_review_unavailable", "--evaluate-screenshot needs a multimodal model.", "Add --executor strands --provider bedrock, or drop --evaluate-screenshot and keep the deterministic pixel gate.");
+  return createScreenshotJudge(config.model);
 }
 
 /** One lifecycle invocation for both callers: build_test's gate and the vega-run command. */
@@ -207,13 +224,14 @@ function runLifecycle(out: string, appDir: string, liveAdapter?: VegaAdapter) {
   const vegaDir = join(appDir, "apps", "vega");
   const replay = loadPlatformReplay();
   return runVegaLifecycle({
-    adapter: replay ? new VegaReplayAdapter(replay.turns) : liveAdapter ?? new VegaAdapter(undefined, vegaDir),
+    adapter: replay ? new VegaReplayAdapter(replay.fixture.turns, replay.screenshot) : liveAdapter ?? new VegaAdapter(undefined, vegaDir),
     appDir: vegaDir,
     focusDir: appDir,
     outDir: out,
     evidenceMode: replay ? "replay" : "live",
-    packagePath: replay?.packagePath,
-    appId: replay?.appId,
+    packagePath: replay?.fixture.packagePath,
+    appId: replay?.fixture.appId,
+    judge: screenshotJudge(),
   });
 }
 
@@ -272,8 +290,11 @@ async function vegaRunCommand(): Promise<void> {
   const capabilities: Array<{ capability: VegaCapability; values?: string[] }> = [
     { capability: "sdk_version" }, { capability: "device_status" }, { capability: "build" },
     { capability: "install", values: ["<build/*.vpkg>"] }, { capability: "launch", values: ["<component-id>"] },
-    { capability: "logs" }, { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
-    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, "<run>/01-launch.png"] },
+    { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
+    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, `<run>/${VEGA_LAUNCH_FRAME}`] },
+    { capability: "logs" },
+    { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
+    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, `<run>/${VEGA_POSTLAUNCH_FRAME}`] },
   ];
   if (args.includes("--plan")) return json({ command: "vega_run_plan", runId, appDir, sdkVersion: VEGA_SDK_VERSION, adbtPackage: ADBT_PACKAGE, steps: capabilities.map((step) => ({ capability: step.capability, command: liveAdapter.command(step.capability, ...(step.values ?? [])) })), requiresConfirmation: true });
   if (!args.includes("--yes")) failure("confirmation_required", "Vega execution requires explicit confirmation.", "Show vega-run --plan, then rerun with --yes.");
@@ -285,6 +306,6 @@ async function vegaRunCommand(): Promise<void> {
 
 function flag(name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
 function openLogFile(path: string): number { mkdirSync(dirname(path), { recursive: true }); return openSync(path, "a"); }
-function help(): void { process.stdout.write("Workshop Harness\n\nCommands: doctor, plan, run, status, logs, memory, context adbt, context bee, vega-run, tv-check <dir>\n\nModel execution:\n  --executor claude-cli                 Local Claude Code (default)\n  --executor strands --provider <name>  Remote model through Strands\n  --model <id> [--region <aws-region>]  Provider model settings\n  --replay <recording.json>             No-model workshop path\n  --adbt-replay <context.json>          Recorded ADBT context (otherwise inferred beside replay)\n  --adbt-live                           Call pinned ADBT even when model output uses replay\n\nLive ports call pinned ADBT workflows at runtime during analyze and plan.\nStrands providers: bedrock, openai, openrouter\n"); }
+function help(): void { process.stdout.write("Workshop Harness\n\nCommands: doctor, plan, run, status, logs, memory, context adbt, context bee, vega-run, tv-check <dir>\n\nModel execution:\n  --executor claude-cli                 Local Claude Code (default)\n  --executor strands --provider <name>  Remote model through Strands\n  --model <id> [--region <aws-region>]  Provider model settings\n  --replay <recording.json>             No-model workshop path\n  --adbt-replay <context.json>          Recorded ADBT context (otherwise inferred beside replay)\n  --adbt-live                           Call pinned ADBT even when model output uses replay\n\nDevice evidence:\n  --platform-replay <fixture.json>      Recorded Vega lifecycle, no device required\n  --evaluate-screenshot                 Also ask a multimodal model to review the frame\n                                        (needs --executor strands; the pixel gate always runs)\n\nLive ports call pinned ADBT workflows at runtime during analyze and plan.\nStrands providers: bedrock, openai, openrouter\n"); }
 
 main().catch((error) => { if (!(error instanceof CliFailure)) failure("unexpected_error", error instanceof Error ? error.message : String(error), "Read the workshop troubleshooting guide.", 3); });
