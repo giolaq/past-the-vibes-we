@@ -88,16 +88,16 @@ rows:
     manifest `schema-version = 1` and `[[components.interactive]]`; `package.json` has `build-vega`; `app.json` and `metro.config.js` exist; root `package.json` has `vega:build`; `src/tv/focus-state.ts` exists; `src/App.tsx` imports `./tv/focus-state`.
   Test checks: >-
     A real command runs — `node --import tsx tests/verify-tv-focus.ts` must exit 0. Back must return focus to the <em>originating card</em>, verified by a script, not a human eyeball. `tv-focus-result.json` shows `"passed": true`; `TV_VERIFICATION.md` contains `originating card`.
-  Screenshot (mandatory): >-
-    The phase then runs the Vega device lifecycle: two pre-gates (SDK version, device status), then build → install → launch → logs → capture → pull — the eight gates lesson 8 inspects. <strong>The run fails unless a launch screenshot is produced.</strong> Replay uses `--platform-replay` to stay key-free; live runs against a real VDA.
+  Device evidence (mandatory): >-
+    The phase then runs the Vega device lifecycle: two pre-gates (SDK version, device status), then build → install → launch → capture → pull → logs → capture → pull — the ten gates lesson 8 inspects. <strong>The run fails unless the app is still running after a five-second dwell and both captured frames look like a rendered screen.</strong> Replay uses `--platform-replay` to stay key-free; live runs against a real VDA.
   Inspect: >-
-    `out/<runId>/01-launch.png`, `vega-platform-result.json`, `tv-focus-result.json`, and the commit `workshop(build_test): ...`.
+    `out/<runId>/01-launch.png`, `out/<runId>/02-postlaunch.png`, `vega-platform-result.json`, `tv-focus-result.json`, and the commit `workshop(build_test): ...`.
   Code: >-
     `src/port-pipeline.ts`, `src/platform/vega.ts`
 :::
 
-:::note Screenshot is now a mandatory gate {warning}
-The device screenshot is a required pass criterion of `build_test`. Two consequences: a device (or its `--platform-replay` fixture) is now mandatory for a green run, and on the current VDA image the live screenshot tool segfaults, so the <em>live</em> screenshot can't be produced until that tooling is fixed. The key-free replay path stays green via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`.
+:::note Device evidence is now a mandatory gate {warning}
+Running on the device is a required pass criterion of `build_test`, and "running" is checked rather than assumed: the harness waits five seconds after launch, scans the device log for crash signatures, and judges both captured frames as pixels — a 1x1 placeholder, a black screen, or one flat colour fails. Two consequences: a device (or its `--platform-replay` fixture) is now mandatory for a green run, and on the current VDA image the live screenshot tool segfaults, so <em>live</em> frames can't be produced until that tooling is fixed. The key-free replay path stays green via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`.
 :::
 
 <h2>Every phase is built from the same prompt template</h2>

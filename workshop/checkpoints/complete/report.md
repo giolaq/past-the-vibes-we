@@ -16,9 +16,9 @@
 3. Debug build passed and produced the recorded `.vpkg` path.
 4. Install passed.
 5. Launch passed for `com.tvbuild.pocketcinema.main`.
-6. Device logs were written.
-7. Screenshot capture passed.
-8. Screenshot pull passed.
+6. The launch frame was captured, pulled, and passed the pixel gate at 1280x720.
+7. The device log was written and holds no crash signature.
+8. The post-launch frame was captured, pulled, and passed the same gate.
 9. The executable focus suite passed launch, boundaries, details, Back, and restoration.
 
-Replay evidence demonstrates the harness lifecycle and report contract. It is not a live-device certification. A live rehearsal must replace replay outputs with a result marked `evidenceMode: "live"`, the actual VDA log, and a real screenshot. The current SDK build evidence and remaining device boundary are recorded in `../../live-rehearsal.md`.
+Replay evidence demonstrates the harness lifecycle and report contract. It is not a live-device certification. A live rehearsal must replace replay outputs with a result marked `evidenceMode: "live"`, the actual VDA log, and two real device frames captured five seconds apart. The current SDK build evidence and remaining device boundary are recorded in `../../live-rehearsal.md`.

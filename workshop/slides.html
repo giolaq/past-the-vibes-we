@@ -666,11 +666,12 @@ back    → <span class="o">the same card</span> regains focus</div>
     <section class="slide">
       <div class="tag"><b>Lesson 8</b> · the Vega device lifecycle</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Eight gates, and every claim<br>labeled <span class="accent">live</span> or <span class="blue">replay</span></h2>
-        <div class="codeline reveal" style="--d:160ms">sdk → device → build → install → launch → logs → capture → pull
+        <h2 class="reveal" style="--d:0ms">Ten gates, and every claim<br>labeled <span class="accent">live</span> or <span class="blue">replay</span></h2>
+        <div class="codeline reveal" style="--d:160ms">sdk → device → build → install → launch
+  → capture → pull → <span class="c">wait 5s</span> → logs → capture → pull
 <span class="g">evidenceMode: live</span>    <span class="c">this app ran on an attached device</span>
 <span class="b">evidenceMode: replay</span>  <span class="c">the control flow works — not device proof</span></div>
-        <div class="support reveal" style="--d:300ms">A successful process exit is not evidence when no device is attached. The harness records <strong>the exact command, exit code, artifact, and mode</strong> for every gate — keep the two claims separate.</div>
+        <div class="support reveal" style="--d:300ms">A successful process exit is not evidence — and neither is a screenshot file. <strong>launch-app .. success</strong> only means the command was accepted, so the harness waits, scans the device log for crash signatures, and judges both frames as pixels. A 1x1 placeholder or a black screen fails.</div>
       </div>
       <div class="foot"><span>lesson 08 · 25 min</span><span>vega-run &lt;runId&gt; · replay fallback always available</span></div>
     </section>
