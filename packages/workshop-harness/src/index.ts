@@ -15,7 +15,7 @@ import { assembleProjectContext } from "./phase-context.js";
 import { READ_ONLY_TOOLS, createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
 import { PortBudgetError, runPortPipeline } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
-import { ADBT_PACKAGE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "./platform/vega.js";
+import { ADBT_PACKAGE, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
 import { copySource, discoverSource } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
 
@@ -176,7 +176,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
 
     // build_test requires device evidence: build, launch, and a real screenshot.
     // Replay fixture keeps the workshop key-free; otherwise it runs live against the VDA.
-    const platform = await runBuildTestLifecycle(out, appDir);
+    const platform = await runLifecycle(out, appDir);
     if (platform.screenshots.length === 0 || platform.blockers.length > 0) {
       throw new Error(`build_test screenshot evidence missing: ${platform.blockers.join("; ") || "no screenshot captured"}`);
     }
@@ -196,12 +196,18 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
   }
 }
 
-async function runBuildTestLifecycle(out: string, appDir: string) {
-  const vegaDir = join(appDir, "apps", "vega");
+function loadPlatformReplay(): VegaReplayFixture | null {
   const replayPath = flag("--platform-replay");
-  const replay = replayPath ? JSON.parse(readFileSync(resolve(replayPath), "utf8")) as { packagePath: string; appId: string; turns: Array<{ capability: VegaCapability; result: { code: number; stdout: string; stderr: string; timedOut: boolean } }> } : null;
+  if (!replayPath) return null;
+  return JSON.parse(readFileSync(resolve(replayPath), "utf8")) as VegaReplayFixture;
+}
+
+/** One lifecycle invocation for both callers: build_test's gate and the vega-run command. */
+function runLifecycle(out: string, appDir: string, liveAdapter?: VegaAdapter) {
+  const vegaDir = join(appDir, "apps", "vega");
+  const replay = loadPlatformReplay();
   return runVegaLifecycle({
-    adapter: replay ? new VegaReplayAdapter(replay.turns) : new VegaAdapter(process.env.VEGA_BIN ?? "vega", vegaDir),
+    adapter: replay ? new VegaReplayAdapter(replay.turns) : liveAdapter ?? new VegaAdapter(undefined, vegaDir),
     appDir: vegaDir,
     focusDir: appDir,
     outDir: out,
@@ -262,26 +268,16 @@ async function vegaRunCommand(): Promise<void> {
   const appDir = out && join(out, "app");
   const vegaDir = appDir && join(appDir, "apps", "vega");
   if (!vegaDir || !existsSync(join(vegaDir, "package.json"))) failure("vega_app_missing", "The guarded run has no apps/vega package.", "Run the verified port pipeline before Vega execution.");
-  const liveAdapter = new VegaAdapter(process.env.VEGA_BIN ?? "vega", vegaDir);
+  const liveAdapter = new VegaAdapter(undefined, vegaDir);
   const capabilities: Array<{ capability: VegaCapability; values?: string[] }> = [
     { capability: "sdk_version" }, { capability: "device_status" }, { capability: "build" },
     { capability: "install", values: ["<build/*.vpkg>"] }, { capability: "launch", values: ["<component-id>"] },
-    { capability: "logs" }, { capability: "capture", values: ["/tmp/tv-build-launch.png"] },
-    { capability: "pull", values: ["/tmp/tv-build-launch.png", "<run>/01-launch.png"] },
+    { capability: "logs" }, { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
+    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, "<run>/01-launch.png"] },
   ];
   if (args.includes("--plan")) return json({ command: "vega_run_plan", runId, appDir, sdkVersion: VEGA_SDK_VERSION, adbtPackage: ADBT_PACKAGE, steps: capabilities.map((step) => ({ capability: step.capability, command: liveAdapter.command(step.capability, ...(step.values ?? [])) })), requiresConfirmation: true });
   if (!args.includes("--yes")) failure("confirmation_required", "Vega execution requires explicit confirmation.", "Show vega-run --plan, then rerun with --yes.");
-  const replayPath = flag("--platform-replay");
-  const replay = replayPath ? JSON.parse(readFileSync(resolve(replayPath), "utf8")) as { packagePath: string; appId: string; turns: Array<{ capability: VegaCapability; result: { code: number; stdout: string; stderr: string; timedOut: boolean } }> } : null;
-  const platformResult = await runVegaLifecycle({
-    adapter: replay ? new VegaReplayAdapter(replay.turns) : liveAdapter,
-    appDir: vegaDir,
-    focusDir: appDir,
-    outDir: out,
-    evidenceMode: replay ? "replay" : "live",
-    packagePath: replay?.packagePath,
-    appId: replay?.appId,
-  });
+  const platformResult = await runLifecycle(out, appDir, liveAdapter);
   const state = platformResult.blockers.length === 0 ? "complete" : "failed";
   json({ event: "run_complete", runId, state, platformResult });
   if (state === "failed") process.exitCode = 2;

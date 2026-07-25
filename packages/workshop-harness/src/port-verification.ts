@@ -7,11 +7,19 @@ export type PortCheck =
   | { type: "file_exists" | "contains"; path: string; value?: string; label: string }
   | { type: "command"; command: string; args: string[]; label: string };
 
+/** Runs a TypeScript file with the tsx loader, the way the generated app's verifier expects. */
+export const TSX_LOADER = createRequire(import.meta.url).resolve("tsx");
+
+/**
+ * Executes the focus-transition verifier inside the app under test. Shared by the `build_test`
+ * phase gate and `tv-check` so the two can never disagree about how the check is run.
+ */
+export const FOCUS_TEST_CHECK: PortCheck = { type: "command", command: process.execPath, args: ["--import", TSX_LOADER, "tests/verify-tv-focus.ts"], label: "Executable focus transitions" };
+
 // What "TV-ready" means, mechanically. The starter app fails every one of these
 // by design; the ported output passes them all. `tv-check <dir>` runs this list
 // so the before/after is provable instead of asserted.
 export function tvReadyChecks(): PortCheck[] {
-  const tsxLoader = createRequire(import.meta.url).resolve("tsx");
   return [
     { type: "file_exists", path: "src/tv/focus-state.ts", label: "Focus state module" },
     { type: "contains", path: "src/App.tsx", value: "./tv/focus-state", label: "App wires shared focus state" },
@@ -19,7 +27,7 @@ export function tvReadyChecks(): PortCheck[] {
     { type: "file_exists", path: "apps/vega/manifest.toml", label: "Vega package manifest" },
     { type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" },
     { type: "file_exists", path: "tests/verify-tv-focus.ts", label: "Executable focus check present" },
-    { type: "command", command: process.execPath, args: ["--import", tsxLoader, "tests/verify-tv-focus.ts"], label: "Focus transitions pass" },
+    FOCUS_TEST_CHECK,
   ];
 }
 
