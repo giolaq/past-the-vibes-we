@@ -84,7 +84,7 @@ Because most of the time there is nothing to fix. Prompting first would spend a 
 :::
 
 :::done
-`out/<runId>/app/apps/vega/build/` contains a `.vpkg`, and if the build ever failed, `port-result.json` shows the compiler text that fixed it.
+Live: `out/<runId>/app/apps/vega/build/` contains a `.vpkg`, and `vega-platform-result.json` says `evidenceMode: live`. Replay: the recorded build gate completes and preserves any failure text, but no local `.vpkg` is expected and you make no compile claim.
 :::
 
 :::fallback

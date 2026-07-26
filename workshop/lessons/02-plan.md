@@ -22,7 +22,7 @@ A **skill** is a Markdown file of domain instructions the executor delivers to t
 Open `phases()` in `src/port-pipeline.ts` and read the `plan` entry. Four different things, kept apart on purpose:
 
 :::raw
-<table><thead><tr><th>Field</th><th>What it is</th><th>Who reads it</th></tr></thead><tbody><tr><td><code>goal</code></td><td>What this phase must produce.</td><td>The model, in the prompt.</td></tr><tr><td><code>instruction</code></td><td>The rule this harness writes into the prompt.</td><td>The model, in the prompt.</td></tr><tr><td><code>skills</code></td><td>Names of skill files the executor delivers.</td><td>The model, through its executor.</td></tr><tr><td><code>checks</code></td><td>Code that decides whether the phase passed.</td><td>The harness, never the model.</td></tr></tbody></table>
+<table><thead><tr><th>Field</th><th>What it is</th><th>Who reads it</th></tr></thead><tbody><tr><td><code>goal</code></td><td>What this phase must produce.</td><td>The model, in the prompt.</td></tr><tr><td><code>instruction</code></td><td>The rule this harness writes into the prompt.</td><td>The model, in the prompt.</td></tr><tr><td><code>skills</code></td><td>Names of skill files the executor delivers.</td><td>The model, through its executor.</td></tr><tr><td><code>mcp</code></td><td>Named MCP servers allowed for this phase.</td><td>The selected executor.</td></tr><tr><td><code>checks</code></td><td>Code that decides whether the phase passed.</td><td>The harness, never the model.</td></tr></tbody></table>
 :::
 
 :::note The skills are Amazon's, not ours
@@ -43,7 +43,7 @@ Run phase 2 onto the same run id. The guarded copy and its history are reused, s
 :::
 
 :::command Claude Code CLI
-# The model reaches ADBT through the CLI's own MCP config, from init-context.
+# The harness passes the pinned ADBT server through --mcp-config for this call.
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \

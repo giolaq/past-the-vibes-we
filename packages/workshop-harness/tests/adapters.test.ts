@@ -59,6 +59,10 @@ test("Vega adapter owns capability command arrays", () => {
   assert.deepEqual(adapter.command("build"), ["npm", "run", "build:debug"]);
   assert.deepEqual(adapter.command("install", "app.vpkg"), ["vega", "device", "install-app", "--packagePath", "app.vpkg"]);
   assert.deepEqual(adapter.command("capture", "/tmp/shot.png"), ["vega", "exec", "vda", "shell", "gwsi-tool-screenshooter", "/tmp/shot.png"]);
+  assert.deepEqual(adapter.command("logs", "com.tvbuild.pocketcinema", "2026-07-26 12:00:00"), [
+    "vega", "exec", "vda", "shell", "loggingctl", "log",
+    "-v", "com.tvbuild.pocketcinema", "-S", "2026-07-26 12:00:00", "-o", "short_precise",
+  ]);
 });
 
 test("Vega adapter executes inside the guarded apps/vega directory", async () => {
@@ -207,10 +211,31 @@ test("Bee failure is explicit", async () => {
 });
 
 test("executor config defaults to local Claude Code", () => {
-  assert.deepEqual(resolveExecutorConfig({ command: "claude-test", model: "sonnet" }), { kind: "claude-cli", command: "claude-test", model: "sonnet" });
+  assert.deepEqual(resolveExecutorConfig({ command: "claude-test", model: "sonnet" }), {
+    kind: "claude-cli",
+    command: "claude-test",
+    model: "sonnet",
+    pricing: { inputUsdPerMToken: 3, outputUsdPerMToken: 15, source: "model table" },
+  });
 });
 
 test("executor config supports Strands remote providers", () => {
-  assert.deepEqual(resolveExecutorConfig({ executor: "strands", provider: "openai", model: "gpt-test" }), { kind: "strands", model: { provider: "openai", modelId: "gpt-test", region: undefined } });
+  assert.deepEqual(resolveExecutorConfig({ executor: "strands", provider: "openai", model: "gpt-test", inputRate: "1.25", outputRate: "5" }), {
+    kind: "strands",
+    model: { provider: "openai", modelId: "gpt-test", region: undefined },
+    pricing: { inputUsdPerMToken: 1.25, outputUsdPerMToken: 5, source: "cli" },
+  });
+  assert.throws(() => resolveExecutorConfig({ executor: "strands", provider: "openai", model: "gpt-test" }), /No pricing is configured/);
   assert.throws(() => resolveExecutorConfig({ executor: "strands", provider: "unknown" }), /Unknown Strands provider/);
+});
+
+test("executor config rejects invalid custom model pricing", () => {
+  assert.throws(
+    () => resolveExecutorConfig({ model: "custom-model", inputRate: "nope", outputRate: "4" }),
+    /must be non-negative numbers/,
+  );
+  assert.throws(
+    () => resolveExecutorConfig({ model: "custom-model", inputRate: "-1", outputRate: "4" }),
+    /must be non-negative numbers/,
+  );
 });

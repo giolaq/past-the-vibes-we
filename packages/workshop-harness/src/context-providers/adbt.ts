@@ -4,6 +4,7 @@ import { McpClient, type JSONValue } from "@strands-agents/sdk";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
 import { ADBT_PACKAGE } from "../platform/vega.js";
+import type { CliMcpServer } from "../port-executor.js";
 
 export const ADBT_PORT_WORKFLOWS = ["port_tv_app_to_vega.md", "port_tv_app_to_vega_fos_rn_app.md"] as const;
 const DocumentSchema = z.object({ name: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/), excerpt: z.string() });
@@ -109,6 +110,14 @@ export function createAdbtMcpClient(options: { command?: string; commandArgs?: s
   });
 }
 
+/** The same pinned stdio server, represented in Claude Code's --mcp-config contract. */
+export function createAdbtCliMcpServer(options: { command?: string; commandArgs?: string[] } = {}): CliMcpServer {
+  return {
+    command: options.command ?? "npx",
+    args: options.commandArgs ?? ["-y", ADBT_PACKAGE],
+  };
+}
+
 /** Names of ADBT MCP tools that return document content worth recording as provenance. */
 const ADBT_READ_TOOLS = new Set(["read_document", "read_asset", "search_documentation"]);
 
@@ -122,17 +131,27 @@ export function extractAdbtProvenance(messages: unknown[]): AdbtPortContext {
   const documents: Array<{ name: string; sha256: string; excerpt: string }> = [];
 
   for (const message of messages) {
-    const content = (message as { content?: unknown[] } | null)?.content ?? [];
+    const content = messageContent(message);
     for (const block of content) {
       const use = (block as { toolUse?: { toolUseId: string; name: string; input?: unknown } }).toolUse;
       if (use && ADBT_READ_TOOLS.has(stripPrefix(use.name))) {
         const arg = (use.input as { document_uri?: string; query?: string } | undefined);
         uses.set(use.toolUseId, arg?.document_uri ?? arg?.query ?? use.name);
       }
+      const claudeUse = block as { type?: string; id?: string; name?: string; input?: unknown };
+      if (claudeUse.type === "tool_use" && claudeUse.id && claudeUse.name && ADBT_READ_TOOLS.has(stripPrefix(claudeUse.name))) {
+        const arg = claudeUse.input as { document_uri?: string; query?: string } | undefined;
+        uses.set(claudeUse.id, arg?.document_uri ?? arg?.query ?? claudeUse.name);
+      }
       const res = (block as { toolResult?: { toolUseId: string; content?: unknown[] } }).toolResult;
       if (res && uses.has(res.toolUseId)) {
         const text = resultText(res.content ?? []);
         if (text) documents.push({ name: uses.get(res.toolUseId)!, sha256: digest(text), excerpt: text.slice(0, 12_000) });
+      }
+      const claudeResult = block as { type?: string; tool_use_id?: string; content?: unknown };
+      if (claudeResult.type === "tool_result" && claudeResult.tool_use_id && uses.has(claudeResult.tool_use_id)) {
+        const text = resultText(normalizeResultContent(claudeResult.content));
+        if (text) documents.push({ name: uses.get(claudeResult.tool_use_id)!, sha256: digest(text), excerpt: text.slice(0, 12_000) });
       }
     }
   }
@@ -147,7 +166,19 @@ export function extractAdbtProvenance(messages: unknown[]): AdbtPortContext {
   };
 }
 
-function stripPrefix(name: string): string { return name.includes("___") ? name.split("___").pop()! : name; }
+function messageContent(message: unknown): unknown[] {
+  const value = message as { content?: unknown[]; message?: { content?: unknown[] } } | null;
+  return value?.message?.content ?? value?.content ?? [];
+}
+function normalizeResultContent(content: unknown): unknown[] {
+  if (typeof content === "string") return [{ text: content }];
+  return Array.isArray(content) ? content : [];
+}
+function stripPrefix(name: string): string {
+  if (name.includes("___")) return name.split("___").pop()!;
+  if (name.startsWith("mcp__")) return name.split("__").pop()!;
+  return name;
+}
 function resultText(content: unknown[]): string {
   return content.flatMap((item) => (item && typeof item === "object" && "text" in item && typeof (item as { text: unknown }).text === "string" ? [(item as { text: string }).text] : [])).join("\n");
 }

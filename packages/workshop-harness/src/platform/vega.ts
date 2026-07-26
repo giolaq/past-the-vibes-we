@@ -59,7 +59,12 @@ export class VegaAdapter implements VegaCommandAdapter {
       build: [process.env.NPM_BIN ?? "npm", "run", "build:debug"],
       install: [this.vega, "device", "install-app", "--packagePath", value],
       launch: [this.vega, "device", "launch-app", "--appName", value],
-      logs: [this.vega, "exec", "vda", "shell", "loggingctl", "log", "-o", "short-precise"],
+      logs: [
+        this.vega, "exec", "vda", "shell", "loggingctl", "log",
+        ...(value ? ["-v", value] : []),
+        ...(values[1] ? ["-S", values[1]] : []),
+        "-o", "short_precise",
+      ],
       capture: [this.vega, "exec", "vda", "shell", "gwsi-tool-screenshooter", value],
       pull: [this.vega, "exec", "vda", "pull", value, values[1] ?? ""],
     };
@@ -99,7 +104,10 @@ export class VegaReplayAdapter implements VegaCommandAdapter {
  * Asked to judge one device screenshot with a multimodal model. Optional: the deterministic
  * pixel gate runs either way, and the key-free path never calls a model.
  */
-export type ScreenshotJudge = (path: string) => Promise<{ verdict: "app" | "not-app" | "unclear"; reasoning: string }>;
+export type ScreenshotJudge = (
+  path: string,
+  context?: { phase: string; attempt: number },
+) => Promise<{ verdict: "app" | "not-app" | "unclear"; reasoning: string }>;
 
 /**
  * One device session, accumulated across stages. The stages are separately callable so a
@@ -117,12 +125,15 @@ export type DeviceRun = {
   blockers: string[];
   packagePath: string;
   appId: string;
+  launchStartedAt?: string;
 };
 
 /** Clears last run's artifacts. Once per device session, never per stage. */
-export function startDeviceRun(options: { adapter: VegaCommandAdapter; outDir: string; evidenceMode: "live" | "replay"; dwellMs?: number; packagePath?: string; appId?: string }): DeviceRun {
+export function startDeviceRun(options: { adapter: VegaCommandAdapter; outDir: string; evidenceMode: "live" | "replay"; dwellMs?: number; packagePath?: string; appId?: string; preserveArtifacts?: boolean }): DeviceRun {
   mkdirSync(options.outDir, { recursive: true });
-  for (const name of ["vega-device.log", VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME]) rmSync(join(options.outDir, name), { force: true });
+  if (!options.preserveArtifacts) {
+    for (const name of ["vega-device.log", VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME]) rmSync(join(options.outDir, name), { force: true });
+  }
   return {
     adapter: options.adapter,
     outDir: options.outDir,
@@ -188,13 +199,17 @@ export async function buildPackage(device: DeviceRun, appDir: string): Promise<v
 export async function installAndLaunch(device: DeviceRun): Promise<void> {
   if (device.blockers.length) return;
   await run(device, "install", device.packagePath);
-  if (!device.blockers.length) await run(device, "launch", device.appId);
+  if (!device.blockers.length) {
+    device.launchStartedAt = logSince(new Date());
+    await run(device, "launch", device.appId);
+  }
   if (!device.blockers.length) await captureFrame(device, "launch screenshot renders content", join(device.outDir, VEGA_LAUNCH_FRAME));
   if (!device.blockers.length && device.dwellMs > 0) await new Promise((wake) => setTimeout(wake, device.dwellMs));
   if (device.blockers.length) return;
 
   const logPath = join(device.outDir, "vega-device.log");
-  const logs = await run(device, "logs");
+  const packageId = device.appId.replace(/\.main$/, "");
+  const logs = await run(device, "logs", packageId, device.launchStartedAt ?? "");
   const text = logs.stdout || logs.stderr;
   writeFileSync(logPath, text);
   device.logFiles.push(logPath);
@@ -206,9 +221,9 @@ export async function installAndLaunch(device: DeviceRun): Promise<void> {
 }
 
 /** The optional model review of the frame the app was still rendering after the dwell. */
-export async function reviewScreenshot(device: DeviceRun, judge?: ScreenshotJudge): Promise<void> {
+export async function reviewScreenshot(device: DeviceRun, judge?: ScreenshotJudge, context?: { phase: string; attempt: number }): Promise<void> {
   if (device.blockers.length || !judge) return;
-  const review = await judge(join(device.outDir, VEGA_POSTLAUNCH_FRAME));
+  const review = await judge(join(device.outDir, VEGA_POSTLAUNCH_FRAME), context);
   device.checks.push({ name: "screenshot review", passed: review.verdict === "app", evidence: `${review.verdict}: ${review.reasoning}` });
   if (review.verdict === "not-app") device.blockers.push(`screenshot review rejected the frame: ${review.reasoning}`);
 }
@@ -259,7 +274,7 @@ export function writeDeviceResult(device: DeviceRun, evidenceMode: "live" | "rep
  */
 export type DeviceStage = "build" | "launch" | "review" | "focus";
 
-export async function runDeviceStages(device: DeviceRun, stages: DeviceStage[], options: { appDir: string; focusDir?: string; judge?: ScreenshotJudge }): Promise<void> {
+export async function runDeviceStages(device: DeviceRun, stages: DeviceStage[], options: { appDir: string; focusDir?: string; judge?: ScreenshotJudge; phase?: string; attempt?: number }): Promise<void> {
   if (stages.includes("build")) {
     await checkToolchain(device, false);
     await buildPackage(device, options.appDir);
@@ -268,7 +283,7 @@ export async function runDeviceStages(device: DeviceRun, stages: DeviceStage[], 
     await checkToolchain(device, true);
     await installAndLaunch(device);
   }
-  if (stages.includes("review")) await reviewScreenshot(device, options.judge);
+  if (stages.includes("review")) await reviewScreenshot(device, options.judge, { phase: options.phase ?? "test", attempt: options.attempt ?? 0 });
   if (stages.includes("focus")) checkFocusEvidence(device, options.focusDir ?? options.appDir);
 }
 
@@ -288,13 +303,17 @@ export async function runVegaLifecycle(options: {
   await checkToolchain(device);
   await buildPackage(device, options.appDir);
   await installAndLaunch(device);
-  await reviewScreenshot(device, options.judge);
+  await reviewScreenshot(device, options.judge, { phase: "vega-run", attempt: 1 });
   checkFocusEvidence(device, options.focusDir ?? options.appDir);
   return writeDeviceResult(device, options.evidenceMode);
 }
 
 function hasAttachedDevice(output: string): boolean {
   return output.split("\n").map((line) => line.trim()).some((line) => line && line !== "List of devices attached" && !line.startsWith("* daemon"));
+}
+
+function logSince(value: Date): string {
+  return value.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
 function findVpkg(root: string): string {

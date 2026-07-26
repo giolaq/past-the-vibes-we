@@ -10,17 +10,30 @@ const content = document.getElementById("content");
 linksHost.innerHTML = modules.map(module => `<button class="module-link" data-module="${module.id}"><span>${module.number}</span>${module.nav}</button>`).join("");
 
 function showModule(id, updateHash = true) {
-  if (id === "port") id = "plan";
   const module = modules.find(item => item.id === id) || modules[0];
   content.innerHTML = `<section class="module"><div class="module-head"><div><p class="step">Step ${module.number} · ${module.time}</p><h1>${module.title}</h1></div></div><p class="lead">${module.lead}</p>${lessonBrief(module)}${module.body}${lessonNavigation(module)}</section>`;
   document.querySelectorAll(".module-link").forEach(link => link.classList.toggle("active", link.dataset.module === module.id));
   document.querySelector(`.module-link[data-module="${module.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   document.querySelectorAll(".copy").forEach(button => button.addEventListener("click", () => copyCommand(button)));
   document.querySelectorAll("[data-go-module]").forEach(button => button.addEventListener("click", () => showModule(button.dataset.goModule)));
+  bindPersistedCheckboxes(module.id);
   if (updateHash) history.replaceState(null, "", `#${module.id}`);
   document.title = `${module.nav} | Past the Vibes`;
   content.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function bindPersistedCheckboxes(moduleId) {
+  document.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
+    const key = `past-the-vibes:${moduleId}:check:${index}`;
+    try { checkbox.checked = localStorage.getItem(key) === "done"; } catch {}
+    checkbox.addEventListener("change", () => {
+      try {
+        if (checkbox.checked) localStorage.setItem(key, "done");
+        else localStorage.removeItem(key);
+      } catch {}
+    });
+  });
 }
 
 // The copy button lives in a .command header; its command text is the adjacent

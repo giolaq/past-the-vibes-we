@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { renderAdbtPrompt, type AdbtPortContext } from "./context-providers/adbt.js";
+import type { McpClient } from "@strands-agents/sdk";
+import { extractAdbtProvenance, renderAdbtPrompt, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
 import { parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
@@ -24,9 +25,12 @@ export const FeasibilityOutputSchema = z.object({
 
 export type FeasibilityOutput = z.infer<typeof FeasibilityOutputSchema>;
 
-export type FeasibilityResult = FeasibilityOutput & { costUsd: number };
+export type FeasibilityResult = FeasibilityOutput & { costUsd: number; adbt?: AdbtPortContext };
 
-export function buildFeasibilityPrompt(source: SourceDiscovery, findings: AuditFinding[], adbt: AdbtPortContext): string {
+export function buildFeasibilityPrompt(source: SourceDiscovery, findings: AuditFinding[], adbt: AdbtPortContext, liveMcp = false): string {
+  const guidance = liveMcp
+    ? "Use the ADBT MCP tools to list and read the Vega React Native porting and library-compatibility guidance before deciding. Do not rely on model memory."
+    : renderAdbtPrompt(adbt);
   return `You are judging whether the CURRENT React Native app can be ported to Vega SDK 0.22.5875. Read files before judging. Do not invent Vega support you cannot ground in the ADBT guidance.
 
 Phase: ${FEASIBILITY_PHASE}
@@ -39,7 +43,7 @@ ${source.dependencies.map((dependency) => `- ${dependency}`).join("\n") || "- no
 Deterministic portability findings:
 ${JSON.stringify(findings, null, 2)}
 
-${renderAdbtPrompt(adbt)}
+${guidance}
 
 Use the ADBT Library Compatibility guidance to judge each dependency. A dependency with no supported Vega path and no adapter is "blocking". Set verdict to "blocked" only if at least one dependency is blocking and cannot be isolated behind an adapter. Name the ADBT documents you relied on in sources.
 
@@ -51,9 +55,21 @@ export async function runFeasibility(options: {
   findings: AuditFinding[];
   adbt: AdbtPortContext;
   executor: PortExecutor;
+  liveMcp?: boolean;
+  mcpClient?: McpClient;
+  maxCostUsd?: number;
 }): Promise<FeasibilityResult> {
-  const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt);
-  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, { schema: FeasibilityOutputSchema });
+  const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt, options.liveMcp);
+  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, {
+    schema: FeasibilityOutputSchema,
+    extraTools: options.mcpClient ? [options.mcpClient] : [],
+    mcp: options.liveMcp ? ["adbt"] : [],
+    maxCostUsd: options.maxCostUsd,
+  });
+  const provenance = options.liveMcp ? extractAdbtProvenance(model.messages ?? []) : options.adbt;
+  if (options.liveMcp && provenance.documents.length === 0) {
+    throw new Error("The feasibility agent did not read an ADBT document through MCP");
+  }
   const parsed = parseJsonBlock(model.text, FeasibilityOutputSchema, "feasibility");
-  return { ...parsed, costUsd: model.costUsd };
+  return { ...parsed, costUsd: model.costUsd, adbt: provenance };
 }

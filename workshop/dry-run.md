@@ -110,7 +110,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 
 ### Step 8 — Start clean
 
-**Run:** `rm -rf packages/workshop-harness/out/*`
+**Run:** `rm -rf out/*`
 
 **Pass:** the run directory is empty. Every demo below starts from nothing,
 the way it will in the room.
@@ -420,7 +420,10 @@ travel and family material is there, and so is search, because nobody agreed
 what it searches. Check that
 `git -C out/bee/app diff --name-only HEAD~2 HEAD` names two files only: the
 spec and its rendering. No source changed. Then `out/bee/bee-context.json`
-holds a hash and a conversation id and not a word of transcript.
+holds a hash and a conversation id and not a word of transcript. The separate
+`out/bee/model-logs/bee_spec.jsonl` is intentionally complete and therefore
+contains the synthetic conversation used by this exercise. Treat a live one
+as private and delete or scrub it before sharing the run directory.
 
 **Run:** the apply half:
 
@@ -621,7 +624,7 @@ cd /tmp/ptv-rehearsal
 git pull
 yarn verify
 yarn doctor
-rm -rf packages/workshop-harness/out/*
+rm -rf out/*
 yarn site
 ```
 

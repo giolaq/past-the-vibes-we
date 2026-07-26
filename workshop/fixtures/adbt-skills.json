@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
-  "installedBy": "npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force",
+  "installedBy": "npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force",
   "skills": [
     {
       "name": "amazon-devices-vega-best-practices",

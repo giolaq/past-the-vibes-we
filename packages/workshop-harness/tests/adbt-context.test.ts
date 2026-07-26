@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtMcpClient, extractAdbtProvenance, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
+import { AdbtMcpContextProvider, AdbtReplayContextProvider, createAdbtCliMcpServer, createAdbtMcpClient, extractAdbtProvenance, renderAdbtPrompt, type AdbtToolClient } from "../src/context-providers/adbt.js";
 
 test("discovers ADBT MCP tools before calling the workflow catalog", async () => {
   const fixture = fakeAdbtClient();
@@ -93,10 +93,27 @@ test("provenance handles prefixed MCP tool names and empty histories", () => {
   assert.deepEqual(extractAdbtProvenance(prefixed).documents.map((d) => d.name), ["x.md"]);
 });
 
+test("provenance reads Claude Code stream-json MCP events", () => {
+  const events = [
+    { type: "assistant", message: { content: [{ type: "tool_use", id: "toolu_1", name: "mcp__adbt__read_document", input: { document_uri: "port_tv_app_to_vega.md" } }] } },
+    { type: "user", message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "## Purpose\nUse the React Native workflow." }] } },
+  ];
+  const context = extractAdbtProvenance(events);
+  assert.deepEqual(context.documents.map((document) => document.name), ["port_tv_app_to_vega.md"]);
+  assert.match(context.documents[0].excerpt, /React Native workflow/);
+});
+
 test("createAdbtMcpClient builds a client without connecting", () => {
   const client = createAdbtMcpClient({ cwd: "/tmp" });
   assert.ok(client);
   assert.equal(typeof client.disconnect, "function");
+});
+
+test("Claude and Strands use the same pinned ADBT stdio command", () => {
+  assert.deepEqual(createAdbtCliMcpServer(), {
+    command: "npx",
+    args: ["-y", "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5"],
+  });
 });
 
 async function liveFixture() {

@@ -36,6 +36,7 @@ const files = [
 
 const missing: string[] = [];
 const android: string[] = [];
+const consistency: string[] = [];
 let commandPaths = 0;
 
 // Directories the port pipeline generates at run time (into out/<runId>/app/), so they do
@@ -85,16 +86,63 @@ for (const file of files) {
   if (/\b(Android lane|Android CLI lab|Gradle lab)\b/i.test(text)) android.push(file);
 }
 
-for (const asset of ["workshop/index.html", "workshop/workshop.css", "workshop/workshop.js"]) {
+for (const asset of [
+  "workshop/index.html",
+  "workshop/workshop.css",
+  "workshop/workshop.js",
+  "workshop/assets/retry-terminal.png",
+  "workshop/assets/retry-terminal.txt",
+]) {
   if (!existsSync(asset)) missing.push(`Website asset: ${asset}`);
 }
 
-if (missing.length || android.length) {
+const lessonFiles = walk("workshop/lessons").filter((path) => path.endsWith(".md"));
+const lessonIds = new Map<string, string>();
+const generatedSite = existsSync("workshop/workshop.data.js") ? readFileSync("workshop/workshop.data.js", "utf8") : "";
+for (const file of lessonFiles) {
+  const source = readFileSync(file, "utf8");
+  const id = /^---\n[\s\S]*?^id:\s*(\S+)\s*$/m.exec(source)?.[1];
+  if (!id) {
+    consistency.push(`${file}: missing frontmatter id`);
+    continue;
+  }
+  const prior = lessonIds.get(id);
+  if (prior) consistency.push(`${file}: duplicate lesson id "${id}" (also in ${prior})`);
+  lessonIds.set(id, file);
+  if (!generatedSite.includes(`"id":"${id}"`)) consistency.push(`${file}: lesson id "${id}" missing from generated workshop.data.js`);
+}
+
+const websiteScript = readFileSync("workshop/workshop.js", "utf8");
+if (/if\s*\(\s*id\s*===\s*["'][^"']+["']\s*\)\s*id\s*=/.test(websiteScript)) {
+  consistency.push("workshop/workshop.js: hard-coded lesson redirect bypasses a real module");
+}
+if (!websiteScript.includes("localStorage")) consistency.push("workshop/workshop.js: progress checkboxes are not persisted");
+
+const adbtSkills = JSON.parse(readFileSync("workshop/fixtures/adbt-skills.json", "utf8")) as { installedBy?: string };
+if (!adbtSkills.installedBy?.includes("@amazon-devices/amazon-devices-buildertools-mcp@1.0.5")) {
+  consistency.push("workshop/fixtures/adbt-skills.json: installedBy must use pinned ADBT 1.0.5");
+}
+
+const forbiddenCopy: Array<[RegExp, string]> = [
+  [/--allowedTools\s+["']\*["']/, "wildcard Claude tool permissions"],
+  [/@amazon-devices\/amazon-devices-buildertools-mcp@latest/, "unpinned ADBT command"],
+  [/\blessons 1[–-]10\b/i, "stale lesson count"],
+  [/\bpackages\/workshop-harness\/out\//, "stale package-local output path"],
+];
+for (const file of files) {
+  const source = readFileSync(file, "utf8");
+  for (const [pattern, label] of forbiddenCopy) {
+    if (pattern.test(source)) consistency.push(`${file}: ${label}`);
+  }
+}
+
+if (missing.length || android.length || consistency.length) {
   for (const item of missing) console.error(`Missing path: ${item}`);
   for (const item of android) console.error(`Forbidden Android workshop path: ${item}`);
+  for (const item of consistency) console.error(`Workshop consistency: ${item}`);
   process.exit(1);
 }
-console.log(`Checked ${files.length} workshop documents and ${commandPaths} command paths.`);
+console.log(`Checked ${files.length} workshop documents, ${lessonIds.size} lessons, and ${commandPaths} command paths.`);
 
 /** `:::command` directive bodies plus fenced shell blocks. */
 function commandBlocks(text: string): string[] {

@@ -1,6 +1,8 @@
 import { Agent } from "@strands-agents/sdk";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { z } from "zod";
+import { consumeStream, ModelTranscriptStore, serializable } from "../model-transcript.js";
 import { createModel, type ModelConfig } from "../model-factory.js";
 import type { ScreenshotJudge } from "./vega.js";
 
@@ -27,22 +29,59 @@ Judge only what the pixels show. Answer these:
 
 Set verdict to "not-app" only when the frame clearly is not the running app. Use "unclear" when the frame is ambiguous rather than guessing.`;
 
-export function createScreenshotJudge(config: ModelConfig): ScreenshotJudge {
-  return async (path: string) => {
+export function createScreenshotJudge(config: ModelConfig, transcripts?: ModelTranscriptStore): ScreenshotJudge {
+  return async (path: string, context = { phase: "test", attempt: 0 }) => {
+    const systemPrompt = "You review device screenshots for a build harness. Report what is visible. Never assume the app works because it was supposed to.";
+    const image = readFileSync(path);
     const agent = new Agent({
       name: "vega-screenshot-review",
       description: "Judges one device screenshot pulled after launching the ported app.",
       model: createModel(config),
       structuredOutputSchema: ScreenshotReviewSchema,
-      systemPrompt: "You review device screenshots for a build harness. Report what is visible. Never assume the app works because it was supposed to.",
+      systemPrompt,
       printer: false,
     });
-    const result = await agent.invoke(
-      [{ text: PROMPT }, { image: { format: "png", source: { bytes: readFileSync(path) } } }],
-      { cancelSignal: AbortSignal.timeout(2 * 60_000), limits: { turns: 2, totalTokens: 8_000 } },
-    );
+    transcripts?.append(context.phase, {
+      attempt: context.attempt, executor: "strands", direction: "to_model", kind: "screenshot_review_request",
+      // Keep the exact text and a content-addressed image reference. The binary remains beside
+      // the transcript; duplicating it as thousands of JSON integers would make tail unusable.
+      payload: {
+        model: `${config.provider}:${config.modelId}`,
+        systemPrompt,
+        messages: [{ text: PROMPT }, { image: { format: "png", path, bytes: image.length, sha256: createHash("sha256").update(image).digest("hex") } }],
+      },
+    });
+    let result;
+    try {
+      result = await consumeStream(
+        agent.stream(
+          [{ text: PROMPT }, { image: { format: "png", source: { bytes: image } } }],
+          { cancelSignal: AbortSignal.timeout(2 * 60_000), limits: { turns: 2, totalTokens: 8_000 } },
+        ),
+        (event) => {
+          const payload = serializable(event);
+          const type = payload && typeof payload === "object" && "type" in payload ? String(payload.type) : "stream_event";
+          transcripts?.append(context.phase, {
+            attempt: context.attempt,
+            executor: "strands",
+            direction: type.includes("Tool") || type.includes("tool") ? "tool" : type.includes("model") || type.includes("Model") || type.includes("contentBlock") || type === "agentResultEvent" ? "from_model" : "system",
+            kind: `screenshot_${type}`,
+            payload,
+          });
+        },
+      );
+    } catch (error) {
+      transcripts?.append(context.phase, {
+        attempt: context.attempt, executor: "strands", direction: "system", kind: "screenshot_review_error", payload: error,
+      });
+      throw error;
+    }
     if (!result.structuredOutput) throw new Error("screenshot review returned no verdict");
     const review = ScreenshotReviewSchema.parse(result.structuredOutput);
+    transcripts?.append(context.phase, {
+      attempt: context.attempt, executor: "strands", direction: "from_model", kind: "screenshot_review_result",
+      payload: { review, usage: result.metrics?.accumulatedUsage },
+    });
     return { verdict: review.verdict, reasoning: `${review.visible} ${review.reasoning}${review.problems.length ? ` Problems: ${review.problems.join("; ")}.` : ""}`.trim() };
   };
 }
