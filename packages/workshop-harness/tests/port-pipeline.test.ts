@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdbtContextProvider, AdbtPortContext } from "../src/context-providers/adbt.js";
@@ -43,6 +43,22 @@ test("feeds exact verification failure into retry", async () => {
   const result = await pipeline(app, executor);
   assert.equal(result.phases[0].attempts, 2);
   assert.match(executor.calls[1].prompt, /Portability analysis documented: missing ANALYSIS.md/);
+});
+
+test("a retry keeps build output instead of rebuilding from zero", async () => {
+  const app = fixtureApp();
+  mkdirSync(join(app, "apps", "vega", "build"), { recursive: true });
+  writeFileSync(join(app, "apps", "vega", "build", "pocket.vpkg"), "binary");
+  mkdirSync(join(app, "node_modules"), { recursive: true });
+  writeFileSync(join(app, "node_modules", "installed.txt"), "dependency");
+  // Attempt 1 fails, so the harness resets the tree before attempt 2. Untracked source the
+  // model wrote goes; the expensive artifacts stay.
+  const executor = new FakeExecutor([response({ "WRONG.md": "no" }), ...successResponses()]);
+  const result = await pipeline(app, executor);
+  assert.equal(result.phases[0].attempts, 2);
+  assert.ok(existsSync(join(app, "apps", "vega", "build", "pocket.vpkg")), "the built package was deleted by the retry");
+  assert.ok(existsSync(join(app, "node_modules", "installed.txt")), "dependencies were deleted by the retry");
+  assert.equal(existsSync(join(app, "WRONG.md")), false, "the rejected attempt's file survived");
 });
 
 test("a raised attempt budget loops until the checks pass", async () => {

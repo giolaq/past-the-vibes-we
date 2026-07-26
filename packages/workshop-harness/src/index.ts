@@ -39,12 +39,12 @@ async function main(): Promise<void> {
 
 // Runs the mechanical TV-readiness checks against any app directory. Red on the
 // touch-first starter, green on the ported output — the workshop's before/after.
-function tvCheckCommand(): void {
+async function tvCheckCommand(): Promise<void> {
   const target = resolve(args[1] ?? ".");
   // Skip executing the focus test when its script is absent — the file_exists
   // check already reports that, and running it would only add a stack trace.
   const checks = tvReadyChecks().filter((check) => check.type !== "command" || existsSync(join(target, "tests/verify-tv-focus.ts")));
-  const failures = verifyPort(target, checks);
+  const failures = await verifyPort(target, checks);
   json({ command: "tv-check", target, tvReady: failures.length === 0, failures });
 }
 
