@@ -213,9 +213,9 @@ test("a build that already passes skips the model entirely", async () => {
 test("a crash on the device is what the launch phase hands back to the model", async () => {
   const app = fixtureApp();
   const device = startDeviceRun({
+    // The first launch check runs against the package the build phase produced, so it does not
+    // rebuild — only a retry, which carries a fix, does.
     adapter: new VegaReplayAdapter([
-      { capability: "sdk_version", result: ok("0.22.5875") },
-      { capability: "build", result: ok("build-vega completed") },
       { capability: "sdk_version", result: ok("0.22.5875") },
       { capability: "device_status", result: ok("List of devices attached\nemulator-5554 device") },
       { capability: "install", result: ok("installed") },

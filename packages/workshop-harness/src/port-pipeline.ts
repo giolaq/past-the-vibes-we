@@ -62,7 +62,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       // rebuilt package is judged on its own failures, not the previous attempt's.
       const deviceMark = options.device?.blockers.length ?? 0;
       const rejected: string[][] = [];
-      let failures = phase.verifyFirst ? await verify(phase, options, deviceMark) : [];
+      let failures = phase.verifyFirst ? await verify(phase, options, deviceMark, false) : [];
       // The failure that provoked the fix is evidence too: record and report it before the
       // model is asked to do anything about it.
       if (failures.length) {
@@ -93,7 +93,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
             result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence: evidencePath };
           }
-          failures = await verify(phase, options, deviceMark);
+          failures = await verify(phase, options, deviceMark, true);
           if (failures.length === 0) break;
           rejected.push(failures);
           report(`${phase.name} attempt ${attempt} failed`, failures);
@@ -120,22 +120,37 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
  * What decides a phase: static file assertions plus, for the device phases, the build and the
  * device itself. Device work runs first — a package that did not build cannot be launched.
  */
-async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], deviceMark: number): Promise<string[]> {
+async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], deviceMark: number, patched: boolean): Promise<string[]> {
+  // Static checks first: one of them runs the focus test that writes the evidence the device
+  // stage then reads. Build and launch have no static checks, so nothing waits on them.
+  const staticFailures = await verifyPort(options.appDir, phase.checks);
   const deviceFailures: string[] = [];
-  if (phase.device?.length) {
+  const stages = deviceStages(phase, patched);
+  if (stages.length) {
     // Not a failure to hand the model: no patch can attach a device. Stop the run instead.
     if (!options.device) throw new Error(`${phase.name} needs a device session: pass --platform-replay or attach a VDA`);
     options.device.blockers.length = deviceMark;
-    await runDeviceStages(options.device, phase.device, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge });
+    await runDeviceStages(options.device, stages, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge });
     deviceFailures.push(...options.device.blockers.slice(deviceMark));
   }
-  return [...deviceFailures, ...await verifyPort(options.appDir, phase.checks)];
+  return [...staticFailures, ...deviceFailures];
 }
 
 // A retry that happens silently is a retry nobody can audit. stdout stays JSON-only, so this
 // goes to stderr — and it is the exact text the next prompt carries.
 function report(headline: string, failures: string[]): void {
   process.stderr.write(`${headline}:\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`);
+}
+
+/**
+ * The launch phase rebuilds so a fix reaches the device — but only when there is a fix. Its
+ * first check runs against the package the build phase just produced, and rebuilding an
+ * unchanged tree would cost another full build for nothing.
+ */
+function deviceStages(phase: PortPhase, patched: boolean): DeviceStage[] {
+  const stages = phase.device ?? [];
+  if (patched || stages.length < 2) return stages;
+  return stages.filter((stage) => stage !== "build");
 }
 
 function phaseLabels(phase: PortPhase): string[] {
@@ -285,4 +300,10 @@ function reset(appDir: string, head: string) {
   git(appDir, ["reset", "--hard", head]);
   git(appDir, ["clean", "-fd", ...RETRY_KEEPS.flatMap((pattern) => ["-e", pattern])]);
 }
-function commit(appDir: string, message: string) { git(appDir, ["add", "-A"]); git(appDir, ["commit", "-m", message]); }
+// A patch can legitimately be identical to what is already on disk — a model re-sending a file
+// it did not need to change. That is a pass with nothing to record, not a failure.
+function commit(appDir: string, message: string) {
+  git(appDir, ["add", "-A"]);
+  if (!git(appDir, ["status", "--porcelain"])) return;
+  git(appDir, ["commit", "-m", message]);
+}

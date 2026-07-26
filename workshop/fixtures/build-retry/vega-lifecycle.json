@@ -1,12 +1,30 @@
 {
   "schemaVersion": 1,
-  "description": "Synthetic device results for the key-free six-phase run. Teaching evidence, not a device certification.",
+  "description": "Synthetic device results where the first build fails and the repaired one passes.",
   "sdkVersion": "0.22.5875",
   "adbtPackage": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
   "packagePath": "build/aarch64-debug/pocket-cinema_aarch64.vpkg",
   "appId": "com.tvbuild.pocketcinema.main",
-  "screenshot": "vega-lifecycle/launch-frame.png",
+  "screenshot": "../vega-lifecycle/launch-frame.png",
   "turns": [
+    {
+      "capability": "sdk_version",
+      "result": {
+        "code": 0,
+        "stdout": "0.22.5875\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "build",
+      "result": {
+        "code": 2,
+        "stdout": "> pocket-cinema@0.0.1 build:debug\n> react-native build-vega --build-type Debug\n\nerror: bundling failed:\nsrc/tv/focus-state.ts(18,24): error TS2551: Property 'preferedFocus' does not exist on type 'FocusState'. Did you mean 'preferredFocus'?\nsrc/App.tsx(31,18): error TS2551: Property 'preferedFocus' does not exist on type 'FocusState'.\n",
+        "stderr": "react-native build-vega exited with code 2\n",
+        "timedOut": false
+      }
+    },
     {
       "capability": "sdk_version",
       "result": {
