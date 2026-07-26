@@ -27,7 +27,18 @@ Check that the app directory contains `package.json` and runs before the worksho
 
 ## A model call fails
 
-Save the error and logs, stop retrying, and use the lesson recording.
+Run `doctor` once with the exact executor, provider, and model flags from the failed command.
+
+- Claude Code: confirm the `claude` command is installed and authenticated.
+- Bedrock: confirm `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`, the region, and model access.
+- OpenAI: confirm `OPENAI_API_KEY` and the exact model id.
+- OpenRouter: confirm `OPENROUTER_API_KEY` and the exact `provider/model` id.
+- Custom model: if pricing is unknown, pass both `--input-rate` and `--output-rate` using the
+  provider's USD-per-million-token rates.
+
+`doctor` checks local setup and credential presence; the model request is the final access check.
+Try one correction. If it still fails, save the error and `out/<runId>/model-logs/`, then use the
+lesson recording. Do not switch providers repeatedly during the workshop.
 
 ## The cost cap is reached
 

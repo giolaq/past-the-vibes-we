@@ -132,18 +132,78 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket
 
 <h2>4. Choose one execution path</h2>
 
+Replay is the room-wide default. A live model is optional. If you use one, choose the executor,
+provider, and model here and keep the same choice for every live command.
+
 :::raw
-<table><thead><tr><th>Path</th><th>Use it when</th><th>Needs</th></tr></thead><tbody><tr><td>Claude Code CLI</td><td>You already run <a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a>. The harness starts the pinned ADBT MCP server and gives Claude read-only project tools plus ADBT tools. The <code>PortExecutor</code> interface in <code>port-executor.ts</code> is where another CLI plugs in — lesson 9 shows the swap recipe.</td><td>Claude Code installed and authenticated; <code>npx</code> can start the pinned ADBT package</td></tr><tr><td>Strands + Bedrock</td><td>Run the model in-process through the SDK the harness is built with. The harness passes the same ADBT server through Strands' native <code>McpClient</code>.</td><td>AWS credentials, <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" rel="noopener">Bedrock</a> model access, and <code>npx</code></td></tr><tr><td>Replay</td><td>Fallback when a live model, ADBT, or device is unavailable.</td><td>Nothing beyond the installed packages</td></tr></tbody></table>
+<table><thead><tr><th>Path</th><th>Executor flags</th><th>Credential</th></tr></thead><tbody><tr><td>Replay — recommended</td><td><code>--replay &lt;recording.json&gt;</code></td><td>None. No model runs.</td></tr><tr><td>Claude Code CLI</td><td><code>--executor claude-cli --model sonnet</code></td><td><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a> installed and already authenticated</td></tr><tr><td>Strands + Bedrock</td><td><code>--executor strands --provider bedrock --model &lt;Bedrock model id&gt; --region &lt;region&gt;</code></td><td><code>AWS_PROFILE</code> or <code>AWS_ACCESS_KEY_ID</code>, plus model access</td></tr><tr><td>Strands + OpenAI</td><td><code>--executor strands --provider openai --model &lt;OpenAI model id&gt;</code></td><td><code>OPENAI_API_KEY</code></td></tr><tr><td>Strands + OpenRouter</td><td><code>--executor strands --provider openrouter --model &lt;OpenRouter model id&gt;</code></td><td><code>OPENROUTER_API_KEY</code></td></tr></tbody></table>
 :::
 
-<p>Both live paths run the same harness — pick whichever you can authenticate today. The recorded replay path stays available as a fallback in every lesson. Confirm your live path is ready:</p>
+`--executor` selects how the harness talks to a model. `--provider` is used only by the Strands
+executor. `--model` is the exact model id understood by Claude Code or that provider. ADBT is
+still supplied by the harness through MCP in both live executor paths.
+
+With Claude Code, authenticate once and then run the harness command — do not open a separate
+interactive Claude session. The harness starts `claude`, sends the phase prompt through stdin, and
+reads stream JSON back. With Strands, no model CLI is involved; the SDK calls the selected provider
+inside the harness process.
+
+### Use the same choice in every lesson
+
+Live commands in the lessons show the Claude Code flags
+`--executor claude-cli --model sonnet`.
+
+If you chose Strands, replace only that line with one of these. Keep the app path, inputs,
+phase, run id, seed, confirmation, and budget unchanged:
+
+:::snippet Strands executor replacements
+# Bedrock
+--executor strands --provider bedrock \
+--model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
+
+# OpenAI
+--executor strands --provider openai --model gpt-4.1
+
+# OpenRouter
+--executor strands --provider openrouter --model anthropic/claude-sonnet-4
+>look: Choose one pair of provider and model flags. Do not combine them.
+:::
+
+Those are the defaults currently encoded in `src/model-factory.ts`; you can replace the model
+id with another tool-capable model available to your account. The optional screenshot review also
+needs image input. For a model absent from the harness pricing table, add both `--input-rate` and
+`--output-rate` in USD per million tokens. Read the rates from your provider. Do not guess them.
+
+:::note Keep credentials out of the repository
+Configure the required credential in your terminal or normal credential manager. Never put an
+API key in the app, an input fixture, a lesson command, or a committed `.env` file.
+:::
+
+### Check the exact selection
+
+Run `doctor` with the same flags you will use for the lessons:
 
 :::command Claude Code: check the local executor
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor claude-cli --json
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor claude-cli --model sonnet --json
 :::
 
-:::command Strands: check Bedrock credentials
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --executor strands --provider bedrock --json
+:::command Strands + Bedrock
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
+  --region us-west-2 --json
+:::
+
+:::command Strands + OpenAI
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor strands --provider openai --model gpt-4.1 --json
+:::
+
+:::command Strands + OpenRouter
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor strands --provider openrouter \
+  --model anthropic/claude-sonnet-4 --json
 :::
 
 :::command Fallback: check the key-free replay path
@@ -151,7 +211,9 @@ yarn doctor
 :::
 
 :::note Pick one live executor
-Choose your CLI agent or Strands + Bedrock as your primary path — you don't need both. If your chosen live path fails mid-workshop, save the error and use the replay fallback shown in that lesson.
+You need one path, not every path. `doctor` checks that the command or credential exists; the first
+`analyze` call confirms that your account can use the selected model. If that call fails, save the
+error and use the replay fallback. Do not spend the workshop switching providers.
 :::
 
 <h2>5. Vega SDK and VDA — optional live evidence</h2>
@@ -207,7 +269,7 @@ Try one repair for no more than 10 minutes. Then use replay. Do not spend worksh
 <h2>Setup complete</h2>
 
 :::raw
-<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed</label><label><input type="checkbox">The replay plan completed</label><label><input type="checkbox">I chose replay, Claude Code, or Strands</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">For live evidence: Vega SDK is ready for lesson 4 and VDA is ready for lesson 5</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
+<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed</label><label><input type="checkbox">The replay plan completed</label><label><input type="checkbox">I chose replay or wrote down one executor/provider/model combination and its doctor check passed</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">For live evidence: Vega SDK is ready for lesson 4 and VDA is ready for lesson 5</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
 :::
 
 :::knowledge What is the most important boundary in this workshop?

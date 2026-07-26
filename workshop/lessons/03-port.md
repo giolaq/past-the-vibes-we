@@ -27,6 +27,11 @@ The model is about to write a Vega package from scratch. Which of the nine check
 Run phase 3 onto the same run id, then read what it wrote before you read whether it passed.
 :::
 
+:::note Keep your executor choice
+The command shows Claude Code. If you selected Strands, replace only
+`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
+:::
+
 :::command Claude Code CLI
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \

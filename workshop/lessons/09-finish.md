@@ -45,8 +45,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 :::steps
 1. Start in `checks`. Watch acceptance stay separate from model output.
 2. Select `plan`, press `Tab` until `model` appears, and find its request and response.
-3. Select `plan` and switch to `tools`. Replay says `No matching activity yet` because it injects
-   recorded ADBT context instead of calling MCP. A live run would show the model's ADBT tool traffic here.
+3. Select `plan` and switch to `tools`. Replay says `No matching activity yet` because it injects recorded ADBT context instead of calling MCP. A live run would show the model's ADBT tool traffic here.
 4. Select `build`, `launch`, or `test`. These phases are decided by the platform adapter and checks, not by a model saying the app works.
 5. Press `q` or `Enter`. Open `out/final-dashboard/model-logs/` if you need a complete payload; the dashboard only controls what is visible on screen.
 :::

@@ -42,6 +42,11 @@ The model is about to decide where focus starts and what Back does. Which of the
 Run phase 2 onto the same run id. The guarded copy and its history are reused, so this builds on the analysis you already have.
 :::
 
+:::note Keep your executor choice
+Run one live block. If you selected Strands with OpenAI or OpenRouter, use the provider and model
+flags from lesson 0. The ADBT MCP tools are still supplied by the harness.
+:::
+
 :::command Claude Code CLI
 # The harness passes the pinned ADBT server through --mcp-config for this call.
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \

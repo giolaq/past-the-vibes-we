@@ -61,7 +61,9 @@ unset NODE_TLS_REJECT_UNAUTHORIZED
 
 Do not disable TLS certificate verification to work around a network or proxy problem.
 
-Live model and Vega device paths are optional; read [Before You Arrive](workshop/lessons/00-welcome.md) before configuring them.
+Live model and Vega device paths are optional. [Before You Arrive](workshop/lessons/00-welcome.md)
+shows how to use Claude Code CLI or choose Bedrock, OpenAI, or OpenRouter with an explicit model,
+credential, pricing policy, and matching `doctor` command.
 
 Every run leaves one append-only model transcript per phase under
 `out/<runId>/model-logs/`. It records the complete prompt and native events from Strands,

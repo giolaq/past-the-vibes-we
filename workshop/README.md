@@ -51,10 +51,15 @@ Follow lessons 1–6, skip the optional lessons 7 and 8, and finish with lesson 
 ## Choose how to run models
 
 - **Replay:** no account, API key, model, or device required. Use this path during the workshop if setup fails.
-- **Claude Code:** run a local model session with `--executor claude-cli`.
-- **Strands:** use the in-process Strands Agents SDK with Bedrock, OpenAI, or OpenRouter via `--executor strands`.
+- **Claude Code:** use `--executor claude-cli --model sonnet`. Claude Code must already be installed and authenticated.
+- **Strands + Bedrock:** use `--executor strands --provider bedrock --model <id> --region <region>` with AWS credentials.
+- **Strands + OpenAI:** use `--executor strands --provider openai --model <id>` with `OPENAI_API_KEY`.
+- **Strands + OpenRouter:** use `--executor strands --provider openrouter --model <id>` with `OPENROUTER_API_KEY`.
 
-Start with [Before You Arrive](lessons/00-welcome.md). Keep [Troubleshooting](troubleshooting.md) open during the session.
+Choose one path and keep the same executor, provider, and model flags in every live lesson command.
+The setup lesson includes exact examples, default model ids, pricing flags for other models, and a
+matching `doctor` command for each provider. Start with [Before You Arrive](lessons/00-welcome.md).
+Keep [Troubleshooting](troubleshooting.md) open during the session.
 
 Handing this workshop to an AI agent instead of a person? Point it at the [agent runbook](AGENT_RUNBOOK.md) — it maps the lessons to replay commands, evidence, and a completion report.
 
