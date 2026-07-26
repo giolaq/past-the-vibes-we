@@ -8,6 +8,7 @@
 // It produces:
 //   workshop/fixtures/port-recording.json         analyze, plan, port — the happy path
 //   workshop/fixtures/vega-lifecycle.json         the device turns those phases request
+//   workshop/fixtures/port-retry/                 the same, with one plan check failure to repair
 //   workshop/fixtures/build-retry/                the same, with one build failure to repair
 //
 // The device turns are synthetic: they describe a Vega toolchain this repository cannot run.
@@ -121,6 +122,26 @@ function lifecycle(turns, description, screenshot = "vega-lifecycle/launch-frame
 writeFileSync(join(fixtures, "port-recording.json"), `${JSON.stringify(happy, null, 2)}\n`);
 writeFileSync(join(fixtures, "vega-lifecycle.json"), `${JSON.stringify(lifecycle([...buildTurns(BUILD_OK), ...launchTurns], "Synthetic device results for the key-free six-phase run. Teaching evidence, not a device certification."), null, 2)}\n`);
 
+// The check-failure demo for lesson 3: the first plan turn documents the Vega replacements and
+// stops there, so both plan checks fail; the second turn is the full plan and passes. Generated
+// rather than hand-held, because the checks it has to fail live in phases() and move.
+const planRetryDir = join(fixtures, "port-retry");
+mkdirSync(planRetryDir, { recursive: true });
+const shortPlan = {
+  ...planFiles,
+  "VEGA_PORT.md": planFiles["VEGA_PORT.md"].split("## TV Flow")[0].trimEnd() + "\n",
+};
+if (shortPlan["VEGA_PORT.md"].includes("## TV Flow") || shortPlan["VEGA_PORT.md"].includes("## Focus")) {
+  fail("the short plan turn must omit both sections the plan phase checks for");
+}
+writeFileSync(join(planRetryDir, "port-recording.json"), `${JSON.stringify([
+  happy[0],
+  turn("plan", "Map the touch screens onto Vega components.", shortPlan),
+  happy[1],
+  happy[2],
+], null, 2)}\n`);
+for (const name of ["adbt-port-context.json", "feasibility-recording.json"]) copyFileSync(join(fixtures, name), join(planRetryDir, name));
+
 // The repair demo: the first build fails on a real-looking type error, the model fixes it, the
 // rebuild passes. The model turn only exists because the build failed — verifyFirst means a
 // green build never prompts at all.
@@ -135,4 +156,4 @@ writeFileSync(join(retryDir, "port-recording.json"), `${JSON.stringify([...happy
 writeFileSync(join(retryDir, "vega-lifecycle.json"), `${JSON.stringify(lifecycle([...buildTurns(BUILD_FAILED), ...buildTurns(BUILD_OK), ...launchTurns], "Synthetic device results where the first build fails and the repaired one passes.", "../vega-lifecycle/launch-frame.png"), null, 2)}\n`);
 for (const name of ["adbt-port-context.json", "feasibility-recording.json"]) copyFileSync(join(fixtures, name), join(retryDir, name));
 
-process.stdout.write(`Wrote port-recording.json (${happy.map((t) => t.phase).join(", ")}), vega-lifecycle.json, and build-retry/\n`);
+process.stdout.write(`Wrote port-recording.json (${happy.map((t) => t.phase).join(", ")}), vega-lifecycle.json, port-retry/, and build-retry/\n`);
