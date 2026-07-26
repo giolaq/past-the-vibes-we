@@ -4,13 +4,13 @@ number: "00"
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
-lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. If anything live fights you for more than 10 minutes — model account, ADBT, device — stop and use replay instead. Every lesson also runs from recordings, so a broken setup never has to stop you.
+lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. Lessons 4 to 6 run real Vega tooling, so the SDK and a virtual device matter this time. If anything fights you for more than 10 minutes, every lesson also runs from recordings.
 objective: Choose a reliable workshop path and explain where Strands, ADBT, the harness, and Git each fit.
 evidence: A successful replay run, one chosen execution path, and a completed readiness checklist.
 ---
 
 :::welcome Welcome to Past the Vibes
-Over the next four hours we're going to build a harness together: first a small one you can read end to end, then the real one that ports a React Native app to Vega TV. You'll leave with something you can point at your own codebase. This page is the setup — work through it before we begin, then meet us at lesson 1.
+Over the next four hours we build a harness that ports a React Native app to Vega TV, one phase per lesson: analyze the app, plan the TV port, write it, build it, run it on a device, and prove the remote works. You'll leave with the harness itself, pointed at your own codebase. This page is the setup — work through it before we begin, then meet us at lesson 1.
 :::
 
 :::concept Read this first if you have never built an agent harness
@@ -52,7 +52,7 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
 >look: The model (via Strands) can <em>list, read, and search</em> the guarded app, and the harness hands the whole ADBT <code>McpClient</code> to the agent so Strands discovers the ADBT tools dynamically and the model calls them itself. It still has no write tool and no shell. Afterward the harness reconstructs which ADBT docs it read and hashes them. Everything with consequences stays in <code>packages/workshop-harness/src/port-pipeline.ts</code>.
 :::
 
-<p>The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keep irreversible actions in deterministic code, and the worst a bad answer can do is <em>fail a check and get rejected</em>.</p>
+<p>The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keep irreversible actions in deterministic code, and the worst a bad answer can do is <em>fail a check and get rejected</em>. From lesson 4 on, those checks stop being file assertions and become a compiler and a device.</p>
 
 :::note What is Strands Agents SDK?
 <a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path, pinned at 1.10.0. It fits this workshop for two reasons: the plumbing (provider adapters, typed tools, structured output, limits, cancellation, usage metrics) is built in, and it's a library, not a framework — it doesn't try to own writes or orchestration, so the harness boundary stays where we put it.
@@ -127,12 +127,12 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket
 ]
 :::
 
-<p>That failure list is the workshop's to-do list: everything on it is produced by the port in lesson 6 and verified in lesson 7.</p>
+<p>That failure list is the workshop's to-do list: everything on it is produced by the port in lesson 3 and verified mechanically in lesson 6.</p>
 
 <h2>4. Choose one execution path</h2>
 
 :::raw
-<table><thead><tr><th>Path</th><th>Use it when</th><th>Needs</th></tr></thead><tbody><tr><td>Your CLI coding agent</td><td>You already run <a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a>, Codex, or a similar CLI agent. The workshop ships a Claude Code executor; the <code>Executor</code> interface in <code>port-executor.ts</code> is where another CLI plugs in — lesson 4 shows the swap recipe.</td><td>That agent installed and authenticated; ADBT via init-context</td></tr><tr><td>Strands + Bedrock</td><td>Run the model in-process through the SDK the harness is built with.</td><td>AWS credentials and <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" rel="noopener">Bedrock</a> model access</td></tr><tr><td>Replay</td><td>Fallback when a live model, ADBT, or device is unavailable.</td><td>Nothing beyond the installed packages</td></tr></tbody></table>
+<table><thead><tr><th>Path</th><th>Use it when</th><th>Needs</th></tr></thead><tbody><tr><td>Your CLI coding agent</td><td>You already run <a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a>, Codex, or a similar CLI agent. The workshop ships a Claude Code executor; the <code>PortExecutor</code> interface in <code>port-executor.ts</code> is where another CLI plugs in — lesson 9 shows the swap recipe.</td><td>That agent installed and authenticated; ADBT via init-context</td></tr><tr><td>Strands + Bedrock</td><td>Run the model in-process through the SDK the harness is built with.</td><td>AWS credentials and <a href="https://docs.aws.amazon.com/bedrock/" target="_blank" rel="noopener">Bedrock</a> model access</td></tr><tr><td>Replay</td><td>Fallback when a live model, ADBT, or device is unavailable.</td><td>Nothing beyond the installed packages</td></tr></tbody></table>
 :::
 
 <p>Both live paths run the same harness — pick whichever you can authenticate today. The recorded replay path stays available as a fallback in every lesson. Confirm your live path is ready:</p>
@@ -153,12 +153,12 @@ yarn doctor
 Choose your CLI agent or Strands + Bedrock as your primary path — you don't need both. If your chosen live path fails mid-workshop, save the error and use the replay fallback shown in that lesson.
 :::
 
-<h2>5. Optional Vega and VDA setup</h2>
-      <p>Skip this section when you plan to use lifecycle replay. For the live path, install the <a href="https://developer.amazon.com/docs/vega/0.22/install-vega-sdk.html" target="_blank" rel="noopener">Vega SDK</a> <code>0.22.5875</code> and create a Vega Virtual Device.</p>
+<h2>5. Vega SDK and VDA — required for lessons 4 to 6</h2>
+      <p>Lesson 4 runs a real <code>react-native build-vega</code>; lessons 5 and 6 install and launch on a device. Install the <a href="https://developer.amazon.com/docs/vega/0.22/install-vega-sdk.html" target="_blank" rel="noopener">Vega SDK</a> <code>0.22.5875</code> and create a Vega Virtual Device before the session. Every one of those lessons also has a recorded fallback that exercises the same control flow and labels itself <code>evidenceMode: replay</code>, so a device that fails on the day costs you the device claim, not the lesson.</p>
       <p>How ADBT reaches the model depends on your executor:</p>
       <ul>
         <li><strong>Replay (default)</strong>: recorded context, no <code>init-context</code>, no install.</li>
-        <li><strong>Strands</strong>: the harness owns the ADBT <code>McpClient</code> and hands it to the agent so the model calls ADBT's tools itself. Still run <code>init-context</code> once — lesson 4's live runs load the <code>amazon-devices-vega-*</code> skills it installs.</li>
+        <li><strong>Strands</strong>: the harness owns the ADBT <code>McpClient</code> and hands it to the agent so the model calls ADBT's tools itself. Still run <code>init-context</code> once — lesson 2's live run loads the <code>amazon-devices-vega-*</code> skills it installs.</li>
         <li><strong>Claude Code CLI</strong>: the CLI has its own MCP client, so the same <code>init-context</code> run registers the ADBT server with it and installs the skills. Run this in a real system terminal, then reopen your agent:</li>
       </ul>
 
@@ -205,7 +205,7 @@ Try one repair for no more than 10 minutes. Then use replay. Do not spend worksh
 <h2>Setup complete</h2>
 
 :::raw
-<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">All three workspace packages are installed</label><label><input type="checkbox">One replay run completed</label><label><input type="checkbox">I chose replay, Claude Code, or Strands</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">I understand that Vega device work is optional</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
+<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed</label><label><input type="checkbox">One replay run completed</label><label><input type="checkbox">I chose replay, Claude Code, or Strands</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">Vega SDK 0.22.5875 and a VDA are installed for lessons 4 to 6</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
 :::
 
 :::knowledge What is the most important boundary in this workshop?
@@ -213,5 +213,5 @@ The model can inspect and propose, but the harness controls approval, protected 
 :::
 
 :::done
-The workspace is installed, one replay succeeds, one execution path is chosen, and you know which app you will use.
+The workspace is installed, one replay succeeds, one execution path is chosen, you know which app you will use, and the Vega SDK is ready for the device lessons.
 :::

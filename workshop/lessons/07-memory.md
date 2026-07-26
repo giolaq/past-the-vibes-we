@@ -1,16 +1,16 @@
 ---
 id: memory
-number: "05"
-nav: Project memory
+number: "07"
+nav: Optional project memory
 time: 15 minutes
 title: Review facts before saving them
-lead: "Here you are the approval gate: proposed context becomes project memory only after you read it and apply it."
+lead: "Optional, and it is the one place you are the gate: proposed context becomes project memory only after you read it and apply it."
 objective: Turn selected source material into small, reviewable project facts with provenance.
 evidence: The saved PROJECT_CONTEXT.md separates decisions, facts, questions, and source ids.
 ---
 
 :::welcome You are the gate
-Every run so far started from nothing. Now we give the harness memory — and immediately put a human in front of it. Project context should stay small, and every entry needs a source and a sign-off, because a raw transcript is noisy, private, and easy for an agent to misread as an instruction. You'll review candidate facts before any of them become durable truth.
+This lesson is outside the four-hour path — take it when you want the harness to remember something between runs. Every run so far started from nothing. Now we give the harness memory — and immediately put a human in front of it. Project context should stay small, and every entry needs a source and a sign-off, because a raw transcript is noisy, private, and easy for an agent to misread as an instruction. You'll review candidate facts before any of them become durable truth.
 :::
 
 :::predict

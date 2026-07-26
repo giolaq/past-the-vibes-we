@@ -83,14 +83,21 @@ Inside that copy, the harness makes a git commit **per passing phase**. That com
 
 ## 5. The pipeline: every phase, in order
 
-The port is a sequence of **three phases** (`analyze → plan → build_test`). Each is a model phase that ends in a mechanical check; two draw on ADBT. Source of truth: `phases()` in `src/port-pipeline.ts` — `--phases analyze,plan` runs a subset of it, and the CLI derives its reported phase list from the same function.
+The port is a sequence of **six phases**. The first three ask a model to write something and check the result against files; the last three check by executing — a compiler, a device, and a remote-control contract. Source of truth: `phases()` in `src/port-pipeline.ts` — `--phases build,launch` runs a subset of it, and the CLI derives its reported phase list from the same function.
 
 ```
-analyze  ->  plan  ->  build_test
-(model +      (model +   (model + executable focus test
- feasibility   live ADBT)  + mandatory device screenshot)
- via ADBT)
+analyze  ->  plan   ->  port   ->  build   ->  launch  ->  test
+(model)     (model +   (model)    (loop:     (loop:      (focus test
+            focus                  compiler   device      + frames)
+            skill +                decides)   decides)
+            live ADBT)
 ```
+
+Three properties belong to the last three phases and to nothing before them:
+
+- **They check before they prompt** (`verifyFirst`). A build that already passes never reaches the model, so a green phase costs nothing. The failure that provokes a fix is recorded before the model sees it.
+- **Their failure text is the tool's own output.** `runProcess` bounds it — head and tail with the middle elided — because a failing build can print megabytes into a 40,000-token budget.
+- **Their retries keep the build directory.** `reset()` excludes `build`, `node_modules`, and `*.vpkg` from its clean, so a retry does not rebuild from zero or delete the artifact it is repairing.
 
 Before the pipeline runs, `source_discovery` copies your RN app into the guarded `out/<runId>/app` and records provenance (`src/source-app.ts`) — your real app is read once and never modified. Below, for each phase: what it does, what the model is asked, what is checked, and what file to open to see the result.
 
@@ -122,32 +129,36 @@ The model chose what to read, so the reconstructed audit trail is the only proof
 
 This phase forces the model to *plan in writing*, grounded in real Amazon migration docs, before any Vega code is written.
 
-### Phase 3 — `build_test` (model + executable test + mandatory device screenshot)
-**Goal:** Build the `apps/vega` package from the SDK shape, wire the remote-only home→details flow, and prove it — first with an executable focus test, then with a real device screenshot.
-**Skill injected:** preserve portable JS/TSX, start from the Vega template shape, use one focus-state module from both the app and the verifier; verify launch, movement boundaries, details, back, and restoration.
-**Build checks:**
-- `apps/vega/manifest.toml` contains `schema-version = 1` and `[[components.interactive]]`
-- `apps/vega/package.json` contains `build-vega`
-- `apps/vega/app.json` and `apps/vega/metro.config.js` exist
-- root `package.json` contains a `vega:build` script
-- `src/tv/focus-state.ts` exists and `src/App.tsx` imports `./tv/focus-state`
+### Phase 3 — `port` (model writes the code)
+**Goal:** Write the port the plan describes — the `apps/vega` package from the SDK shape, the shared focus-state module, the remote-only home→details flow, and the executable focus test that will judge it in phase 6.
+**Skill:** `amazon-devices-vega-build-and-run`.
+**Checks (nine):** `apps/vega/manifest.toml` contains `schema-version = 1` and `[[components.interactive]]`; `apps/vega/package.json` contains `build-vega`; `apps/vega/app.json` and `apps/vega/metro.config.js` exist; root `package.json` contains `vega:build`; `src/tv/focus-state.ts` exists; `src/App.tsx` imports `./tv/focus-state`; `tests/verify-tv-focus.ts` exists.
+**Inspect:** `out/<runId>/app/apps/vega/`, `src/tv/focus-state.ts`, and the commit `workshop(port): ...`.
 
-**Test checks — the focus check is special:**
-- **A real command runs:** `node --import tsx tests/verify-tv-focus.ts` must exit 0. This executes a focus-transition test against the ported code. Back must return focus to the *originating card*, verified by a script, not a human eyeball.
-- `tv-focus-result.json` contains `"passed": true`
-- `TV_VERIFICATION.md` contains `originating card`
+### Phase 4 — `build` (loop; the compiler decides)
+**Goal:** Produce a `.vpkg`. **Device stage:** `build` — `checkToolchain` (SDK only; no attached device required) then `buildPackage`, which runs `npm run build:debug` in `apps/vega` with a 15-minute ceiling and locates the package with `findVpkg`.
+**Check:** the package exists. Nothing else counts, and no file assertion can substitute.
+**On failure:** the compiler's own diagnostics — both streams, bounded — become the next prompt. Up to five attempts, stopped early by the cost cap or by the same failure repeating.
+**Inspect:** `out/<runId>/app/apps/vega/build/`, and the `steps` in `vega-platform-result.json`.
 
-**Device evidence (mandatory):** the phase then runs the Vega device lifecycle (`src/platform/vega.ts`) — `sdk_version → device_status → build → install → launch → capture → pull → logs → capture → pull`. **The run fails unless the app survives a five-second dwell and both frames look rendered.** `launch-app .. success` only means the command was accepted, so three checks judge what happened next: `scanDeviceLog` (`src/platform/device-log.ts`) refuses `FATAL`, `SIGSEGV`, `has died`, ANR, and unhandled JS exceptions; `evaluateScreenshot` (`src/platform/screenshot.ts`) decodes each PNG and refuses a frame under 640x360, one flat colour, or pinned black or white. The second frame is the liveness proof — a process that died on startup cannot produce it. The key-free replay path supplies both frames via `--platform-replay ../../workshop/fixtures/vega-lifecycle.json`; a live run captures them from an attached VDA. Each gate records the exact command, exit code, and output, labeled `replay` or `live`. `--evaluate-screenshot` adds an optional multimodal review of the post-launch frame (`src/platform/screenshot-vision.ts`); the deterministic gate runs regardless.
+### Phase 5 — `launch` (loop; the device decides)
+**Goal:** Install, launch, and prove the app is still running. **Device stages:** `build` then `launch` — `checkToolchain` (device required), `installAndLaunch`: install, launch, capture the launch frame, dwell five seconds, read the device log, capture a second frame.
+**Checks:** `scanDeviceLog` (`src/platform/device-log.ts`) refuses `FATAL`, `SIGSEGV`, `has died`, ANR, and unhandled JS exceptions, reporting the matching line. `evaluateScreenshot` (`src/platform/screenshot.ts`) decodes each pulled PNG and refuses a frame under 640x360, one flat colour, or pinned black or white. The second frame is the liveness proof — a process that died on startup cannot produce it.
+**Rebuilds when it has a fix:** the first check runs against the package phase 4 produced; a retry, which carries a patch, rebuilds first so what runs is what the model wrote.
+**Inspect:** `01-launch.png`, `02-postlaunch.png`, `vega-device.log`, and the named checks in `vega-platform-result.json`.
 
-**Inspect:** the new `out/<runId>/app/apps/vega/` package, `tv-focus-result.json`, `out/<runId>/01-launch.png`, `out/<runId>/02-postlaunch.png`, `vega-platform-result.json` (its `checks` name the four device claims and carry their evidence), and the commit `workshop(build_test): ...`.
+### Phase 6 — `test` (the remote-control contract)
+**Goal:** Prove the transitions. **Checks:** `node --import tsx tests/verify-tv-focus.ts` must exit 0 — Back must return focus to the *originating card*, verified by a script, not an eyeball; `tv-focus-result.json` contains `"passed": true`; `TV_VERIFICATION.md` contains `originating card`. **Device stages:** `review` (the optional multimodal verdict, only with `--evaluate-screenshot`) and `focus`, which requires all six named transitions.
+**The honest limit:** the test drives the focus module, not the device's input system. It proves the contract the app implements; it does not press a button. Injecting real remote input needs a device input capability the harness does not ship.
+**Inspect:** `tv-focus-result.json`, both frames, and `vega-platform-result.json`.
 
-> **Two caveats about the mandatory device evidence.** Making it a required pass criterion means a device (or its `--platform-replay` fixture) is now mandatory for a green run — the key-free path stays green through the fixture, whose recorded `pull` writes a rendered 1280x720 frame (`workshop/fixtures/vega-lifecycle/launch-frame.png`, regenerated by `scripts/render-tv-frame.mjs`). And on the current VDA image the live screenshot tool segfaults (see §6 and `workshop/live-rehearsal.md`), so *live* frames cannot be produced until that device tooling is fixed. The dwell, the log scan, and the pixel gate are proven on the replay path and by unit tests; they have not yet run against an attached VDA.
+> **What the device phases require, and what replay proves.** Phases 4-6 need Vega SDK `0.22.5875` and, from phase 5 on, an attached VDA. The `--platform-replay` fixtures keep every phase runnable without them — `workshop/fixtures/vega-lifecycle.json` for a clean run and `workshop/fixtures/build-retry/` for a build that fails and is repaired — but a replayed run proves control flow and labels itself `evidenceMode: replay`. It is not evidence that anything compiled or launched. Two live caveats stand: on the current VDA image the screenshot tool segfaults (see §6 and `workshop/live-rehearsal.md`), and the six-phase pipeline has not yet been run against a live model or a real device.
 
 ---
 
 ## 6. What actually happened in our real run
 
-We ran this end to end; here's what happened, including the failures. (These runs were captured under the earlier six-phase pipeline, before the collapse to `analyze → plan → build_test`. The phase names below are the historical ones; the mapping is `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, `vega_port`/`tv_behavior` → `build_test`.)
+We ran this end to end; here's what happened, including the failures. (These runs predate the current six phases. The names below are historical: `source_discovery`/`vega_portability_audit` → `analyze`, `tv_product_spec` → `plan`, and `vega_port`/`tv_behavior` covered what `port`, `build`, `launch`, and `test` now do separately.)
 
 ### The live port that succeeded (`e5ec5311`)
 A prior live-ADBT port completed all phases: `source_discovery → vega_portability_audit → tv_product_spec → vega_port → tv_behavior`, with `adbt.mode: live`, four git commits in the guarded app, and `tv-focus-result.json` passing.
@@ -250,7 +261,7 @@ The retry is also where you extend the harness toward "loop until the port is do
 | ADBT+model feasibility verdict (the audit's "is this possible?") | `packages/workshop-harness/src/feasibility.ts` |
 | ADBT over MCP (connect, list, read, hash, disconnect) | `packages/workshop-harness/src/context-providers/adbt.ts` |
 | Guarded copy + provenance | `packages/workshop-harness/src/source-app.ts` |
-| The 8-gate Vega device lifecycle | `packages/workshop-harness/src/platform/vega.ts` |
+| The Vega device stages | `packages/workshop-harness/src/platform/vega.ts` |
 | The 3 domain skills | `packages/workshop-harness/skills/*/SKILL.md` |
 | The device-screenshot limitation we hit | `workshop/live-rehearsal.md` |
 
@@ -258,7 +269,7 @@ The retry is also where you extend the harness toward "loop until the port is do
 
 ## Appendix B: Worked example — real prompt in, real output out
 
-This is the actual input and output captured from live run `c9fc9e58` (real Claude model, live ADBT over MCP), under the earlier six-phase pipeline. It shows the ADBT-injected planning (then called `tv_product_spec`/`vega_port`, now folded into `plan` and `build_test`) so the mechanics are unchanged even though the phase names moved.
+This is the actual input and output captured from live run `c9fc9e58` (real Claude model, live ADBT over MCP), under an earlier pipeline. It shows the ADBT-injected planning (then called `tv_product_spec`/`vega_port`, now `plan` and `port`) so the mechanics are unchanged even though the phase names moved.
 
 Every model turn is recorded to `out/<runId>/port-recording.json`: the exact prompt sent (`request.messages[0].content`), the raw text the model returned (`response[].result`), and token usage. That file is the audit trail. What follows is that file, made readable.
 

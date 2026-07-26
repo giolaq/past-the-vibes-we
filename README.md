@@ -4,7 +4,7 @@ Build a small coding harness with [AWS Strands Agents SDK](https://github.com/st
 
 This repository contains everything used in the workshop:
 
-- `packages/workshop-harness`: the guarded porting pipeline built with Strands Agents SDK, built up one element per lesson;
+- `packages/workshop-harness`: the guarded porting pipeline built with Strands Agents SDK — six phases, one lesson each;
 - `apps/pocket-cinema`: the prepared React Native app used by every exercise;
 - `workshop`: the attendee guide, web app, fixtures, checkpoints, troubleshooting, and instructor notes.
 
