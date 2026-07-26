@@ -156,7 +156,7 @@ test("each phase asks its executor for its own skills", async () => {
     ["amazon-devices-vega-build-and-run"],
   ]);
   // The plan phase is the one that carries both kinds of knowledge: the focus skill and ADBT.
-  assert.equal(phases().filter((phase) => phase.adbt).map((phase) => phase.name).join(","), "plan");
+  assert.equal(phases().filter((phase) => phase.mcp?.includes("adbt")).map((phase) => phase.name).join(","), "plan");
   // The phase instruction reaches the prompt; skill bodies do not — the executor delivers those.
   assert.match(executor.calls[0].prompt, /Instruction: Discovery first/);
 });

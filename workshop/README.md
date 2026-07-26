@@ -34,7 +34,7 @@ Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a cod
 4. Build until it compiles, with the compiler's diagnostics driving each retry.
 5. Install and launch on the device, and prove the app stayed running.
 6. Test the remote-control contract, with device frames as supporting evidence.
-7. Optionally review project context before saving it as memory, or import Bee context with consent.
+7. Optionally review project context before saving it as memory, or turn a recorded conversation into reviewed, running code.
 8. Sketch a harness for your own work.
 
 You can use `apps/pocket-cinema` for every exercise. Bring your own app only if it already runs and contains no secrets.
@@ -62,8 +62,10 @@ Handing this workshop to an AI agent instead of a person? Point it at the [agent
 5. [Run it on the device](lessons/05-launch.md)
 6. [Test the remote](lessons/06-test.md)
 7. [Optional: project memory](lessons/07-memory.md)
-8. [Optional: Bee context](lessons/08-bee.md)
+8. [Optional: a conversation becomes code](lessons/08-bee.md)
 9. [Take it home](lessons/09-finish.md)
+
+Lesson 8's optional Bee run has its own recordings under `fixtures/bee-run/`: `bee-conversation.json` is a synthetic conversation, hash-verified on load, and `port-recording.json` holds the spec and apply turns. It reuses `fixtures/vega-lifecycle.json` for build and launch.
 
 The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. `fixtures/port-retry/` holds a recording whose first plan attempt fails a check on purpose, and `fixtures/build-retry/` one whose first build fails and is repaired. Regenerate all of them with `node scripts/build-port-fixtures.mjs`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a physical or virtual device passed. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 

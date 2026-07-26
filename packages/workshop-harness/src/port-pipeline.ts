@@ -17,7 +17,8 @@ import { runDeviceStages, type DeviceRun, type DeviceStage, type ScreenshotJudge
  *   assertions and real device work respectively. Never the model.
  * - `verifyFirst` checks before calling the model, so a phase whose work is already correct
  *   costs nothing. The build and launch loops use it: they only prompt when something failed.
- * - `adbt` hands the model the ADBT tools for this phase.
+ * - `mcp` names the MCP servers whose tools this phase's model may call. The harness passes the
+ *   client and Strands discovers its tools; nothing here hardcodes a tool name.
  */
 export type PortPhase = {
   name: string;
@@ -28,7 +29,13 @@ export type PortPhase = {
   device?: DeviceStage[];
   verifyFirst?: boolean;
   maxAttempts?: number;
-  adbt?: boolean;
+  mcp?: string[];
+  /**
+   * Files this phase's model may not write, on top of the always-protected paths. A phase that
+   * works against an approved artifact names it here, so the model cannot move the goalposts by
+   * rewriting the requirement it is being checked against.
+   */
+  readOnly?: string[];
 };
 export type PortResult = {
   /** failures holds the checks that failed on each earlier attempt, oldest first. */
@@ -39,7 +46,7 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; onPhase?: (phase: string) => void; onMessages?: (phase: string, messages: unknown[]) => void }): Promise<PortResult> {
   // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
   // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
   // phase — repeating a failure the model cannot fix only spends budget.
@@ -49,13 +56,14 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
   const result: PortResult = { phases: [], costUsd: 0 };
   const evidencePath = join(options.outDir, "adbt-port-context.json");
   try {
-    for (const phase of phases(options.phaseNames)) {
+    for (const phase of selectPhases(options.plan ?? portPhases(), options.phaseNames)) {
       options.onPhase?.(phase.name);
       // Live: hand the ADBT McpClient to the agent so it discovers and calls the ADBT tools
       // itself; provenance is reconstructed afterward from the agent's messages. Replay: no live
       // model, so load the recorded context and inject it as prompt text.
-      const usesAdbt = phase.adbt === true;
-      const replayContext = usesAdbt && !options.adbtClient && options.adbt ? await options.adbt.load() : undefined;
+      const usesAdbt = phase.mcp?.includes(ADBT_SERVER) === true;
+      const adbtClient = usesAdbt ? options.mcpClients?.[ADBT_SERVER] : undefined;
+      const replayContext = usesAdbt && !adbtClient && options.adbt ? await options.adbt.load() : undefined;
       const phaseAttempts = options.maxAttempts ?? phase.maxAttempts ?? maxAttempts;
       const start = gitHead(options.appDir);
       // Device blockers accumulate across the session; each attempt starts from this mark so a
@@ -77,17 +85,18 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
         for (let attempt = 1; attempt <= phaseAttempts && !(phase.verifyFirst && attempt === 1 && failures.length === 0); attempt++) {
           if (attempt > 1 || phase.verifyFirst) reset(options.appDir, start);
           attempts = attempt;
-          const extraTools = usesAdbt && options.adbtClient ? [options.adbtClient] : undefined;
+          const extraTools = (phase.mcp ?? []).map((name) => options.mcpClients?.[name]).filter((client): client is McpClient => Boolean(client));
           const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), { extraTools, skills: phase.skills });
           result.costUsd += model.costUsd;
           if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
+          options.onMessages?.(phase.name, model.messages ?? []);
           const output = parseJsonBlock(model.text, PortOutputSchema, phase.name);
-          writeOutput(options.appDir, output.files);
+          writeOutput(options.appDir, output.files, phase.readOnly);
           summary = output.summary;
           // Record ADBT provenance: reconstructed from the model's tool calls (live) or the
           // recorded fixture (replay).
           // replayContext is only set when this phase uses ADBT without a live client.
-          const adbtContext = options.adbtClient && usesAdbt ? extractAdbtProvenance(model.messages ?? []) : replayContext;
+          const adbtContext = adbtClient ? extractAdbtProvenance(model.messages ?? []) : replayContext;
           if (adbtContext) {
             ensureAdbtNextSteps(options.appDir, adbtContext);
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
@@ -111,7 +120,8 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       }
     }
   } finally {
-    await options.adbtClient?.disconnect();
+    // Every client, not just ADBT: a client left connected leaks its stdio subprocess.
+    await Promise.all(Object.values(options.mcpClients ?? {}).map((client) => client.disconnect()));
   }
   return result;
 }
@@ -157,13 +167,26 @@ function phaseLabels(phase: PortPhase): string[] {
   return [...(phase.device ?? []).map((stage) => `device: ${stage}`), ...phase.checks.map((check) => check.label)];
 }
 
+/** The MCP server names a phase can ask for. ADBT's provenance is recorded specially. */
+export const ADBT_SERVER = "adbt";
+
+/**
+ * Order always follows the plan, whatever order the names arrive in — so `--phases test,analyze`
+ * cannot accidentally run the pipeline backwards. Shared by every plan, not just the port.
+ */
+export function selectPhases(all: PortPhase[], only?: string[]): PortPhase[] {
+  if (!only) return all;
+  const unknown = only.filter((name) => !all.some((phase) => phase.name === name));
+  if (unknown.length) throw new Error(`Unknown phase${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")}; use ${all.map((phase) => phase.name).join(", ")}`);
+  return all.filter((phase) => only.includes(phase.name));
+}
+
 /**
  * The whole port plan. Pass `only` to run part of it — the lessons build the pipeline up one
  * phase at a time, and an operator re-running a single expensive phase wants the same thing.
- * Order always follows this list, whatever order the names arrive in.
  */
-export function phases(only?: string[]): PortPhase[] {
-  const all: PortPhase[] = [
+export function portPhases(): PortPhase[] {
+  return [
     {
       name: "analyze",
       goal: "Read the guarded React Native app and write ANALYSIS.md describing its screens, components, data, and which parts are portable to Vega TV.",
@@ -176,7 +199,7 @@ export function phases(only?: string[]): PortPhase[] {
       goal: "Decide how this app becomes a TV app. Write VEGA_PORT.md with the preserved product behavior, the 10-foot layout and focus model, the exact remote flow, and the Vega replacements — and record ADBT sources and unsupported gaps in NextSteps.md.",
       instruction: "Two kinds of knowledge, both required. The focus skill covers the 10-foot interface: what a remote can reach, where focus starts, and how Back restores it. The ADBT tools carry Vega's own migration workflows — read them before making Vega claims. Keep facts and assumptions separate, plan one vertical slice, and record unsupported mappings instead of inventing APIs.",
       skills: ["amazon-devices-vega-focus-management"],
-      adbt: true,
+      mcp: [ADBT_SERVER],
       checks: [
         { type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" },
         { type: "contains", path: "VEGA_PORT.md", value: "## Focus", label: "Focus model documented" },
@@ -235,10 +258,11 @@ export function phases(only?: string[]): PortPhase[] {
       ],
     },
   ];
-  if (!only) return all;
-  const unknown = only.filter((name) => !all.some((phase) => phase.name === name));
-  if (unknown.length) throw new Error(`Unknown phase${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")}; use ${all.map((phase) => phase.name).join(", ")}`);
-  return all.filter((phase) => only.includes(phase.name));
+}
+
+/** The port plan, optionally narrowed. Kept as the name the CLI and the lessons already use. */
+export function phases(only?: string[]): PortPhase[] {
+  return selectPhases(portPhases(), only);
 }
 
 function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], failures: string[], adbt?: AdbtPortContext): string {
@@ -249,7 +273,7 @@ function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0]
   }).join("\n");
   // Model-driven: instruct the agent to use the ADBT MCP tools itself. In replay (no live tools)
   // the recorded context is shown so the offline path still has authoritative guidance.
-  const adbtGuidance = phase.adbt
+  const adbtGuidance = phase.mcp?.includes(ADBT_SERVER)
     ? adbt
       ? `\n\n## ADBT sources (recorded)\n${adbt.documents.map((d) => `### ${d.name}\n${d.excerpt}`).join("\n\n")}\n\nUse these ADBT sources for Vega-specific decisions. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md and name the ADBT documents consulted.`
       : `\n\nUse the adbt_list_documents and adbt_read_document tools to discover and read the Vega migration workflows you need. Do not invent Vega APIs. Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents you consulted.`
@@ -269,11 +293,14 @@ function ensureAdbtNextSteps(appDir: string, context: AdbtPortContext) {
 const PROTECTED_PATHS = /(^|[\\/])(?:\.git|node_modules)(?:[\\/]|$)|(^|[\\/])\.env(?:\.|[\\/]|$)/;
 
 // The write boundary of the whole harness: every model-proposed path must resolve inside the
-// guarded app and must not touch Git, dependencies, or environment files.
-function writeOutput(appDir: string, files: Record<string, string>) {
+// guarded app and must not touch Git, dependencies, environment files, or anything the phase
+// declared read-only.
+function writeOutput(appDir: string, files: Record<string, string>, readOnly: string[] = []) {
   const root = resolve(appDir);
+  const locked = new Set(readOnly.map((name) => resolve(root, name)));
   for (const [name, content] of Object.entries(files)) {
     const path = resolve(root, name);
+    if (locked.has(path)) throw new Error(`Read-only in this phase: ${name}`);
     if (!path.startsWith(`${root}${sep}`) || PROTECTED_PATHS.test(name)) throw new Error(`Unsafe model output path: ${name}`);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, content);
@@ -300,6 +327,11 @@ function reset(appDir: string, head: string) {
   git(appDir, ["reset", "--hard", head]);
   git(appDir, ["clean", "-fd", ...RETRY_KEEPS.flatMap((pattern) => ["-e", pattern])]);
 }
+/** Commits whatever is in the tree. Exported so a caller can record an approved artifact. */
+export function commitAll(appDir: string, message: string): void {
+  commit(appDir, message);
+}
+
 // A patch can legitimately be identical to what is already on disk — a model re-sending a file
 // it did not need to change. That is a pass with nothing to record, not a failure.
 function commit(appDir: string, message: string) {

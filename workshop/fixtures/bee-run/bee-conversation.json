@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "description": "Synthetic Bee conversation for the key-free run. Nobody said these words; it stands in for a real recording so the pipeline can be studied without an account.",
+  "query": "Pocket Cinema mobile app",
+  "sha256": "sha256:38bfbe97d0aba29c82e46c34cae7b2ec54774b6bd4d874a8210c229789dda7f1",
+  "conversations": [
+    {
+      "id": "workshop-conversation-02",
+      "recordedAt": "2026-07-18T14:05:00.000Z",
+      "transcript": [
+        "Speaker 1: I showed Pocket Cinema to two people this morning and both of them scrolled past the hero looking for where they left off.",
+        "Speaker 2: So a Continue Watching rail, first thing on the home screen?",
+        "Speaker 1: Yes, at the top, above New this week. Four titles is plenty.",
+        "Speaker 2: Fine. The other thing that came up twice was runtime \u2014 on the details screen there is no way to tell if something is ninety minutes or three hours.",
+        "Speaker 1: Right, put the runtime next to the genre and the year on details. Minutes is fine, nobody needs hours and minutes.",
+        "Speaker 2: I'll be late tomorrow, my flight lands at six.",
+        "Speaker 1: No problem. Also my sister is visiting this weekend so I'm offline Saturday.",
+        "Speaker 2: Noted. Let's ship the rail and the runtime and look at search after that.",
+        "Speaker 1: Search can wait, we haven't agreed what it searches."
+      ]
+    }
+  ]
+}
