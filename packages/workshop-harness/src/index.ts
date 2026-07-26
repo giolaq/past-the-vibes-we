@@ -653,12 +653,17 @@ Commands:
 
 Model execution:
   --executor claude-cli                 Local Claude Code (default)
-  --executor strands --provider <name>  Remote model through Strands
-  --model <id> [--region <aws-region>]  Provider model settings
+  --executor strands --provider <name>  Strands: bedrock, openai, or openrouter
+  --model <id> [--region <aws-region>]  Exact provider model id; region is for Bedrock
   --input-rate N --output-rate N        Required for models absent from the pricing table
   --replay <recording.json>             Key-free recorded model turns
   --adbt-replay <context.json>          Recorded ADBT context
   --adbt-live                           Call pinned ADBT while model output is replayed
+
+Credentials:
+  claude-cli uses the Claude Code login; bedrock uses AWS_PROFILE or AWS_ACCESS_KEY_ID;
+  openai uses OPENAI_API_KEY; openrouter uses OPENROUTER_API_KEY.
+  Keep the same executor/provider/model flags for doctor, plan, and run.
 
 Pipeline:
   --phases analyze,plan                 Run part of the port (default: all six)

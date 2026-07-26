@@ -46,6 +46,11 @@ Which transition is most likely to pass a screenshot review but fail for a real 
 Run phase 6 onto the same run id. It executes the focus test the port phase wrote, and reads the frames the launch phase captured.
 :::
 
+:::note Keep your executor choice
+The command shows Claude Code. If you selected Strands, replace only
+`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
+:::
+
 :::command Prove the remote contract
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \

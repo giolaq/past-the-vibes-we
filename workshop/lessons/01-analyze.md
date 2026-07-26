@@ -82,6 +82,11 @@ The agent is about to read Pocket Cinema and report what is portable. Name one t
 Run phase 1 and nothing else. `--phases` takes the subset you want, so you meet the pipeline one piece at a time.
 :::
 
+:::note Use the model you selected in setup
+Run one live block, not both. For Strands with OpenAI or OpenRouter, keep the Strands block and
+replace its provider and model flags with the pair from lesson 0.
+:::
+
 :::command Claude Code CLI
 # Claude Code CLI. One phase, on a guarded copy of your app.
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \

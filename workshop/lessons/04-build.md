@@ -38,6 +38,11 @@ The build fails with a type error in `focus-state.ts`. What is the harness allow
 Run phase 4 onto the same run id. If the port phase produced a clean package this passes without calling the model at all — watch for that.
 :::
 
+:::note Keep your executor choice
+The command shows Claude Code. If you selected Strands, replace only
+`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
+:::
+
 :::command Build the Vega package
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \

@@ -48,6 +48,11 @@ The app launches, renders one frame, and then throws in a rail component two sec
 Run phase 5 onto the same run id. It installs the package phase 4 built — and if your fix touches source, it rebuilds first so what runs is what you wrote.
 :::
 
+:::note Keep your executor choice
+The command shows Claude Code. If you selected Strands, replace only
+`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
+:::
+
 :::command Install, launch, and prove it is alive
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
