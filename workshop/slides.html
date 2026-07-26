@@ -426,7 +426,7 @@ h2 {
     <section class="slide">
       <div class="tag"><b>Intro</b> · the whole system on one slide</div>
       <div class="wrap" style="gap:54px;">
-        <h2 class="reveal" style="--d:0ms">One bounded loop, run three times</h2>
+        <h2 class="reveal" style="--d:0ms">One bounded loop, six phases</h2>
         <div class="flow reveal" style="--d:160ms">
           <div class="step"><b>ADBT MCP</b><span>model reads Vega workflows itself</span></div>
           <div class="arrow">→</div>
@@ -436,32 +436,33 @@ h2 {
           <div class="arrow">→</div>
           <div class="step"><b>Evidence</b><span>hashes, git log, screenshots, report</span></div>
         </div>
-        <div class="codeline reveal" style="--d:320ms"><span class="b">analyze</span>  →  <span class="b">plan</span>  →  <span class="b">build_test</span>      <span class="c">// lesson 1 through the final port</span></div>
+        <div class="codeline reveal" style="--d:320ms"><span class="b">analyze</span> → <span class="b">plan</span> → <span class="b">port</span> → <span class="o">build</span> → <span class="o">launch</span> → <span class="o">test</span>
+<span class="c">// the last three check by executing: a compiler, a device, a remote contract</span></div>
       </div>
       <div class="foot"><span>intro</span><span>packages/workshop-harness/src/port-pipeline.ts</span></div>
     </section>
 
     <!-- 6 ▸ TODAY'S ARC -->
     <section class="slide">
-      <div class="tag"><b>Intro</b> · how the four hours run</div>
+      <div class="tag"><b>Intro</b> · how today runs</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Ten lessons. One rule.</h2>
+        <h2 class="reveal" style="--d:0ms">One lesson. One phase.<br>The workshop <span class="accent">is</span> the pipeline.</h2>
         <div class="cols reveal" style="--d:160ms">
           <div class="panel">
             <h3 style="color:var(--muted)">The arc</h3>
             <ul>
-              <li><strong>1–4</strong> · build a mini-harness from one model call</li>
-              <li><strong>5–8</strong> · run the real React&nbsp;Native → Vega TV port</li>
-              <li><strong>9</strong> · optional: Bee context, with consent</li>
-              <li><strong>10</strong> · design a harness for <strong>your</strong> domain</li>
+              <li><strong>1–3</strong> · analyze, plan, port — the model writes</li>
+              <li><strong>4–6</strong> · build, launch, test — the toolchain judges</li>
+              <li><strong>7–8</strong> · optional: project memory, a conversation becomes code</li>
+              <li><strong>9</strong> · design a harness for <strong>your</strong> domain</li>
             </ul>
           </div>
           <div class="panel">
             <h3 style="color:var(--muted)">The rule</h3>
             <ul>
-              <li>Live model first — <strong>replay is the safety net</strong></li>
+              <li>Lessons <strong>4–6 need the Vega SDK</strong> and a device</li>
               <li>Blocked? Debug for <strong>10 minutes, then replay</strong></li>
-              <li>Replay needs <strong>zero credentials</strong>: no key, no device</li>
+              <li>Replay runs every phase with <strong>zero credentials</strong></li>
               <li>Every lesson states exactly <strong>what proves completion</strong></li>
             </ul>
           </div>
@@ -472,70 +473,45 @@ h2 {
 
     <!-- 7 ▸ LESSON 1 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 1</b> · from prompt to loop</div>
+      <div class="tag"><b>Lesson 1</b> · analyze the app</div>
       <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">Start with <span class="accent">one model call</span>.<br>Then ask what it cannot prove.</h2>
-        <div class="codeline reveal" style="--d:160ms">$ tsx steps/01-single-agent/index.ts run fixtures/phases.json
-<span class="g">✓</span> out/ANALYSIS.md written        <span class="r">✗</span> <span class="c">…is any of it true?</span></div>
-        <div class="support reveal" style="--d:300ms">The file exists — that is all we know. The analysis could name components that don’t exist and call unportable code portable. <strong>Your job: write down three claims this script cannot prove.</strong></div>
+        <h2 class="reveal" style="--d:0ms">One agent reads your app.<br>Then ask what it <span class="accent">cannot prove</span>.</h2>
+        <div class="codeline reveal" style="--d:160ms">$ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span>
+<span class="g">✓</span> out/&lt;runId&gt;/app/ANALYSIS.md   <span class="r">✗</span> <span class="c">…checked by what?</span></div>
+        <div class="support reveal" style="--d:300ms">Read-only tools, a typed <code>{summary, files}</code> answer, and a guarded copy your source never leaves. The check says a file exists and names a section. <strong>Your job: write down three claims nothing has verified.</strong></div>
       </div>
-      <div class="foot"><span>lesson 01 · 15 min</span><span>a model call with side effects is not yet a harness</span></div>
+      <div class="foot"><span>lesson 01 · 25 min</span><span>the model proposes — the harness writes</span></div>
     </section>
 
     <!-- 8 ▸ LESSON 2 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 2</b> · verification and retry</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">A retry is only useful when it<br>carries <span class="accent">new information</span></h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md
-<span class="c">→ exact failure text goes into attempt 2 …</span>
-<span class="g">✓</span> plan repaired: remote control section added</div>
-        <div class="support reveal" style="--d:300ms">“Try again” buys another guess. <strong>The exact failure narrows the problem</strong> and keeps the original requirement. One retry by default — or loop until green, stopped by the cost cap and a no-progress rule.</div>
-      </div>
-      <div class="foot"><span>lesson 02 · 20 min</span><span>steps/02-verify-loop/verify.ts</span></div>
-    </section>
-
-    <!-- 9 ▸ LESSON 3 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 3</b> · phases, checkpoints, cost</div>
+      <div class="tag"><b>Lesson 2</b> · plan the TV port</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Long runs fail.<br>Plan for the failure.</h2>
-        <div class="cols reveal" style="--d:160ms" role="presentation">
+        <h2 class="reveal" style="--d:0ms">TV is a <span class="accent">design decision</span><br>before it is a build problem</h2>
+        <div class="cols reveal" style="--d:160ms">
           <div class="panel">
-            <h3 style="color:var(--muted)">Three different memories</h3>
+            <h3 style="color:var(--muted)">Knowledge you push</h3>
             <ul>
-              <li><strong>Phases</strong> limit the size of each change</li>
-              <li><strong>Checkpoints</strong> remember run progress → <code style="font-family:var(--mono)">--resume</code></li>
-              <li><strong>Git commits</strong> preserve each verified code state</li>
+              <li><code style="font-family:var(--mono)">amazon-devices-vega-focus-management</code></li>
+              <li>Where focus starts · what a remote reaches</li>
+              <li>What <strong>Back</strong> restores</li>
             </ul>
           </div>
           <div class="panel">
-            <h3 style="color:var(--muted)">Watch for</h3>
+            <h3 style="color:var(--muted)">Knowledge it pulls</h3>
             <ul>
-              <li><code style="font-family:var(--mono)">checkpoint.json: {"nextPhase": 2}</code></li>
-              <li>Resume runs <strong>only</strong> <code style="font-family:var(--mono)">build_test</code></li>
-              <li>Cost visible on every phase — and capped</li>
+              <li><strong>ADBT over MCP</strong> — the model reads the workflows</li>
+              <li>Every read <strong>SHA-256 hashed</strong> afterwards</li>
+              <li>Gaps recorded, <strong>not invented</strong></li>
             </ul>
           </div>
         </div>
+        <div class="support reveal" style="--d:320ms">Output: <code>VEGA_PORT.md</code> with a <strong>focus model and a TV flow</strong> — both checked. Neither kind of knowledge is code you wrote, and swapping either is one line.</div>
       </div>
-      <div class="foot"><span>lesson 03 · 25 min</span><span>they answer different recovery questions</span></div>
+      <div class="foot"><span>lesson 02 · 30 min</span><span>skills teach · checks enforce · different files</span></div>
     </section>
 
-    <!-- 10 ▸ LESSON 4 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 4</b> · tools, skills, executors</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">The skills are <span class="accent">Amazon’s</span>, not ours</h2>
-        <div class="codeline reveal" style="--d:160ms">analyze     → <span class="o">amazon-devices-vega-best-practices</span>
-plan        → <span class="o">amazon-devices-vega-focus-management</span>
-build_test  → <span class="o">amazon-devices-vega-build-and-run</span></div>
-        <div class="support reveal" style="--d:300ms">Installed by ADBT’s <code>init-context</code>, versioned by the vendor, consumed by the harness without owning a word of them. <strong>Swapping a phase’s expertise is a one-line change in <code>phases.json</code>.</strong> Claude CLI gets skill text in the prompt; Strands activates them through <code>AgentSkills</code>.</div>
-      </div>
-      <div class="foot"><span>lesson 04 · 20 min</span><span>knowledge delivery ≠ model access ≠ pipeline control</span></div>
-    </section>
-
-    <!-- 11 ▸ STRANDS -->
+    <!-- 9 ▸ STRANDS -->
     <section class="slide">
       <div class="tag"><b>Under the hood</b> · the agent runtime</div>
       <div class="wrap" style="gap:44px;">
@@ -563,7 +539,7 @@ build_test  → <span class="o">amazon-devices-vega-build-and-run</span></div>
       <div class="foot"><span>reference: strands-constructs.md</span><span>github.com/strands-agents/harness-sdk</span></div>
     </section>
 
-    <!-- 12 ▸ ADBT -->
+    <!-- 10 ▸ ADBT -->
     <section class="slide">
       <div class="tag"><b>Under the hood</b> · the knowledge source</div>
       <div class="wrap" style="gap:44px;">
@@ -590,55 +566,49 @@ build_test  → <span class="o">amazon-devices-vega-build-and-run</span></div>
       <div class="foot"><span>@amazon-devices/amazon-devices-buildertools-mcp</span><span>developer.amazon.com/docs/vega</span></div>
     </section>
 
+    <!-- 11 ▸ LESSON 3 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 3</b> · write the port</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">A retry is only useful when it<br>carries <span class="accent">new information</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> TV flow documented: VEGA_PORT.md must contain "## TV Flow"
+<span class="c">→ that exact text joins attempt 2 …</span>
+<span class="g">✓</span> nine checks pass → one commit</div>
+        <div class="support reveal" style="--d:300ms">“Try again” buys another guess. <strong>The exact failure narrows the problem</strong> and keeps the requirement. Three exits, none of them the model’s opinion: checks pass, budget runs out, or the same failure repeats and the loop stops paying.</div>
+      </div>
+      <div class="foot"><span>lesson 03 · 30 min</span><span>src/port-verification.ts — fifty lines decide</span></div>
+    </section>
+
+    <!-- 12 ▸ LESSON 4 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 4</b> · build until it compiles</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Now the check is a <span class="accent">compiler</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> build failed: react-native build-vega exited with code 2
+   src/tv/focus-state.ts(18,24): error TS2551: Property 'preferedFocus'
+   does not exist on type 'FocusState'. Did you mean 'preferredFocus'?
+<span class="c">→ the compiler's own words go to the model · rebuild · judge again</span></div>
+        <div class="support reveal" style="--d:300ms">A file can be talked around; a <code>.vpkg</code> cannot. The phase <strong>checks before it prompts</strong> — a build that already passes never reaches the model — and the log is bounded before it hits a 40,000-token budget.</div>
+      </div>
+      <div class="foot"><span>lesson 04 · 30 min</span><span>Vega SDK required · recorded fallback available</span></div>
+    </section>
+
     <!-- 13 ▸ LESSON 5 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 5</b> · project memory</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">Facts get <span class="accent">reviewed</span><br>before they get remembered</h2>
-        <div class="flow reveal" style="--d:160ms">
-          <div class="step"><b>snapshot</b><span>scrubbed source, never a transcript</span></div>
-          <div class="arrow">→</div>
-          <div class="step"><b>propose</b><span>model drafts candidate facts</span></div>
-          <div class="arrow">→</div>
-          <div class="step" style="border-top-color:var(--blue)"><b>you review</b><span>the human approval gate</span></div>
-          <div class="arrow">→</div>
-          <div class="step"><b>apply</b><span>PROJECT_CONTEXT.md, with sources</span></div>
-        </div>
-        <div class="support reveal" style="--d:300ms">The model may summarize candidates. <strong>It cannot silently promote them into trusted context.</strong> Every saved fact names its source; open questions never masquerade as decisions.</div>
+      <div class="tag"><b>Lesson 5</b> · run it on the device</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms"><span class="accent">Accepted</span> is not <span class="accent">survived</span></h2>
+        <div class="codeline reveal" style="--d:160ms">install → launch → capture → <span class="c">wait 5s</span> → logs → capture
+<span class="g">✓</span> no FATAL / SIGSEGV / ANR in the device log
+<span class="g">✓</span> both frames render content <span class="c">(1x1 pixel or black screen fails)</span></div>
+        <div class="support reveal" style="--d:300ms"><strong>launch-app .. success</strong> only means the device took the command. An app that throws in its first render prints the same line. The second frame is the liveness proof — a process that died on startup <strong>cannot produce it</strong>.</div>
       </div>
-      <div class="foot"><span>lesson 05 · 15 min</span><span>durable truth is a human decision</span></div>
+      <div class="foot"><span>lesson 05 · 30 min</span><span>a fix that touches source rebuilds before it reinstalls</span></div>
     </section>
 
     <!-- 14 ▸ LESSON 6 -->
     <section class="slide">
-      <div class="tag"><b>Lesson 6</b> · the port — the main event</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Your source app is<br><span class="accent">never touched</span></h2>
-        <div class="codeline reveal" style="--d:160ms">apps/pocket-cinema   <span class="c">→ copied →</span>   out/&lt;runId&gt;/app   <span class="c">(git init inside)</span>
-<span class="b">analyze</span> → feasibility gate <span class="c">(blocked ⇒ exit 5, before any spend)</span>
-<span class="b">plan</span>    → model reads ADBT workflows itself · every read <span class="o">SHA-256 hashed</span>
-<span class="b">build_test</span> → focus test must pass + <span class="o">device screenshot required</span></div>
-        <div class="support reveal" style="--d:300ms">Approve the plan, set the <strong>$3 cap</strong>, run. One commit per verified phase — if phase 3 explodes, phases 1 and 2 are already safe.</div>
-      </div>
-      <div class="foot"><span>lesson 06 · 35 min</span><span>evidence chain: adbt-port-context.json → git log → report</span></div>
-    </section>
-
-    <!-- 15 ▸ WORKED EXAMPLE -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 6</b> · a real run, unedited</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">The best output of the run:<br>the model <span class="accent">admitting uncertainty</span></h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="c">## Unverified against SDK docs (MCP doc access not granted)</span>
-The items below … <span class="o">MUST be confirmed</span> against the named KB documents
-before relying on them — they are <span class="o">not invented APIs presented as fact</span>.</div>
-        <div class="support reveal" style="--d:300ms">From the recorded live run: instead of bluffing, the model wrote its gaps into <code>NextSteps.md</code>. The skill said <strong>“record gaps instead of inventing APIs.”</strong> The checks don’t trust the prose regardless.</div>
-      </div>
-      <div class="foot"><span>lesson 06 · worked example</span><span>from recorded run c9fc9e58</span></div>
-    </section>
-
-    <!-- 16 ▸ LESSON 7 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 7</b> · TV as the stress test</div>
+      <div class="tag"><b>Lesson 6</b> · test the remote</div>
       <div class="wrap" style="gap:40px;">
         <div style="display:grid; grid-template-columns: 1fr 420px; gap:60px; align-items:center;">
           <div style="display:grid; gap:36px;">
@@ -648,7 +618,7 @@ down    → focus enters the first rail
 left/right → <span class="g">stops at boundaries</span>
 select  → details opens for <span class="o">that</span> card
 back    → <span class="o">the same card</span> regains focus</div>
-            <div class="support reveal" style="--d:300ms">The last line is the one screenshots always miss. It’s verified by <strong>an executable check</strong>, not an eyeball: <code>tv-focus-result.json → "passed": true</code>.</div>
+            <div class="support reveal" style="--d:300ms">The last line is the one screenshots always miss — verified by <strong>an executable check</strong>, not an eyeball. The frames prove the app was rendering while it ran; only the test proves focus moved correctly.</div>
           </div>
           <div class="reveal" style="--d:240ms">
             <div class="dpad" aria-label="TV remote D-pad">
@@ -659,46 +629,77 @@ back    → <span class="o">the same card</span> regains focus</div>
           </div>
         </div>
       </div>
-      <div class="foot"><span>lesson 07 · 20 min</span><span>tests/verify-tv-focus.ts — no device required</span></div>
+      <div class="foot"><span>lesson 06 · 25 min</span><span>tv-check → tvReady: true — the “after” to setup’s “before”</span></div>
     </section>
 
-    <!-- 17 ▸ LESSON 8 -->
+    <!-- 15 ▸ WORKED EXAMPLE -->
     <section class="slide">
-      <div class="tag"><b>Lesson 8</b> · the Vega device lifecycle</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Eight gates, and every claim<br>labeled <span class="accent">live</span> or <span class="blue">replay</span></h2>
-        <div class="codeline reveal" style="--d:160ms">sdk → device → build → install → launch → logs → capture → pull
-<span class="g">evidenceMode: live</span>    <span class="c">this app ran on an attached device</span>
-<span class="b">evidenceMode: replay</span>  <span class="c">the control flow works — not device proof</span></div>
-        <div class="support reveal" style="--d:300ms">A successful process exit is not evidence when no device is attached. The harness records <strong>the exact command, exit code, artifact, and mode</strong> for every gate — keep the two claims separate.</div>
-      </div>
-      <div class="foot"><span>lesson 08 · 25 min</span><span>vega-run &lt;runId&gt; · replay fallback always available</span></div>
-    </section>
-
-    <!-- 18 ▸ LESSON 9 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 9</b> · optional — Bee context</div>
+      <div class="tag"><b>Lesson 2</b> · a real run, unedited</div>
       <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">Context with <span class="accent">consent</span>.<br>A snapshot, never a transcript.</h2>
-        <div class="support reveal" style="--d:180ms"><strong>Bee</strong> is Amazon’s wearable AI: it turns your conversations about the product into searchable decisions. Here it is only a <strong>discovery source</strong> — search, pick one conversation, save a scrubbed snapshot with source ids and a hash, then run it through lesson 5’s approval gate.</div>
-        <div class="codeline reveal" style="--d:320ms">disconnect Bee → the approved snapshot <span class="g">still works</span>
-<span class="c">// reproducible without a live private-data dependency</span></div>
+        <h2 class="reveal" style="--d:0ms">The best output of the run:<br>the model <span class="accent">admitting uncertainty</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="c">## Unverified against SDK docs (MCP doc access not granted)</span>
+The items below … <span class="o">MUST be confirmed</span> against the named KB documents
+before relying on them — they are <span class="o">not invented APIs presented as fact</span>.</div>
+        <div class="support reveal" style="--d:300ms">From the recorded live run: instead of bluffing, the model wrote its gaps into <code>NextSteps.md</code>. The skill said <strong>“record gaps instead of inventing APIs.”</strong> The checks don’t trust the prose regardless.</div>
       </div>
-      <div class="foot"><span>lesson 09 · optional, 15 min</span><span>synthetic fixture is the normal path</span></div>
+      <div class="foot"><span>lesson 02 · worked example</span><span>from recorded run c9fc9e58</span></div>
     </section>
 
-    <!-- 19 ▸ LESSON 10 -->
+    <!-- 16 ▸ OPTIONAL -->
     <section class="slide">
-      <div class="tag"><b>Lesson 10</b> · take it home</div>
+      <div class="tag"><b>Lessons 7–8</b> · optional, if the room has time</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Context is a thing you<br><span class="accent">approve</span>, not import</h2>
+        <div class="cols reveal" style="--d:160ms">
+          <div class="panel">
+            <h3 style="color:var(--muted)">7 · project memory</h3>
+            <ul>
+              <li>Model <strong>proposes</strong> candidate facts</li>
+              <li><strong>You</strong> review before anything is saved</li>
+              <li>Every saved fact names its source</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3 style="color:var(--muted)">8 · a conversation becomes code</h3>
+            <ul>
+              <li>Bee over MCP → an <strong>approved spec</strong></li>
+              <li>Then code, then build, then the device</li>
+              <li>Paraphrase and source ids, <strong>never a transcript</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="support reveal" style="--d:320ms">The model may summarize candidates. <strong>It cannot silently promote them into trusted context.</strong> In lesson 8 that gate has teeth: each request arrives with the check that will prove it, so you approve the acceptance criteria <strong>before the code exists</strong>.</div>
+      </div>
+      <div class="foot"><span>lessons 07–08 · optional</span><span>durable truth is a human decision</span></div>
+    </section>
+
+    <!-- 16b ▸ THE SECOND PIPELINE -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 8</b> · same engine, different plan</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Reusable is a claim.<br><span class="accent">Here it is demonstrated.</span></h2>
+        <div class="codeline reveal" style="--d:160ms">--propose   <span class="c">bee_spec</span>   Bee over MCP → bee-spec.json + BEE_SPEC.md · <span class="o">no code</span>
+            <span class="c">↓ you read and approve</span>
+--apply     <span class="c">bee_apply</span>  the approved spec becomes code
+            <span class="c">build</span>      the .vpkg          <span class="c">← the port's phase</span>
+            <span class="c">launch</span>     on the VDA         <span class="c">← the port's phase</span></div>
+        <div class="support reveal" style="--d:300ms"><code>runPortPipeline</code> takes a plan, and this is the second one. Spec checks are <strong>declarative only</strong> — <code>file_exists</code> and <code>contains</code>, never a command line — and <code>bee_apply</code> declares the spec <strong>read-only</strong>, so the thing being measured cannot edit the measurement.</div>
+      </div>
+      <div class="foot"><span>lesson 08 · optional, 25 min</span><span>bee-run · replay is the normal path</span></div>
+    </section>
+
+    <!-- 17 ▸ LESSON 9 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 9</b> · take it home</div>
       <div class="wrap" style="gap:50px;">
         <h2 class="reveal" style="--d:0ms">TV was the example.<br><span class="accent">The loop is the point.</span></h2>
-        <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → checkpoint → report</div>
+        <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → commit → report</div>
         <div class="support reveal" style="--d:300ms">Take the worksheet. Name <strong>one outcome</strong>, the fewest useful phases, <strong>one mechanical check per phase</strong>, an approval point, a budget, and the evidence another developer can inspect. Swap the TV skill, the Vega adapter, and the D-pad check for your domain.</div>
       </div>
-      <div class="foot"><span>lesson 10 · 15 min</span><span>worksheet.md</span></div>
+      <div class="foot"><span>lesson 09 · 15 min</span><span>worksheet.md</span></div>
     </section>
 
-    <!-- 20 ▸ CLOSE -->
+    <!-- 18 ▸ CLOSE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start; gap:44px;">
         <div class="kicker reveal" style="--d:0ms">Fork it · swap the skills, MCP, or executor · point it at your domain</div>

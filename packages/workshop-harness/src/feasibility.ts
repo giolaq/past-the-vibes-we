@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { renderAdbtPrompt, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
+import { parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
 import type { SourceDiscovery } from "./source-app.js";
 
@@ -52,7 +53,7 @@ export async function runFeasibility(options: {
   executor: PortExecutor;
 }): Promise<FeasibilityResult> {
   const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt);
-  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, FeasibilityOutputSchema);
-  const parsed = FeasibilityOutputSchema.parse(JSON.parse(model.text.match(/\{[\s\S]*\}/)?.[0] ?? "{}"));
+  const model = await options.executor.call(FEASIBILITY_PHASE, prompt, { schema: FeasibilityOutputSchema });
+  const parsed = parseJsonBlock(model.text, FeasibilityOutputSchema, "feasibility");
   return { ...parsed, costUsd: model.costUsd };
 }

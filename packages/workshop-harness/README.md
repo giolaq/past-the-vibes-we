@@ -10,11 +10,11 @@ Before the pipeline, `source_discovery` copies the app into a guarded directory 
 
 1. `analyze` reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict decide whether the port is possible; a `blocked` verdict stops the run at exit `5`.
 2. `plan` gives the model the ADBT read tools so it discovers and reads the Vega workflows itself, then writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
-3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle and captures a launch screenshot.
+3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle: it launches the app, captures a frame, waits five seconds, reads the device log for crash signatures, and captures a second frame.
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause a retry from the clean phase-start commit with the exact failure text — once by default; `--max-attempts N` or `--until-done` raise the budget, still governed by the cost cap and stopped early when the same failures repeat with no progress. When the attempts run out, the harness restores the clean state and stops the run.
 
-The model can inspect and propose, but it cannot write files or run shell commands. The device screenshot is a mandatory gate in `build_test`: the run fails unless a launch screenshot is produced, so the key-free path supplies it with `--platform-replay`.
+The model can inspect and propose, but it cannot write files or run shell commands. Device evidence is a mandatory gate in `build_test`: the run fails unless the app is still running after the dwell and both captured frames pass the pixel gate (at least 640x360, more than one flat colour, not pinned black or white). The key-free path supplies both with `--platform-replay`.
 
 ## How Strands is used
 
@@ -31,6 +31,8 @@ yarn setup
 yarn verify
 yarn doctor
 ```
+
+Set `WORKSHOP_OUT` to move run directories somewhere other than `out/`.
 
 `openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
 
@@ -50,7 +52,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-Read the plan. Then run the port against a live model (pick your executor). `build_test` needs an attached VDA to capture the launch screenshot:
+Read the plan. Then run the port against a live model (pick your executor). `build_test` needs an attached VDA to capture the device frames:
 
 ```sh
 # Claude Code CLI (ADBT via init-context; see "ADBT during the port" below)
@@ -84,7 +86,7 @@ Copy the returned `runId`. Inspect:
 - `packages/workshop-harness/out/<runId>/port-result.json` for phases, checks, retries, and cost;
 - `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows the model read during `analyze` and `plan`, with hashes;
 - `packages/workshop-harness/out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
-- `packages/workshop-harness/out/<runId>/01-launch.png` for the build_test launch screenshot;
+- `packages/workshop-harness/out/<runId>/01-launch.png` and `02-postlaunch.png` for the build_test device frames;
 - `packages/workshop-harness/out/<runId>/app` for the generated app copy and phase commits.
 
 ## ADBT during the port
@@ -158,7 +160,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --plan --
 # Read the plan before choosing replay or live execution.
 ```
 
-The workshop pins ADBT `1.0.5` and Vega SDK `0.22.5875`. The live lifecycle checks the SDK and device, builds a `.vpkg`, installs it, launches it, captures logs, takes a screenshot, pulls the screenshot, and records the focus-check result.
+The workshop pins ADBT `1.0.5` and Vega SDK `0.22.5875`. The live lifecycle checks the SDK and device, builds a `.vpkg`, installs it, launches it, captures and pulls a launch frame, waits five seconds, reads the device log, captures and pulls a second frame, and records the focus-check result. It fails on a crash signature in the log or a frame that does not look rendered. Add `--evaluate-screenshot` (Strands executor only) to also ask a multimodal model what the frame shows.
 
 Use the key-free lifecycle in the workshop:
 
@@ -188,6 +190,6 @@ npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
 yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --json
 ```
 
-An empty VDA device list stops the lifecycle even if the command exits `0`. A live claim requires install, launch, device logs, a pulled screenshot, and `evidenceMode: "live"`.
+An empty VDA device list stops the lifecycle even if the command exits `0`. A live claim requires install, launch, a crash-free device log after the dwell, two pulled frames that pass the pixel gate, and `evidenceMode: "live"`.
 
 See the [workshop guide](../../workshop/README.md) for the full attendee flow.

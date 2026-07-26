@@ -4,8 +4,7 @@ Build a small coding harness with [AWS Strands Agents SDK](https://github.com/st
 
 This repository contains everything used in the workshop:
 
-- `packages/mini-harness`: four runnable stages, from one model call to phases, checks, skills, executors, checkpoints, and replay;
-- `packages/workshop-harness`: the complete guarded porting pipeline built with Strands Agents SDK;
+- `packages/workshop-harness`: the guarded porting pipeline built with Strands Agents SDK — six phases, one lesson each;
 - `apps/pocket-cinema`: the prepared React Native app used by every exercise;
 - `workshop`: the attendee guide, web app, fixtures, checkpoints, troubleshooting, and instructor notes.
 
@@ -43,9 +42,9 @@ The root lockfile marks this clone as an independent Yarn project, even when you
 ## Useful commands
 
 ```sh
-yarn setup          # install all three workshop packages
+yarn setup          # install the workshop packages
 yarn verify         # typecheck, test, and validate workshop links
-yarn replay         # run the first key-free mini-harness exercise
+yarn replay         # run the first key-free exercise: one model call, no writes
 yarn doctor         # check the key-free workshop path
 yarn site           # serve the workshop web app on port 4173
 ```
@@ -73,8 +72,7 @@ Live model and Vega device paths are optional; read [Before You Arrive](workshop
 | `workshop/strands-constructs.md` | Every Strands construct used by the workshop |
 | `workshop/fixtures` | Key-free recordings and context snapshots |
 | `workshop/checkpoints` | Known-good recovery points |
-| `packages/mini-harness/steps` | The architecture built in lessons 1-4 |
-| `packages/workshop-harness/src` | The complete workshop pipeline |
+| `packages/workshop-harness/src` | The harness the whole workshop builds |
 | `apps/pocket-cinema` | Prepared React Native target |
 
 ## What is intentionally absent

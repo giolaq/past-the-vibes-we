@@ -39,7 +39,7 @@ The live port stops with exit `3` during `analyze`, before the `plan` phase; it 
 
 If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
 
-If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force` (or point `MINI_SKILLS_DIR` at your agent's skills directory). Replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection.
+If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force` (or point `WORKSHOP_SKILLS_DIR` at your agent's skills directory). The run continues without the skill, replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection.
 
 ## Vega CLI build or VDA fails
 
@@ -59,7 +59,13 @@ Write down whether the failure came from SDK setup, device attachment, build, or
 
 ## Bee is unavailable
 
-Use `fixtures/bee-context/snapshot.json`; Bee is optional.
+Bee is optional, and both of its paths have a recording. For lesson 7's context snapshot, use `fixtures/bee-context/snapshot.json`. For lesson 8's `bee-run`, pass `--replay workshop/fixtures/bee-run/port-recording.json` and the harness reads `fixtures/bee-run/bee-conversation.json` instead of calling Bee.
+
+`bee login` and `bee mcp serve` run in your own terminal, not in the harness. If a live run reports that the Bee tools are missing, check that `bee` is on `PATH` (or set `BEE_BIN`) and that you are logged in.
+
+If a run stops with `does not match its hash`, the recorded conversation has been edited. Restore it with `git checkout workshop/fixtures/bee-run/bee-conversation.json`.
+
+If `--apply` refuses with `bee_spec_missing`, the propose half has not run in that run directory. Run `bee-run <app> --propose` first, read `out/bee/app/BEE_SPEC.md`, then apply.
 
 ## A detached run appears stuck
 

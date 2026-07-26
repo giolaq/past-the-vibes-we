@@ -29,7 +29,7 @@ function Home({ onOpen }: { onOpen(movie: Movie): void }) {
   </SafeAreaView>;
 }
 
-export function ContentCard({ movie, onPress }: { movie: Movie; onPress(): void }) {
+function ContentCard({ movie, onPress }: { movie: Movie; onPress(): void }) {
   return <Pressable style={styles.card} onPress={onPress}>
     <View style={[styles.poster, { backgroundColor: movie.color }]}><Text style={styles.posterMark}>{movie.title.slice(0, 1)}</Text></View>
     <Text style={styles.cardTitle}>{movie.title}</Text><Text style={styles.meta}>{movie.genre} · {movie.year}</Text>

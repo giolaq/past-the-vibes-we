@@ -1,6 +1,6 @@
 # Strands Constructs Used in This Workshop
 
-This is a code-reading guide, not a list of everything Strands Agents SDK can do. Both the complete workshop harness and the staged mini-harness pin `@strands-agents/sdk` `1.10.0`. Both use bounded agents around React Native work. The complete harness inspects a guarded app and proposes a Vega patch.
+This is a code-reading guide, not a list of everything Strands Agents SDK can do. The workshop harness pins `@strands-agents/sdk` `1.10.0` and uses a bounded agent that inspects a guarded React Native app and proposes a Vega patch.
 
 Everything in these tables comes from the SDK. Writes, checks, retries, cost, and commits stay in workshop code.
 
@@ -11,7 +11,7 @@ Use these files while reading this guide:
 - `packages/workshop-harness/src/port-tools.ts`
 - `packages/workshop-harness/src/port-contract.ts`
 - `packages/workshop-harness/src/context-providers/adbt.ts`
-- `packages/mini-harness/model-runtime.ts`
+- `packages/workshop-harness/src/skills.ts`
 
 ## The live Strands path
 
@@ -104,18 +104,17 @@ agent.invoke(prompt, {
 | Construct | Use |
 | --- | --- |
 | `agent.invoke()` | Starts one agent run and resolves to an `AgentResult`. |
-| `limits.turns` | Caps model-and-tool loop iterations. The mini-harness allows three turns when a phase has a skill and one otherwise. |
+| `limits.turns` | Caps model-and-tool loop iterations. The port allows eight per phase. |
 | `limits.totalTokens` | Caps total token use for that invocation. |
 | `cancelSignal` | Lets an external abort signal stop the invocation at cancellation points. The workshop supplies a ten-minute native `AbortSignal.timeout()`. |
 | `AgentResult` | Carries structured output, messages, stop information, and metrics. |
 | `metrics.accumulatedUsage` | Reports input and output tokens accumulated across the invocation. |
-| `lastMessage` | Used only by the mini-harness live example, which reads raw text instead of using a structured-output schema. |
 
 Strands reports usage. The harness applies configured token prices, enforces the run budget, and records the result. Cost policy is not delegated to the model.
 
-## Skill delivery in the mini-harness
+## Skill delivery
 
-Step 4 loads the same phase skill before choosing an executor:
+Each phase names its skills in `phases()`; the executor decides how the model receives them:
 
 | Executor | Delivery |
 | --- | --- |
@@ -123,7 +122,7 @@ Step 4 loads the same phase skill before choosing an executor:
 | Strands | Each loaded instruction becomes a Strands `Skill`. `AgentSkills` is registered through `plugins`, injects skill metadata, and provides the `skills` activation tool for progressive disclosure. |
 | Replay | No model runs. The recorded response replaces either live delivery path. |
 
-The base phase prompt contains no skill body, so a Strands invocation does not receive duplicate instructions. See `packages/mini-harness/model-runtime.ts` and `packages/mini-harness/tests/skill-delivery.test.ts`.
+The base phase prompt contains no skill body, so a Strands invocation does not receive duplicate instructions. A skill that is not installed is reported and skipped rather than failing the run. See `packages/workshop-harness/src/skills.ts` and `packages/workshop-harness/tests/skills.test.ts`.
 
 ## Why this repository uses `invoke()`
 
