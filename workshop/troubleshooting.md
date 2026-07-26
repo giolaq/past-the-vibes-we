@@ -59,7 +59,13 @@ Write down whether the failure came from SDK setup, device attachment, build, or
 
 ## Bee is unavailable
 
-Use `fixtures/bee-context/snapshot.json`; Bee is optional.
+Bee is optional, and both of its paths have a recording. For lesson 7's context snapshot, use `fixtures/bee-context/snapshot.json`. For lesson 8's `bee-run`, pass `--replay workshop/fixtures/bee-run/port-recording.json` and the harness reads `fixtures/bee-run/bee-conversation.json` instead of calling Bee.
+
+`bee login` and `bee mcp serve` run in your own terminal, not in the harness. If a live run reports that the Bee tools are missing, check that `bee` is on `PATH` (or set `BEE_BIN`) and that you are logged in.
+
+If a run stops with `does not match its hash`, the recorded conversation has been edited. Restore it with `git checkout workshop/fixtures/bee-run/bee-conversation.json`.
+
+If `--apply` refuses with `bee_spec_missing`, the propose half has not run in that run directory. Run `bee-run <app> --propose` first, read `out/bee/app/BEE_SPEC.md`, then apply.
 
 ## A detached run appears stuck
 

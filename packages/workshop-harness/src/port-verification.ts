@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
+import type { ZodTypeAny } from "zod";
 import { runProcess } from "./process.js";
 
 // `contains` requires its value: an optional one would let a check with no value pass
@@ -8,7 +9,18 @@ import { runProcess } from "./process.js";
 export type PortCheck =
   | { type: "file_exists"; path: string; label: string }
   | { type: "contains"; path: string; value: string; label: string }
+  | { type: "json_schema"; path: string; schema: ZodTypeAny; label: string }
   | { type: "command"; command: string; args: string[]; label: string; timeoutMs?: number };
+
+/**
+ * A check's path must stay inside the app. Hand-written checks always do; a check that arrives
+ * from a model — see `bee-spec.ts` — is exactly why this is enforced rather than assumed.
+ */
+export function containedPath(appDir: string, path: string): string | null {
+  const root = resolve(appDir);
+  const target = resolve(root, path);
+  return target === root || target.startsWith(`${root}${sep}`) ? relative(root, target) : null;
+}
 
 /** Runs a TypeScript file with the tsx loader, the way the generated app's verifier expects. */
 export const TSX_LOADER = createRequire(import.meta.url).resolve("tsx");
@@ -45,9 +57,14 @@ export async function verifyPort(appDir: string, checks: PortCheck[]): Promise<s
       if (failure) failures.push(failure);
       continue;
     }
+    if (!containedPath(appDir, check.path)) { failures.push(`${check.label}: ${check.path} resolves outside the app`); continue; }
     const path = join(appDir, check.path);
     if (!existsSync(path)) { failures.push(`${check.label}: missing ${check.path}`); continue; }
     if (check.type === "contains" && !readFileSync(path, "utf8").includes(check.value)) failures.push(`${check.label}: ${check.path} must contain ${JSON.stringify(check.value)}`);
+    if (check.type === "json_schema") {
+      const failure = schemaFailure(readFileSync(path, "utf8"), check.schema);
+      if (failure) failures.push(`${check.label}: ${check.path} ${failure}`);
+    }
   }
   return failures;
 }
@@ -66,6 +83,19 @@ async function runCommandCheck(appDir: string, check: Extract<PortCheck, { type:
   } catch (error) {
     return `${check.label}: could not run ${check.command} — ${error instanceof Error ? error.message : String(error)}`;
   }
+}
+
+/** A file the harness will act on must parse, and must be the shape it claims to be. */
+function schemaFailure(text: string, schema: ZodTypeAny): string | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    return `is not valid JSON — ${error instanceof Error ? error.message : String(error)}`;
+  }
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return null;
+  return `does not match the required shape: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "(root)"} ${issue.message}`).join("; ")}`;
 }
 
 function output(result: { stdout: string; stderr: string }): string {

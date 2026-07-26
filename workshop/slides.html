@@ -453,7 +453,7 @@ h2 {
             <ul>
               <li><strong>1–3</strong> · analyze, plan, port — the model writes</li>
               <li><strong>4–6</strong> · build, launch, test — the toolchain judges</li>
-              <li><strong>7–8</strong> · optional: project memory, Bee context</li>
+              <li><strong>7–8</strong> · optional: project memory, a conversation becomes code</li>
               <li><strong>9</strong> · design a harness for <strong>your</strong> domain</li>
             </ul>
           </div>
@@ -660,17 +660,32 @@ before relying on them — they are <span class="o">not invented APIs presented 
             </ul>
           </div>
           <div class="panel">
-            <h3 style="color:var(--muted)">8 · Bee context</h3>
+            <h3 style="color:var(--muted)">8 · a conversation becomes code</h3>
             <ul>
-              <li>A wearable that turns talk into decisions</li>
-              <li>A <strong>discovery source</strong>, with consent</li>
-              <li>Scrubbed snapshot, <strong>never a transcript</strong></li>
+              <li>Bee over MCP → an <strong>approved spec</strong></li>
+              <li>Then code, then build, then the device</li>
+              <li>Paraphrase and source ids, <strong>never a transcript</strong></li>
             </ul>
           </div>
         </div>
-        <div class="support reveal" style="--d:320ms">The model may summarize candidates. <strong>It cannot silently promote them into trusted context.</strong> Disconnect Bee and the approved snapshot still works.</div>
+        <div class="support reveal" style="--d:320ms">The model may summarize candidates. <strong>It cannot silently promote them into trusted context.</strong> In lesson 8 that gate has teeth: each request arrives with the check that will prove it, so you approve the acceptance criteria <strong>before the code exists</strong>.</div>
       </div>
-      <div class="foot"><span>lessons 07–08 · optional, 15 min each</span><span>durable truth is a human decision</span></div>
+      <div class="foot"><span>lessons 07–08 · optional</span><span>durable truth is a human decision</span></div>
+    </section>
+
+    <!-- 16b ▸ THE SECOND PIPELINE -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 8</b> · same engine, different plan</div>
+      <div class="wrap" style="gap:44px;">
+        <h2 class="reveal" style="--d:0ms">Reusable is a claim.<br><span class="accent">Here it is demonstrated.</span></h2>
+        <div class="codeline reveal" style="--d:160ms">--propose   <span class="c">bee_spec</span>   Bee over MCP → bee-spec.json + BEE_SPEC.md · <span class="o">no code</span>
+            <span class="c">↓ you read and approve</span>
+--apply     <span class="c">bee_apply</span>  the approved spec becomes code
+            <span class="c">build</span>      the .vpkg          <span class="c">← the port's phase</span>
+            <span class="c">launch</span>     on the VDA         <span class="c">← the port's phase</span></div>
+        <div class="support reveal" style="--d:300ms"><code>runPortPipeline</code> takes a plan, and this is the second one. Spec checks are <strong>declarative only</strong> — <code>file_exists</code> and <code>contains</code>, never a command line — and <code>bee_apply</code> declares the spec <strong>read-only</strong>, so the thing being measured cannot edit the measurement.</div>
+      </div>
+      <div class="foot"><span>lesson 08 · optional, 25 min</span><span>bee-run · replay is the normal path</span></div>
     </section>
 
     <!-- 17 ▸ LESSON 9 -->

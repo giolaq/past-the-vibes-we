@@ -10,6 +10,7 @@ This file is for agents maintaining or modifying the repository. If you are an a
 - `workshop/workshop.data.js`: generated from `lessons/` by `scripts/build-site.mjs`. Do not edit by hand.
 - `workshop/`: attendee website chrome (`index.html`, `workshop.css`, `workshop.js` — runtime only), fixtures, checkpoints, and instructor material.
 - `packages/workshop-harness/`: the guarded React Native-to-Vega pipeline. Six phases — `analyze → plan → port → build → launch → test` — and one lesson each (`--phases` runs a subset).
+- `packages/workshop-harness/src/bee-pipeline.ts`: the optional second pipeline (lesson 8, `bee-run`). Same engine, a different plan: a conversation becomes an approved spec, then code, then `build` and `launch` reused from the port. The spec contract and its guards live in `bee-spec.ts`.
 - `apps/pocket-cinema/`: prepared React Native target.
 - `scripts/`: `build-site.mjs` (lessons → site data), workshop link checks, checkpoint packaging, and the static site server.
 
@@ -49,3 +50,5 @@ Every exercise must state:
 4. Which fixture or checkpoint to use when blocked.
 
 Keep model authority narrow. The port agent receives read-only project tools and returns a typed patch. The harness owns writes, checks, retries, cost, commits, and reports.
+
+Four invariants hold the Bee lesson up. Do not relax them to make a run pass. A spec check may be `file_exists` or `contains` and never `command` — a model-authored command line is a different kind of authority from a model-authored assertion, and human approval does not close that gap. Spec paths must resolve inside the app. `BEE_SPEC.md` is rendered by the harness from the validated JSON, never written by the model, so the approved prose cannot disagree with what gets built. And `bee_apply` declares the spec read-only: the thing being measured does not edit the measurement. Bee provenance stores hashes and conversation ids and no transcript, which is why it differs from ADBT's excerpts.

@@ -8,12 +8,14 @@ import { fileURLToPath } from "node:url";
 import { auditSource, summarize } from "./portability-audit.js";
 import { runFeasibility, type FeasibilityResult } from "./feasibility.js";
 import { ADBT_PORT_WORKFLOWS, AdbtMcpContextProvider, AdbtContextError, AdbtReplayContextProvider, createAdbtMcpClient, type AdbtContextProvider } from "./context-providers/adbt.js";
-import { BeeContextProvider } from "./context-providers/bee.js";
+import { BEE_SERVER, BeeContextProvider, createBeeMcpClient, extractBeeProvenance, loadRecordedBeeContext, recordedBeeProvenance } from "./context-providers/bee.js";
+import { BEE_APPLY_PHASE, BEE_SPEC_PHASE, beePhases } from "./bee-pipeline.js";
+import { BEE_SPEC_MD, loadBeeSpec, renderBeeSpec } from "./bee-spec.js";
 import { CliFailure, failure, json } from "./output.js";
 import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memory.js";
 import { assembleProjectContext } from "./phase-context.js";
 import { READ_ONLY_TOOLS, createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
-import { PortBudgetError, phases, runPortPipeline } from "./port-pipeline.js";
+import { ADBT_SERVER, PortBudgetError, commitAll, phases, runPortPipeline } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
 import { createScreenshotJudge } from "./platform/screenshot-vision.js";
 import { ADBT_PACKAGE, VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, startDeviceRun, writeDeviceResult, type ScreenshotJudge, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
@@ -34,6 +36,7 @@ async function main(): Promise<void> {
   if (command === "context") return contextCommand();
   if (command === "vega-run") return vegaRunCommand();
   if (command === "tv-check") return tvCheckCommand();
+  if (command === "bee-run") return beeRunCommand();
   help();
 }
 
@@ -192,13 +195,14 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     const liveStrands = !replayPath && plan.executor.kind === "strands";
     const adbtClient = liveStrands ? createAdbtMcpClient({ cwd: appDir }) : undefined;
     const adbt = adbtClient ? undefined : resolveAdbtProvider(appDir);
+    const mcpClients = adbtClient ? { [ADBT_SERVER]: adbtClient } : undefined;
     // --until-done removes the attempt cap; the cost cap and the no-progress rule still stop the loop.
     const maxAttempts = args.includes("--until-done") ? Infinity : Number(flag("--max-attempts") ?? 2);
     // The build, launch, and test phases execute against a device. One session spans them, so
     // the package phase 4 produced is the one phase 5 installs. A partial run that stops before
     // them opens no session and claims no device evidence.
     const device = selected.some((phase) => phase.device?.length) ? openDeviceSession(out, appDir) : undefined;
-    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, maxAttempts, phaseNames: phaseNames(), executor, device, judge: screenshotJudge(), adbt, adbtClient, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: alreadyComplete }, null, 2)) });
+    const port = await runPortPipeline({ appDir, outDir: out, findings: plan.findings, projectContext: plan.phaseContext, seed: plan.seed, maxCostUsd: plan.maxCostUsd - plan.feasibility.costUsd, maxAttempts, phaseNames: phaseNames(), executor, device, judge: screenshotJudge(), adbt, mcpClients, onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: alreadyComplete }, null, 2)) });
     port.costUsd += plan.feasibility.costUsd;
     writeFileSync(join(out, "port-result.json"), JSON.stringify({ schemaVersion: 1, ...port }, null, 2));
     if (device) writeDeviceResult(device, loadPlatformReplay() ? "replay" : "live");
@@ -265,6 +269,108 @@ function runLifecycle(out: string, appDir: string, liveAdapter?: VegaAdapter) {
     appId: replay?.fixture.appId,
     judge: screenshotJudge(),
   });
+}
+
+/**
+ * The Bee pipeline, in two halves with a human in between.
+ *
+ *   bee-run <app> --propose        the conversation becomes a reviewable spec; no code written
+ *   bee-run <app> --apply --yes    the approved spec becomes code, then builds and launches
+ *
+ * Both halves share a --run-id, so --apply continues in the guarded copy --propose created.
+ */
+async function beeRunCommand(): Promise<void> {
+  const sourcePath = args[1];
+  if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness bee-run <app> --propose.");
+  const proposing = args.includes("--propose");
+  const applying = args.includes("--apply");
+  if (proposing === applying) failure("bee_mode_required", "Choose one half of the Bee run.", "Use --propose to extract a spec, then --apply --yes to implement it.");
+  if (applying && !args.includes("--yes")) failure("confirmation_required", "Applying a conversation to your app requires explicit confirmation.", "Read BEE_SPEC.md, then rerun with --apply --yes.");
+
+  const runId = flag("--run-id") ?? "bee";
+  const out = join(root, runId);
+  const appDir = join(out, "app");
+  const statusPath = join(out, "status.json");
+  mkdirSync(out, { recursive: true });
+  try {
+    if (!existsSync(appDir)) copySource(sourcePath, appDir);
+    // An unapproved spec is not a thing to build from: --apply reads what --propose wrote and
+    // validates it before a single file changes.
+    const spec = applying ? loadBeeSpec(appDir) : null;
+    if (applying && !spec) failure("bee_spec_missing", `No approved ${BEE_SPEC_MD} in ${appDir}.`, "Run bee-run <app> --propose first, read the spec, then rerun with --apply --yes.");
+
+    const replayPath = flag("--replay");
+    const executorConfig = resolveExecutorConfig({ executor: flag("--executor"), provider: flag("--provider"), model: flag("--model"), region: flag("--region") });
+    const executor = createPortExecutor({ appDir, outDir: out, replayPath, config: executorConfig, recordingName: "bee-recording.json" });
+    // Live: hand the Bee client to the agent and let Strands discover its tools. Replay: the
+    // recorded conversation context is injected as prompt text instead.
+    const liveBee = !replayPath && executorConfig.kind === "strands" && proposing;
+    const beeClient = liveBee ? createBeeMcpClient() : undefined;
+    const recordedBee = beeClient ? undefined : beeReplayPath(replayPath);
+    const plan = beePhases(spec, appDir);
+    const phaseNamesForRun = proposing ? [BEE_SPEC_PHASE] : plan.map((phase) => phase.name).filter((name) => name !== BEE_SPEC_PHASE);
+    const device = applying ? openDeviceSession(out, appDir) : undefined;
+
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase: phaseNamesForRun[0], phasesComplete: completedPhases(statusPath) }, null, 2));
+    const result = await runPortPipeline({
+      appDir, outDir: out, findings: [], projectContext: beeContext(recordedBee), seed: flag("--seed") ?? "workshop-v1",
+      maxCostUsd: Number(flag("--max-cost") ?? 3), plan, phaseNames: phaseNamesForRun,
+      executor, device, judge: screenshotJudge(),
+      mcpClients: beeClient ? { [BEE_SERVER]: beeClient } : undefined,
+      onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: completedPhases(statusPath) }, null, 2)),
+      // Provenance without a transcript: what was consulted, and a hash proving it was not edited.
+      // Live provenance is reconstructed from the agent's Bee tool calls; on the recorded path it
+      // comes from the fixture's verified hash, so both halves leave the same evidence behind.
+      onMessages: (phase, messages) => {
+        if (phase !== BEE_SPEC_PHASE) return;
+        const provenance = beeClient ? extractBeeProvenance(messages) : recordedBee ? recordedBeeProvenance(loadRecordedBeeContext(recordedBee)) : undefined;
+        if (provenance) writeFileSync(join(out, "bee-context.json"), JSON.stringify(provenance, null, 2));
+      },
+    });
+    writeFileSync(join(out, "bee-result.json"), JSON.stringify({ schemaVersion: 1, ...result }, null, 2));
+    if (device) writeDeviceResult(device, loadPlatformReplay() ? "replay" : "live");
+
+    // The review document is rendered by the harness from the validated spec, so the prose a
+    // human approves can never disagree with the requests the apply phase will implement.
+    if (proposing) {
+      const written = loadBeeSpec(appDir);
+      if (written) {
+        writeFileSync(join(appDir, BEE_SPEC_MD), renderBeeSpec(written));
+        // Committed, not left untracked: it is the artifact you approve, and the apply phase's
+        // first reset would otherwise clean it away.
+        commitAll(appDir, "workshop(bee_spec): render the spec for review");
+      }
+    }
+
+    const phasesComplete = [...new Set([...completedPhases(statusPath), ...result.phases.map((phase) => phase.name)])];
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "complete", currentPhase: null, phasesComplete, costUsd: result.costUsd, out }, null, 2));
+    json({
+      event: proposing ? "bee_spec_ready" : "bee_apply_complete",
+      runId, state: "complete", out, costUsd: result.costUsd, phasesComplete,
+      review: proposing ? join(appDir, BEE_SPEC_MD) : undefined,
+      next: proposing ? `Read ${join(appDir, BEE_SPEC_MD)}, then rerun with --apply --yes` : undefined,
+    });
+  } catch (error) {
+    if (error instanceof CliFailure) throw error;
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "failed", error: String(error) }, null, 2));
+    failure("bee_run_failed", String(error), `Inspect ${out} and the spec in ${appDir}.`, 2);
+  }
+}
+
+function beeReplayPath(replayPath?: string): string | undefined {
+  const path = flag("--bee-replay") ?? (replayPath ? join(dirname(resolve(replayPath)), "bee-conversation.json") : undefined);
+  return path && existsSync(path) ? path : undefined;
+}
+
+/**
+ * The recorded conversation, injected as prompt text when no live Bee client is available. Loading
+ * verifies the fixture's hash, so an edited transcript stops the run instead of reaching the model.
+ */
+function beeContext(path?: string): string {
+  if (!path) return "## Conversation context\n\nNo recorded conversation. Use the Bee tools to find it.";
+  const recorded = loadRecordedBeeContext(path);
+  const conversations = recorded.conversations.map((conversation) => `### ${conversation.id} (${conversation.recordedAt})\n${conversation.transcript.join("\n")}`);
+  return `## Conversation context (recorded)\n\nQuery: ${recorded.query}\n\n${conversations.join("\n\n")}`;
 }
 
 function statusCommand(): void {

@@ -240,7 +240,29 @@ You reach for live only to prove the real thing works (real model reasoning, rea
 
 ---
 
-## 10. Taking it to your own domain
+## 10. A second pipeline on the same engine (the optional Bee run)
+
+The reusability claim is easy to assert and harder to demonstrate, so the optional Bee lesson demonstrates it: `runPortPipeline` takes a plan, and `bee-run` hands it a different one. A conversation about the app becomes code that runs on the device, and `build` and `launch` are the port's own phases, reused unchanged.
+
+```
+bee-run <app> --propose         bee_spec   Bee over MCP -> bee-spec.json + BEE_SPEC.md, no code
+                                        ↓  a human reads and approves
+bee-run <app> --apply --yes      bee_apply  the approved spec becomes code
+                                 build      the .vpkg          (the port's phase)
+                                 launch     on the VDA         (the port's phase)
+```
+
+Three design points are the reason it is in the workshop at all:
+
+- **The acceptance criteria are approved before the code exists.** Each request in the spec carries the file assertion that will prove it, so `bee_apply` passes a bar a human set beforehand. A model that writes code and then judges it is grading its own work.
+- **The spec is a paraphrase with source ids, never a transcript.** `BEE_SPEC.md` is rendered by the harness from the validated JSON, so the prose a human approves cannot disagree with what gets built. Provenance in `bee-context.json` is a tool name, a conversation id, and a SHA-256 — deliberately unlike ADBT's, whose excerpts are vendor documentation and safe to keep.
+- **Model-authored checks are declarative only.** Spec checks are `file_exists` and `contains`; `command` is rejected by the schema. And `bee_apply` declares the spec read-only, so a patch cannot pass by rewriting the requirement.
+
+The Bee MCP path needs an account and `bee login`, both outside the harness, so the recorded path (`workshop/fixtures/bee-run/`) is the normal one. That recording is hash-verified on load: an edited transcript stops the run instead of reaching the model.
+
+---
+
+## 11. Taking it to your own domain
 
 The pattern transfers to any workflow: keep `plan → context → run → check → retry → checkpoint → report`, and swap the TV skill and Vega commands for yours. The "take it home" lesson walks through it.
 
@@ -252,16 +274,19 @@ The retry is also where you extend the harness toward "loop until the port is do
 
 | Concept | File |
 |---|---|
-| CLI entry, commands (`plan`, `run`, `vega-run`) | `packages/workshop-harness/src/index.ts` |
+| CLI entry, commands (`plan`, `run`, `vega-run`, `bee-run`) | `packages/workshop-harness/src/index.ts` |
 | The phase plan + retry/verify/commit loop | `packages/workshop-harness/src/port-pipeline.ts` |
 | The model interaction (Strands Agent, invoke, limits) | `packages/workshop-harness/src/port-executor.ts` |
 | Read-only guarded tools (list/read/search) | `packages/workshop-harness/src/port-tools.ts` |
 | Required output shape `{summary, files}` | `packages/workshop-harness/src/port-contract.ts` |
-| Mechanical checks (`file_exists`, `contains`, `command`) | `packages/workshop-harness/src/port-verification.ts` |
+| Mechanical checks (`file_exists`, `contains`, `json_schema`, `command`) | `packages/workshop-harness/src/port-verification.ts` |
 | ADBT+model feasibility verdict (the audit's "is this possible?") | `packages/workshop-harness/src/feasibility.ts` |
 | ADBT over MCP (connect, list, read, hash, disconnect) | `packages/workshop-harness/src/context-providers/adbt.ts` |
 | Guarded copy + provenance | `packages/workshop-harness/src/source-app.ts` |
 | The Vega device stages | `packages/workshop-harness/src/platform/vega.ts` |
+| The second pipeline, same engine | `packages/workshop-harness/src/bee-pipeline.ts` |
+| The approved spec contract and its guards | `packages/workshop-harness/src/bee-spec.ts` |
+| Bee over MCP, and provenance without a transcript | `packages/workshop-harness/src/context-providers/bee.ts` |
 | The 3 domain skills | `packages/workshop-harness/skills/*/SKILL.md` |
 | The device-screenshot limitation we hit | `workshop/live-rehearsal.md` |
 
