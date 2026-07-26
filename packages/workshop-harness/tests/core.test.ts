@@ -99,12 +99,12 @@ function fixtureSnapshot(root: string): string {
   return path;
 }
 
-test("tv-ready checks fail on a touch-first app and pass on a ported one", () => {
+test("tv-ready checks fail on a touch-first app and pass on a ported one", async () => {
   const starter = temp();
   mkdirSync(join(starter, "src"));
   writeFileSync(join(starter, "src", "App.tsx"), "export const App = () => null;");
   const staticChecks = tvReadyChecks().filter((check) => check.type !== "command");
-  const before = verifyPort(starter, staticChecks);
+  const before = await verifyPort(starter, staticChecks);
   assert.equal(before.length, staticChecks.length);
 
   const ported = temp();
@@ -115,7 +115,7 @@ test("tv-ready checks fail on a touch-first app and pass on a ported one", () =>
   writeFileSync(join(ported, "src", "App.tsx"), "import './tv/focus-state.js'; export const tv = 'hasTVPreferredFocus';");
   writeFileSync(join(ported, "apps", "vega", "manifest.toml"), "schema-version = 1");
   writeFileSync(join(ported, "tests", "verify-tv-focus.ts"), "process.exit(0);");
-  assert.deepEqual(verifyPort(ported, staticChecks), []);
+  assert.deepEqual(await verifyPort(ported, staticChecks), []);
 });
 
 test("tv-check and the build_test gate run the focus verifier the same way", async () => {

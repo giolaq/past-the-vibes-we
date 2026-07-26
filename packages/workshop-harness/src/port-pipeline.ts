@@ -62,7 +62,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
             result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence: evidencePath };
           }
-          failures = verifyPort(options.appDir, phase.checks);
+          failures = await verifyPort(options.appDir, phase.checks);
           if (failures.length === 0) {
             commit(options.appDir, `workshop(${phase.name}): ${output.summary.slice(0, 60)}`);
             result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label), failures: rejected });
@@ -158,5 +158,12 @@ function initializeGit(appDir: string) {
   git(appDir, ["commit", "-m", "workshop: import guarded source"]);
 }
 function gitHead(appDir: string) { return git(appDir, ["rev-parse", "HEAD"]); }
-function reset(appDir: string, head: string) { git(appDir, ["reset", "--hard", head]); git(appDir, ["clean", "-fd"]); }
+// Build output and dependencies are untracked but expensive to reproduce, and a retry that
+// deleted them would rebuild from zero every attempt — and throw away the artifact it is
+// trying to fix. Everything else the model wrote is cleaned.
+const RETRY_KEEPS = ["build", "node_modules", "*.vpkg"];
+function reset(appDir: string, head: string) {
+  git(appDir, ["reset", "--hard", head]);
+  git(appDir, ["clean", "-fd", ...RETRY_KEEPS.flatMap((pattern) => ["-e", pattern])]);
+}
 function commit(appDir: string, message: string) { git(appDir, ["add", "-A"]); git(appDir, ["commit", "-m", message]); }

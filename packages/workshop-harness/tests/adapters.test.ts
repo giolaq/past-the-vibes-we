@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BeeContextProvider } from "../src/context-providers/bee.js";
 import { PLACEHOLDER_PIXEL_PNG, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, type VegaCapability } from "../src/platform/vega.js";
-import { runProcess } from "../src/process.js";
+import { MAX_CAPTURED_CHARS, runProcess } from "../src/process.js";
+import { verifyPort } from "../src/port-verification.js";
 import { resolveExecutorConfig } from "../src/port-executor.js";
 
 function script(body: string): string {
@@ -15,10 +16,42 @@ function script(body: string): string {
   return path;
 }
 
-test("process timeout is bounded", async () => {
+test("process timeout is bounded, and the kill is visible", async () => {
   const fake = script("sleep 2");
   const result = await runProcess(fake, [], 20);
   assert.equal(result.timedOut, true);
+  // A signalled process must not be mistaken for a program that chose to exit.
+  assert.equal(result.signal, "SIGTERM");
+});
+
+test("process output is bounded so one build log cannot fill the prompt", async () => {
+  const fake = script("i=0; while [ $i -lt 4000 ]; do echo \"line $i xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"; i=$((i+1)); done");
+  const result = await runProcess(fake, [], 20_000);
+  assert.ok(result.stdout.length < MAX_CAPTURED_CHARS + 200, `kept ${result.stdout.length} characters`);
+  // Both ends survive: what it was doing, and where it stopped.
+  assert.match(result.stdout, /^line 0 /);
+  assert.match(result.stdout, /line 3999 /);
+  assert.match(result.stdout, /characters elided/);
+});
+
+test("a failing command check reports the command's own output", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "command-check-"));
+  const failing = script("echo 'src/App.tsx(12,5): error TS2304: Cannot find name Foo.'; exit 2");
+  const [failure] = await verifyPort(dir, [{ type: "command", command: failing, args: [], label: "Vega build" }]);
+  assert.match(failure, /Vega build: exited 2/);
+  assert.match(failure, /error TS2304: Cannot find name Foo/);
+});
+
+test("a command check that times out says so", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "command-timeout-"));
+  const [failure] = await verifyPort(dir, [{ type: "command", command: script("sleep 5"), args: [], label: "Vega build", timeoutMs: 30 }]);
+  assert.match(failure, /Vega build: timed out after 0s/);
+});
+
+test("a command check whose binary is missing fails instead of throwing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "command-missing-"));
+  const [failure] = await verifyPort(dir, [{ type: "command", command: "/nonexistent/vega", args: [], label: "Vega build" }]);
+  assert.match(failure, /could not run \/nonexistent\/vega/);
 });
 
 test("Vega adapter owns capability command arrays", () => {
