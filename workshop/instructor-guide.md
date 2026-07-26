@@ -1,5 +1,9 @@
 # Instructor Guide
 
+Rehearsing before you teach? [The dry run](dry-run.md) is the timed run-through:
+every demo command with its verified output, the demos most likely to fail on
+stage, the go/no-go for the device path, and briefs for two co-hosts.
+
 ## Before the workshop
 
 1. Send [setup](lessons/00-welcome.md) 48 hours early.

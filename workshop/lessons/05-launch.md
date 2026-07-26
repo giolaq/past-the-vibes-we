@@ -72,9 +72,9 @@ A gate you have never seen fail is a gate you are trusting on faith. Break each 
 :::
 
 :::steps
-1. Copy `workshop/fixtures/vega-lifecycle.json`, and in your copy add `FATAL EXCEPTION: main` to the `logs` turn's stdout. Run with `--platform-replay` pointed at the copy: the run fails naming that exact line.
+1. Copy `workshop/fixtures/vega-lifecycle.json` into that same directory, so its `screenshot` path still resolves. In your copy, add `FATAL EXCEPTION: main` to the `logs` turn's stdout. Run with `--platform-replay` pointed at the copy: the run fails naming that exact line.
 2. In another copy, delete the `screenshot` line. The replay falls back to a 1x1 pixel and the run fails with `frame is 1x1, smaller than the 640x360 minimum for a device screen`.
-3. Both end at exit code 2. Neither reaches the test phase.
+3. Both end at exit code 2. Neither reaches the test phase. The line after the gate says the recording ran out of turns — a live run would rebuild and retry here, and the recording has nothing left to give.
 :::
 
 :::knowledge Why is a screenshot alone not enough here?
