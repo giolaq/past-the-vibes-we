@@ -10,6 +10,8 @@ This repository contains everything used in the workshop:
 
 The standard path uses committed recordings. You do not need a model account, API key, Vega SDK, or device to complete the core workshop.
 
+On a live run, both supported executors use Amazon Devices Builder Tools as MCP. Strands receives an in-process `McpClient`; Claude Code receives an explicit pinned `--mcp-config`. Both are read-only. The harness is the only component allowed to apply a validated patch, run commands, spend against the cumulative cap, or commit.
+
 ## Start here
 
 Install Node.js 20 or newer and Git — Corepack will install the repository's pinned Yarn 4.12 — then run:
@@ -60,6 +62,17 @@ unset NODE_TLS_REJECT_UNAUTHORIZED
 Do not disable TLS certificate verification to work around a network or proxy problem.
 
 Live model and Vega device paths are optional; read [Before You Arrive](workshop/lessons/00-welcome.md) before configuring them.
+
+Every run leaves one append-only model transcript per phase under
+`out/<runId>/model-logs/`. It records the complete prompt and native events from Strands,
+Claude Code, or replay, followed by the phase checks and outcome. Read one with:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
+```
+
+Add `--follow` to watch a live phase. The files can contain source excerpts and tool results,
+so keep them in the gitignored `out/` directory and review them before sharing.
 
 ## Repository map
 

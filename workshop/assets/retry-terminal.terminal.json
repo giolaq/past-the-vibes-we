@@ -1,20 +1,20 @@
 {
-  "title": "Lesson 3 · a failed check becomes the retry's context",
+  "title": "Lesson 3 · captured output from the committed replay",
   "lines": [
     { "tone": "prompt", "label": "$ ", "text": "yarn --cwd packages/workshop-harness tsx src/index.ts run \\" },
-    "    ../../apps/pocket-cinema --phases analyze,plan --yes \\",
-    "    --replay ../../workshop/fixtures/port-retry/port-recording.json",
+    "    ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs \\",
+    "    --replay ../../workshop/fixtures/port-retry/port-recording.json \\",
+    "    --phases analyze,plan --yes --run-id retry-demo",
     { "blank": true },
     { "tone": "fail", "label": "plan attempt 1 failed:" },
     { "tone": "fail", "label": "  - ", "text": "TV flow documented: VEGA_PORT.md must contain \"## TV Flow\"" },
+    { "tone": "fail", "label": "  - ", "text": "Focus model documented: VEGA_PORT.md must contain \"## Focus\"" },
     { "blank": true },
-    { "tone": "dim", "label": "# the same text goes into the retry prompt, then attempt 2 passes" },
+    { "text": "{\"schemaVersion\":1,\"event\":\"run_complete\",\"runId\":\"retry-demo\"," },
+    { "text": " \"state\":\"complete\",\"costUsd\":0.0118,\"budgetUsd\":10," },
+    { "text": " \"phasesComplete\":[\"analyze\",\"plan\"]}" },
     { "blank": true },
-    { "text": "{\"event\":\"run_complete\",\"runId\":\"d03dd1aa\",\"state\":\"complete\"," },
-    { "text": " \"costUsd\":0.0118,\"phasesComplete\":[\"analyze\",\"plan\"]}" },
-    { "blank": true },
-    { "tone": "note", "label": "port-result.json  ", "text": "\"attempts\": 2," },
-    { "text": "                  \"failures\": [[\"TV flow documented: VEGA_PORT.md" },
-    { "text": "                                must contain \\\"## TV Flow\\\"\"]]" }
+    { "tone": "note", "label": "Evidence: ", "text": "the process exited 0 only after attempt 2 passed." },
+    { "tone": "dim", "label": "Raw transcript: ", "text": "workshop/assets/retry-terminal.txt" }
   ]
 }

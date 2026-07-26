@@ -2,6 +2,8 @@
 
 Date: 20 July 2026
 
+This record describes the rehearsal on that date. The current harness also supplies the same pinned ADBT stdio MCP server to Claude Code through an explicit `--mcp-config`; it no longer limits model-driven ADBT access to Strands.
+
 ## Passed
 
 - Vega SDK `0.22.5875` was available.

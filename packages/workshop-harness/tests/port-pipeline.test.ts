@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdbtContextProvider, AdbtPortContext } from "../src/context-providers/adbt.js";
-import type { PortCall, PortExecutor, PortModelResult } from "../src/port-executor.js";
-import { PortReplay } from "../src/port-recorder.js";
+import { createPortExecutor, resolveExecutorConfig, type PortCall, type PortExecutor, type PortModelResult } from "../src/port-executor.js";
+import { PortRecorder, PortReplay } from "../src/port-recorder.js";
 import { VegaReplayAdapter, startDeviceRun } from "../src/platform/vega.js";
 import { PortBudgetError, phases, runPortPipeline } from "../src/port-pipeline.js";
 
@@ -24,8 +24,24 @@ class FakeExecutor implements PortExecutor {
 test("ports three concerns and commits each verified phase", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor(successResponses());
-  const result = await pipeline(app, executor);
+  const completed: string[] = [];
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxCostUsd: 10,
+    phaseNames: MODEL_PHASES,
+    executor,
+    adbt: fakeAdbt(),
+    onPhaseComplete: (phase, snapshot) => {
+      completed.push(phase.name);
+      assert.equal(snapshot.phases.at(-1)?.name, phase.name);
+    },
+  });
   assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze", "plan", "port"]);
+  assert.deepEqual(completed, ["analyze", "plan", "port"]);
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
   assert.match(readFileSync(join(app, "src/App.tsx"), "utf8"), /focus-state/);
   // The focus test is written here and executed by the test phase, which needs a device session.
@@ -132,6 +148,7 @@ test("replay serves a partial run the turns it asks for, in order", () => {
 test("phases are ordered by the plan, not by the request, and unknown names are named", () => {
   assert.deepEqual(phases(["test", "analyze"]).map((phase) => phase.name), ["analyze", "test"]);
   assert.throws(() => phases(["analyse"]), /Unknown phase analyse; use analyze, plan, port, build, launch, test/);
+  assert.throws(() => phases([]), /At least one phase is required/);
 });
 
 test("only the device phases ask for a device, and they say so when there is none", async () => {
@@ -191,23 +208,62 @@ test("a green build costs no model call, and a failed one becomes the retry's co
 
 test("a build that already passes skips the model entirely", async () => {
   const app = fixtureApp();
+  const out = `${app}-out`;
   const device = startDeviceRun({
     adapter: new VegaReplayAdapter([
       { capability: "sdk_version", result: ok("0.22.5875") },
       { capability: "build", result: ok("build-vega completed") },
     ]),
-    outDir: `${app}-out`,
+    outDir: out,
     evidenceMode: "replay",
     packagePath: "build/fixture.vpkg",
     appId: "fixture.main",
   });
   const executor = new FakeExecutor([]);
-  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
+  const result = await runPortPipeline({ appDir: app, outDir: out, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
   assert.equal(executor.calls.length, 0);
   assert.equal(result.phases[0].attempts, 0);
   assert.match(result.phases[0].summary, /no model call/);
   // Nothing changed, so nothing was committed on top of the import.
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "1");
+  const transcript = readFileSync(join(out, "model-logs", "build.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  assert.deepEqual(transcript.map((entry) => entry.kind), ["phase_start", "verification_start", "verification_result", "phase_complete"]);
+  assert.equal(transcript.at(-1).payload.noModelCall, true);
+});
+
+test("a verify-first phase commits deterministic evidence and leaves a clean tree", async () => {
+  const app = fixtureApp();
+  const evidencePhase = {
+    name: "evidence",
+    goal: "Produce deterministic evidence.",
+    instruction: "No model work.",
+    skills: [],
+    verifyFirst: true,
+    checks: [
+      {
+        type: "command" as const,
+        command: process.execPath,
+        args: ["-e", "require('node:fs').writeFileSync('evidence.json', '{\"passed\":true}')"],
+        label: "Evidence producer",
+      },
+      { type: "contains" as const, path: "evidence.json", value: "\"passed\":true", label: "Evidence recorded" },
+    ],
+  };
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxCostUsd: 10,
+    plan: [evidencePhase],
+    phaseNames: ["evidence"],
+    executor: new FakeExecutor([]),
+  });
+  assert.equal(result.phases[0].attempts, 0);
+  assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "2");
+  assert.equal(execFileSync("git", ["show", "HEAD:evidence.json"], { cwd: app, encoding: "utf8" }), "{\"passed\":true}");
 });
 
 test("a crash on the device is what the launch phase hands back to the model", async () => {
@@ -248,6 +304,63 @@ test("rejects model writes to environment files", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([response({ ".env.local": "SECRET=bad" })]);
   await assert.rejects(() => pipeline(app, executor), /Unsafe model output path/);
+});
+
+test("rejects model writes through a symlink inside the guarded app", async () => {
+  const app = fixtureApp();
+  const outside = mkdtempSync(join(tmpdir(), "port-outside-"));
+  symlinkSync(outside, join(app, "linked"));
+  const executor = new FakeExecutor([response({ "linked/escaped.txt": "bad" })]);
+  await assert.rejects(() => pipeline(app, executor), /Unsafe model output path through symlink/);
+  assert.equal(existsSync(join(outside, "escaped.txt")), false);
+});
+
+test("Claude gets only read tools plus explicit ADBT MCP, and direct writes are rolled back", async () => {
+  const app = fixtureApp();
+  const binDir = mkdtempSync(join(tmpdir(), "fake claude with spaces-"));
+  const argsPath = join(binDir, "args.txt");
+  const fake = join(binDir, "claude");
+  const result = JSON.stringify({
+    type: "result",
+    result: JSON.stringify({ summary: "plan", files: { "VEGA_PORT.md": "## TV Flow\nremote\n## Focus\nhero", "NextSteps.md": "ADBT" } }),
+    total_cost_usd: 0.001,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  });
+  writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsPath}'\nprintf 'bypass' > direct-write.txt\nprintf '%s\\n' '${result}'\n`);
+  chmodSync(fake, 0o755);
+  const executor = createPortExecutor({
+    appDir: app,
+    outDir: `${app}-out`,
+    config: resolveExecutorConfig({ command: fake, model: "sonnet" }),
+    cliMcpServers: { adbt: { command: "npx", args: ["-y", "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5"] } },
+  });
+  await assert.rejects(() => runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxCostUsd: 1,
+    phaseNames: ["plan"],
+    executor,
+    liveMcp: ["adbt"],
+  }), /modified the guarded copy directly/);
+  assert.equal(existsSync(join(app, "direct-write.txt")), false);
+  assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
+  const cliArgs = readFileSync(argsPath, "utf8").trim().split("\n");
+  assert.equal(cliArgs[cliArgs.indexOf("--tools") + 1], "Read,Grep,Glob");
+  assert.deepEqual(optionValues(cliArgs, "--allowedTools"), ["Read", "Grep", "Glob", "mcp__adbt__*"]);
+  assert.deepEqual(optionValues(cliArgs, "--disallowedTools"), ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]);
+  assert.equal(cliArgs.includes("*"), false);
+  const mcpConfig = JSON.parse(cliArgs[cliArgs.indexOf("--mcp-config") + 1]);
+  assert.deepEqual(mcpConfig.mcpServers.adbt.args, ["-y", "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5"]);
+});
+
+test("recording appends turns when a run resumes", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "port-recorder-")), "recording.json");
+  new PortRecorder(path).record(recordedTurn("analyze"));
+  new PortRecorder(path).record(recordedTurn("plan"));
+  assert.deepEqual((JSON.parse(readFileSync(path, "utf8")) as Array<{ phase: string }>).map((turn) => turn.phase), ["analyze", "plan"]);
 });
 
 /** The three model phases. The device phases need a device session; see the tests below. */
@@ -296,6 +409,12 @@ function recordedTurn(phase: string) {
 
 function response(files: Record<string, string>): PortModelResult {
   return { text: JSON.stringify({ summary: "fixture phase", files }), costUsd: 0.01 };
+}
+
+function optionValues(args: string[], option: string): string[] {
+  const start = args.indexOf(option) + 1;
+  const end = args.findIndex((arg, index) => index >= start && arg.startsWith("--"));
+  return args.slice(start, end < 0 ? undefined : end);
 }
 
 function fakeAdbt(): AdbtContextProvider {

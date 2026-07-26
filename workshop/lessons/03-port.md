@@ -14,7 +14,7 @@ The first two phases produced documents. This one produces code: a Vega package,
 :::
 
 :::concept A check is a value, not a clever function
-`src/port-verification.ts` defines `PortCheck` as three shapes: a file must exist, a file must contain a string, or a command must exit 0. `verifyPort()` walks the list and collects failure text. That is the whole verification engine. The `port` phase carries nine of them — the Vega manifest's schema line and interactive component, the build script, the app and Metro config, the root build script, the focus module, the App wiring, and the focus test itself.
+`src/port-verification.ts` defines `PortCheck` as four shapes: a file must exist, a file must contain a string, JSON must match a schema, or a command must exit 0. `verifyPort()` walks the list and collects failure text. That is the whole verification engine. The `port` phase carries nine of them — the Vega manifest's schema line and interactive component, the build script, the app and Metro config, the root build script, the focus module, the App wiring, and the focus test itself.
 :::
 
 :::predict
@@ -40,6 +40,28 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 3. Run `git log --oneline` in the copy. Three phases, three commits, in order.
 :::
 
+## Read the whole model exchange
+
+The phase also writes `out/workshop/model-logs/port.jsonl`. This is the live audit trail, not a
+summary written after the fact. Each line is one complete event with its phase, attempt,
+executor, direction, kind, and native payload.
+
+:::command Read the port transcript
+yarn --cwd packages/workshop-harness tsx src/index.ts logs workshop --phase port
+:::
+
+:::steps
+1. Find `kind: "request"` or `kind: "replay_request"`. Its payload contains the complete prompt the phase assembled.
+2. Find the model response. Strands uses native events such as `modelMessageEvent` and `toolResultEvent`; Claude uses its native `assistant`, `stream_event`, and `result` records.
+3. Find `verification_result`, then `phase_complete`. The model conversation and the independent decision about it are in one ordered file.
+4. Check `sequence`. A resumed phase appends to the same file; it does not erase the earlier attempt.
+:::
+
+For a live run, add `--follow` in a second terminal while the phase is active. You can also use
+`tail -f out/workshop/model-logs/port.jsonl | jq .`. The payload is intentionally complete, so it
+can contain prompts, source excerpts, and tool results. Keep it under the gitignored `out/`
+directory and review it before sharing.
+
 ## Watch a check fail and drive a retry
 
 A live model often passes on the first try, which is a bad way to learn what happens when it doesn't. The committed recording forces the interesting case: its first plan attempt omits a required section.
@@ -54,20 +76,22 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 :::expected
 plan attempt 1 failed:
   - TV flow documented: VEGA_PORT.md must contain "## TV Flow"
+  - Focus model documented: VEGA_PORT.md must contain "## Focus"
 :::
 
 :::visual
 src: assets/retry-terminal.png
 alt: Terminal output showing a check failing, the failure recorded in port-result.json, and the run completing after the second attempt
-label: Actual replay output
-caption: "One useful failure. The retry receives evidence — the exact check that failed — not the instruction 'try again'."
+label: Captured replay output
+caption: "This image is rendered from the real key-free command output committed in workshop/assets/retry-terminal.txt. Two useful failures become the retry context, not the instruction 'try again'."
 :::
 
 :::steps
-1. Find the failing check in your terminal. That text came from `verifyPort()`.
+1. Find both failed checks in your terminal. That text came from `verifyPort()`.
 2. Open `out/<runId>/port-result.json`. The phase records `attempts: 2` and keeps the failures of the rejected attempt.
-3. Open `prompt()` in `src/port-pipeline.ts` and find where a previous attempt's failures are appended. Same text, on its way back to the model.
-4. Open `writeOutput()` in the same file. Every path the model proposes must resolve inside the guarded copy, and `.git`, `node_modules`, and `.env` are refused however they are spelled.
+3. Open `out/<runId>/model-logs/plan.jsonl`. Find attempt 1's `verification_result`, then attempt 2's request. The same failure text is visible in both places.
+4. Open `prompt()` in `src/port-pipeline.ts` and find where a previous attempt's failures are appended.
+5. Open `writeOutput()` in the same file. Every path must resolve inside the guarded copy; `.git`, `node_modules`, `.env`, `..`, absolute paths, and symlink traversal are refused.
 :::
 
 :::note The loop cannot run away
@@ -93,7 +117,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../workshop/ch
 :::
 
 :::note Choose the shape that proves the most
-`file_exists` proves a file arrived. `contains` proves a decision was written down. `command` proves behavior, because something ran. Reach for the strongest shape the requirement allows — the next lesson is where a weak check would cost you.
+`file_exists` proves a file arrived. `contains` proves a decision was written down. `json_schema` proves machine-readable structure. `command` proves behavior, because something ran. Reach for the strongest shape the requirement allows — the next lesson is where a weak check would cost you.
 :::
 
 :::knowledge Why keep the check in code instead of asking the model to confirm its own work?

@@ -5,7 +5,7 @@ nav: Optional a conversation becomes code
 time: 25 minutes
 title: A conversation becomes code, with a gate in the middle
 lead: "An optional second pipeline on the same engine: a conversation about the app becomes a reviewed spec, then working code, then a running app."
-objective: Turn recorded conversation into shipped change without letting a transcript into the repository or a model grade its own work.
+objective: Turn recorded conversation into shipped change without committing a transcript or letting a model grade its own work.
 evidence: BEE_SPEC.md carries a paraphrase and a source id per request, and the applied change clears those checks plus the app's own tests on the device.
 ---
 
@@ -15,6 +15,13 @@ This is the one lesson we may skip together, and the reason is worth stating out
 
 :::note What this needs, and what it does not
 `bee login` and `bee mcp serve` happen outside the harness, in your own terminal, with your own account. Without them the harness reads a recorded conversation instead — the same phases, the same gates, and one honest difference in the report. The device half uses the VDA from lessons 4 and 5.
+:::
+
+:::note Privacy boundary
+The durable `bee-context.json` records only conversation ids and hashes. The complete local
+model transcript at `out/bee/model-logs/bee_spec.jsonl` is different: it records what the model
+actually received, including conversation text returned by Bee. `out/` is gitignored. Use this
+lesson only with consent, and delete or scrub that transcript before sharing the run directory.
 :::
 
 ## Two halves, and a human between them
@@ -54,12 +61,16 @@ yarn --cwd packages/workshop-harness tsx src/index.ts bee-run ../../apps/pocket-
 :::steps
 1. Read `out/bee/app/BEE_SPEC.md`. Every request has a source conversation, a reason, and the check that will prove it.
 2. Read the **Deliberately excluded** section hardest. The travel and family material is there, and so is search, because nobody agreed what it searches.
-3. Run `git -C packages/workshop-harness/out/bee/app diff --name-only HEAD~2 HEAD`. Two files: the spec and its rendering. No source changed.
+3. Run `git -C out/bee/app diff --name-only HEAD~2 HEAD`. Two files: the spec and its rendering. No source changed.
 4. Open `out/bee/bee-context.json`. It records the tool, the conversation id, and a hash — and not a word of what was said.
 :::
 
 :::knowledge Why hash the conversation instead of storing it?
-The hash proves which conversation the run consulted and that nobody edited it afterwards, which is what a reviewer needs. The text itself would put a private conversation in the run directory, which is what nobody needs. The recorded fixture is hash-verified on load for the same reason: change a line of that transcript and the run stops instead of quietly working from an edited one.
+The hash gives the durable report enough evidence to identify the source and detect edits without
+copying the conversation into `bee-context.json` or the app repository. The local phase
+transcript still contains the complete model exchange for debugging and must be treated as
+private. The recorded fixture is hash-verified on load for the same reason: change a line and
+the run stops instead of quietly working from edited context.
 :::
 
 ## Approve: you are the gate

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Renders a terminal illustration for the workshop site from a committed spec, so the images
-// in workshop/assets are reproducible instead of hand-captured. Each PNG has a sibling
-// <name>.terminal.json holding the exact lines; edit that and re-run this.
+// Renders captured terminal output for the workshop site from a committed spec, so the image
+// stays reproducible on systems where CI cannot capture an OS window. Each PNG has a sibling
+// <name>.terminal.json and, for command evidence, a scrubbed .txt transcript.
 //
 // The lines must be real output. If you change what a command prints, re-run the command,
 // paste the new output into the spec, and regenerate.

@@ -39,7 +39,7 @@ The live port stops with exit `3` during `analyze`, before the `plan` phase; it 
 
 If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
 
-If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force` (or point `WORKSHOP_SKILLS_DIR` at your agent's skills directory). The run continues without the skill, replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection.
+If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force` (or point `WORKSHOP_SKILLS_DIR` at your agent's skills directory). The run continues without the skill, replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection. The live ADBT MCP connection is separate: the harness starts the same pinned server explicitly for both Claude Code and Strands.
 
 ## Vega CLI build or VDA fails
 

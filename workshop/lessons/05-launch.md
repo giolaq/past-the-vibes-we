@@ -35,7 +35,7 @@ Capture | Second frame
 :::
 
 :::concept Three ways this phase catches a dead app
-The **log scan** (`src/platform/device-log.ts`) refuses `FATAL`, `SIGSEGV`, `has died`, ANR, and unhandled JS exceptions, and reports the matching line rather than the word "crashed". The **pixel gate** (`src/platform/screenshot.ts`) decodes each pulled PNG and refuses a frame under 640x360, one flat colour, or pinned black or white — a dark 10-foot interface passes, a crashed one does not. And the **second frame** is the liveness proof: an app that died on startup cannot produce it.
+The **log query** asks `loggingctl` only for this package and only for entries since the harness launched it. The **log scan** (`src/platform/device-log.ts`) then refuses `FATAL`, `SIGSEGV`, `has died`, ANR, and unhandled JS exceptions, reporting the matching line rather than the word "crashed". The **pixel gate** (`src/platform/screenshot.ts`) decodes each pulled PNG and refuses a frame under 640x360, one flat colour, or pinned black or white. The **second frame** is the liveness proof: an app that died on startup cannot produce it.
 :::
 
 :::predict
@@ -82,7 +82,7 @@ A screenshot proves something rendered at the moment it was taken. It cannot pro
 :::
 
 :::done
-Both frames pass the pixel gate, the device log holds no crash signature, and `vega-platform-result.json` says `evidenceMode: live`.
+Live: both frames pass the pixel gate, the package-and-launch-time-filtered log has no crash signature, and `vega-platform-result.json` says `evidenceMode: live`. Replay: the same gates and failure paths execute with recorded evidence, and the result stays labeled `evidenceMode: replay`.
 :::
 
 :::fallback

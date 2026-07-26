@@ -14,15 +14,20 @@ The workshop harness stays in control around that runtime:
 
 ```text
 ADBT MCP -> approved Vega context --+
-                                      +-> Strands agent -> validated patch
+                                      +-> selected agent -> validated patch
 guarded app -> read-only tools -------+                         |
                                                                 v
                      harness writes -> checks -> retry -> commit -> report
 ```
 
-The Strands agent can list, read, and search the guarded app. It cannot write files or run shell commands. ADBT joins the agent's tools during `analyze` and `plan` through a Strands `McpClient`; the model decides which Vega workflows to read, and the harness reconstructs and hashes every read so the run stays reproducible. The harness validates the patch, writes it, runs checks, enforces cost, and commits only passing work.
+Both live executors can list, read, and search the guarded app. Neither can write files or run shell commands. During the feasibility audit and `plan`, ADBT joins the model through MCP: Strands receives a native `McpClient`, while Claude Code receives an explicit pinned `--mcp-config`. The model decides which Vega workflows to read, and the harness reconstructs and hashes every read. The harness validates the patch, rejects path and symlink escapes, writes it, runs checks, enforces cumulative cost, and commits only passing work.
 
-This split is why you build a harness instead of prompting a coding agent. You get control — writes, checks, retries, cost, and commits happen in your code — and you get observability: every model turn is recorded, every ADBT read is hashed, every phase has a cost figure and a Git commit, and every run ends in a structured report you can hand to another developer.
+This split is why you build a harness instead of prompting a coding agent. You get control —
+writes, checks, retries, cost, and commits happen in your code — and you get observability:
+every phase appends its complete prompt, native model and tool events, checks, and outcome to
+`out/<runId>/model-logs/<phase>.jsonl`; every ADBT read is hashed; resumed phases append to one
+cost and report; and every accepted change or generated evidence has a Git commit. Lesson 3
+shows how to read and tail these files.
 
 Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a code-level explanation of every Strands API used here and the boundaries that remain outside the SDK.
 
@@ -67,6 +72,6 @@ Handing this workshop to an AI agent instead of a person? Point it at the [agent
 
 Lesson 8's optional Bee run has its own recordings under `fixtures/bee-run/`: `bee-conversation.json` is a synthetic conversation, hash-verified on load, and `port-recording.json` holds the spec and apply turns. It reuses `fixtures/vega-lifecycle.json` for build and launch.
 
-The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. `fixtures/port-retry/` holds a recording whose first plan attempt fails a check on purpose, and `fixtures/build-retry/` one whose first build fails and is repaired. Regenerate all of them with `node scripts/build-port-fixtures.mjs`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a physical or virtual device passed. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
+The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. `fixtures/port-retry/` holds a recording whose first plan attempt fails checks on purpose, and `fixtures/build-retry/` one whose first build fails and is repaired. Regenerate all of them with `node scripts/build-port-fixtures.mjs`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a package compiled or a device passed. A live build claim requires `evidenceMode: live` and a local `.vpkg`; a live device claim also requires filtered post-launch logs and two pulled frames. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 
 Read [the live rehearsal record](live-rehearsal.md) before teaching the Vega section. The SDK build and manifest validation pass. Install, launch, logs, and screenshots still need a VDA process that remains attached outside the automation session.

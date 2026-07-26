@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type { McpClient } from "@strands-agents/sdk";
 import { extractAdbtProvenance, type AdbtContextProvider, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
+import { ModelTranscriptStore } from "./model-transcript.js";
 import { PortOutputSchema, parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
 import { FOCUS_TEST_CHECK, verifyPort, type PortCheck } from "./port-verification.js";
@@ -46,31 +47,48 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; onPhase?: (phase: string) => void; onMessages?: (phase: string, messages: unknown[]) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; liveMcp?: string[]; transcripts?: ModelTranscriptStore; onPhase?: (phase: string) => void; onPhaseComplete?: (phase: PortResult["phases"][number], snapshot: PortResult) => void; onCost?: (costUsd: number) => void; onMessages?: (phase: string, messages: unknown[]) => void }): Promise<PortResult> {
   // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
   // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
   // phase — repeating a failure the model cannot fix only spends budget.
   const maxAttempts = options.maxAttempts ?? 2;
   mkdirSync(options.outDir, { recursive: true });
+  const transcripts = options.transcripts ?? new ModelTranscriptStore(options.outDir);
   initializeGit(options.appDir);
   const result: PortResult = { phases: [], costUsd: 0 };
   const evidencePath = join(options.outDir, "adbt-port-context.json");
   try {
     for (const phase of selectPhases(options.plan ?? portPhases(), options.phaseNames)) {
+      transcripts.append(phase.name, {
+        attempt: 0, executor: "harness", direction: "system", kind: "phase_start",
+        payload: { goal: phase.goal, checks: phaseLabels(phase), verifyFirst: phase.verifyFirst === true },
+      });
       options.onPhase?.(phase.name);
       // Live: hand the ADBT McpClient to the agent so it discovers and calls the ADBT tools
       // itself; provenance is reconstructed afterward from the agent's messages. Replay: no live
       // model, so load the recorded context and inject it as prompt text.
       const usesAdbt = phase.mcp?.includes(ADBT_SERVER) === true;
       const adbtClient = usesAdbt ? options.mcpClients?.[ADBT_SERVER] : undefined;
-      const replayContext = usesAdbt && !adbtClient && options.adbt ? await options.adbt.load() : undefined;
+      const hasLiveAdbt = Boolean(adbtClient || options.liveMcp?.includes(ADBT_SERVER));
+      const replayContext = usesAdbt && !hasLiveAdbt && options.adbt ? await options.adbt.load() : undefined;
       const phaseAttempts = options.maxAttempts ?? phase.maxAttempts ?? maxAttempts;
       const start = gitHead(options.appDir);
       // Device blockers accumulate across the session; each attempt starts from this mark so a
       // rebuilt package is judged on its own failures, not the previous attempt's.
       const deviceMark = options.device?.blockers.length ?? 0;
       const rejected: string[][] = [];
-      let failures = phase.verifyFirst ? await verify(phase, options, deviceMark, false) : [];
+      let failures: string[] = [];
+      if (phase.verifyFirst) {
+        transcripts.append(phase.name, {
+          attempt: 0, executor: "harness", direction: "system", kind: "verification_start",
+          payload: { checks: phaseLabels(phase), beforeModelCall: true },
+        });
+        failures = await verify(phase, options, deviceMark, false, 0);
+        transcripts.append(phase.name, {
+          attempt: 0, executor: "harness", direction: "system", kind: "verification_result",
+          payload: { passed: failures.length === 0, failures },
+        });
+      }
       // The failure that provoked the fix is evidence too: record and report it before the
       // model is asked to do anything about it.
       if (failures.length) {
@@ -86,8 +104,16 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           if (attempt > 1 || phase.verifyFirst) reset(options.appDir, start);
           attempts = attempt;
           const extraTools = (phase.mcp ?? []).map((name) => options.mcpClients?.[name]).filter((client): client is McpClient => Boolean(client));
-          const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), { extraTools, skills: phase.skills });
+          const remainingBudget = options.maxCostUsd - result.costUsd;
+          const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), {
+            extraTools,
+            mcp: phase.mcp,
+            skills: phase.skills,
+            maxCostUsd: remainingBudget,
+            attempt,
+          });
           result.costUsd += model.costUsd;
+          options.onCost?.(result.costUsd);
           if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
           options.onMessages?.(phase.name, model.messages ?? []);
           const output = parseJsonBlock(model.text, PortOutputSchema, phase.name);
@@ -96,13 +122,25 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           // Record ADBT provenance: reconstructed from the model's tool calls (live) or the
           // recorded fixture (replay).
           // replayContext is only set when this phase uses ADBT without a live client.
-          const adbtContext = adbtClient ? extractAdbtProvenance(model.messages ?? []) : replayContext;
+          const adbtContext = hasLiveAdbt ? extractAdbtProvenance(model.messages ?? []) : replayContext;
+          const provenanceFailures: string[] = [];
           if (adbtContext) {
-            ensureAdbtNextSteps(options.appDir, adbtContext);
+            if (hasLiveAdbt && adbtContext.documents.length === 0) {
+              provenanceFailures.push("ADBT MCP provenance: the model did not read an ADBT document");
+            }
+            if (adbtContext.documents.length) ensureAdbtNextSteps(options.appDir, adbtContext);
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
             result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence: evidencePath };
           }
-          failures = await verify(phase, options, deviceMark, true);
+          transcripts.append(phase.name, {
+            attempt, executor: "harness", direction: "system", kind: "verification_start",
+            payload: { checks: phaseLabels(phase), beforeModelCall: false },
+          });
+          failures = [...provenanceFailures, ...await verify(phase, options, deviceMark, true, attempt)];
+          transcripts.append(phase.name, {
+            attempt, executor: "harness", direction: "system", kind: "verification_result",
+            payload: { passed: failures.length === 0, failures },
+          });
           if (failures.length === 0) break;
           rejected.push(failures);
           report(`${phase.name} attempt ${attempt} failed`, failures);
@@ -111,10 +149,23 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           if (signature === previousFailures) throw new Error(`${phase.name} stopped after ${attempt} attempts: no progress, the same failures repeated: ${signature}`);
           previousFailures = signature;
         }
-        // Nothing to commit when the phase passed without the model changing anything.
-        if (attempts > 0) commit(options.appDir, `workshop(${phase.name}): ${summary.slice(0, 60)}`);
-        result.phases.push({ name: phase.name, summary: summary || "already satisfied, no model call", attempts, checks: phaseLabels(phase), failures: rejected });
+        // A verify-first phase may create deterministic evidence without calling a model.
+        // Commit that evidence too, so every successful phase leaves the guarded tree clean.
+        // commit() is a no-op when neither the model nor a check changed the tree.
+        const commitSummary = summary || `Record verified ${phase.name} evidence`;
+        commit(options.appDir, `workshop(${phase.name}): ${commitSummary.slice(0, 60)}`);
+        const phaseResult = { name: phase.name, summary: summary || "already satisfied, no model call", attempts, checks: phaseLabels(phase), failures: rejected };
+        result.phases.push(phaseResult);
+        transcripts.append(phase.name, {
+          attempt: attempts, executor: "harness", direction: "system", kind: "phase_complete",
+          payload: { summary: phaseResult.summary, attempts, checks: phaseResult.checks, costUsd: result.costUsd, noModelCall: attempts === 0 },
+        });
+        options.onPhaseComplete?.(phaseResult, { ...result, phases: [...result.phases] });
       } catch (error) {
+        transcripts.append(phase.name, {
+          attempt: attempts, executor: "harness", direction: "system", kind: "phase_failed",
+          payload: error,
+        });
         reset(options.appDir, start);
         throw error;
       }
@@ -130,7 +181,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
  * What decides a phase: static file assertions plus, for the device phases, the build and the
  * device itself. Device work runs first — a package that did not build cannot be launched.
  */
-async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], deviceMark: number, patched: boolean): Promise<string[]> {
+async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], deviceMark: number, patched: boolean, attempt: number): Promise<string[]> {
   // Static checks first: one of them runs the focus test that writes the evidence the device
   // stage then reads. Build and launch have no static checks, so nothing waits on them.
   const staticFailures = await verifyPort(options.appDir, phase.checks);
@@ -140,7 +191,7 @@ async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeli
     // Not a failure to hand the model: no patch can attach a device. Stop the run instead.
     if (!options.device) throw new Error(`${phase.name} needs a device session: pass --platform-replay or attach a VDA`);
     options.device.blockers.length = deviceMark;
-    await runDeviceStages(options.device, stages, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge });
+    await runDeviceStages(options.device, stages, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge, phase: phase.name, attempt });
     deviceFailures.push(...options.device.blockers.slice(deviceMark));
   }
   return [...staticFailures, ...deviceFailures];
@@ -176,6 +227,7 @@ export const ADBT_SERVER = "adbt";
  */
 export function selectPhases(all: PortPhase[], only?: string[]): PortPhase[] {
   if (!only) return all;
+  if (only.length === 0) throw new Error(`At least one phase is required; use ${all.map((phase) => phase.name).join(", ")}`);
   const unknown = only.filter((name) => !all.some((phase) => phase.name === name));
   if (unknown.length) throw new Error(`Unknown phase${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")}; use ${all.map((phase) => phase.name).join(", ")}`);
   return all.filter((phase) => only.includes(phase.name));
@@ -296,14 +348,26 @@ const PROTECTED_PATHS = /(^|[\\/])(?:\.git|node_modules)(?:[\\/]|$)|(^|[\\/])\.e
 // guarded app and must not touch Git, dependencies, environment files, or anything the phase
 // declared read-only.
 function writeOutput(appDir: string, files: Record<string, string>, readOnly: string[] = []) {
-  const root = resolve(appDir);
+  const root = realpathSync(appDir);
   const locked = new Set(readOnly.map((name) => resolve(root, name)));
   for (const [name, content] of Object.entries(files)) {
+    if (isAbsolute(name) || name.split(/[\\/]/).some((part) => part === "..")) throw new Error(`Unsafe model output path: ${name}`);
     const path = resolve(root, name);
     if (locked.has(path)) throw new Error(`Read-only in this phase: ${name}`);
     if (!path.startsWith(`${root}${sep}`) || PROTECTED_PATHS.test(name)) throw new Error(`Unsafe model output path: ${name}`);
+    assertNoSymlink(root, name);
     mkdirSync(dirname(path), { recursive: true });
+    const parent = realpathSync(dirname(path));
+    if (parent !== root && !parent.startsWith(`${root}${sep}`)) throw new Error(`Unsafe model output path: ${name}`);
     writeFileSync(path, content);
+  }
+}
+
+function assertNoSymlink(root: string, name: string): void {
+  let cursor = root;
+  for (const part of name.split(/[\\/]/).filter(Boolean)) {
+    cursor = join(cursor, part);
+    if (existsSync(cursor) && lstatSync(cursor).isSymbolicLink()) throw new Error(`Unsafe model output path through symlink: ${name}`);
   }
 }
 function git(appDir: string, args: string[]) { return execFileSync("git", args, { cwd: appDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim(); }

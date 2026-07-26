@@ -14,7 +14,7 @@ evidence: A worksheet names the phases, checks, approval point, budget, and evid
 :::
 
 :::welcome Now take it home
-You've built the loop and watched it hold. The last thing to do is point it at work you actually care about, so this lesson is a worksheet rather than a command — you design the harness and we'll help you check it. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you saw in lesson 6: authority stays in your code, and every run leaves prompts, reads, costs, and commits you can audit.
+You've built the loop and watched it hold. The last thing to do is point it at work you actually care about, so this lesson is a worksheet rather than a command — you design the harness and we'll help you check it. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you used in lesson 3: authority stays in your code, and every run leaves phase transcripts, reads, costs, checks, and commits you can audit.
 :::
 
 ## Draft your harness

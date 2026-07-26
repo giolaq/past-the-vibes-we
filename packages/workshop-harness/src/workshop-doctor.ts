@@ -36,7 +36,13 @@ async function adbtCheck(): Promise<DoctorCheck> {
 async function executorCheck(): Promise<DoctorCheck> {
   if (process.argv.includes("--replay")) return { name: "model-executor", status: "pass", detail: "replay (no model required)" };
   // Same resolution the port uses, so doctor can never green-light a different executor.
-  const config = resolveExecutorConfig({ executor: argValue("--executor"), provider: argValue("--provider") });
+  const config = resolveExecutorConfig({
+    executor: argValue("--executor"),
+    provider: argValue("--provider"),
+    model: argValue("--model"),
+    inputRate: argValue("--input-rate"),
+    outputRate: argValue("--output-rate"),
+  });
   if (config.kind === "claude-cli") return commandCheck("model-executor", config.command, ["--version"], "Install Claude Code or select --executor strands.");
   const provider = config.model.provider;
   const key = provider === "openai" ? "OPENAI_API_KEY" : provider === "openrouter" ? "OPENROUTER_API_KEY" : "AWS_PROFILE";

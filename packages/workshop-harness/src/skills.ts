@@ -13,7 +13,7 @@ export type ModelSkill = { name: string; description: string; body: string };
 
 /** ADBT's `init-context` installs its amazon-devices-vega-* skills here. */
 const DEFAULT_SKILLS_DIR = join(homedir(), ".claude", "skills");
-const INSTALL_HINT = "npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli --force";
+const INSTALL_HINT = "npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force";
 
 export function skillsDirectory(): string {
   return process.env.WORKSHOP_SKILLS_DIR ?? DEFAULT_SKILLS_DIR;

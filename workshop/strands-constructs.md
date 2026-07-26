@@ -95,7 +95,7 @@ Structured output validates shape. It does not prove that a patch is correct, sa
 The workshop calls:
 
 ```text
-agent.invoke(prompt, {
+agent.stream(prompt, {
   cancelSignal,
   limits: { turns: 8, totalTokens: 40000 }
 })
@@ -103,7 +103,8 @@ agent.invoke(prompt, {
 
 | Construct | Use |
 | --- | --- |
-| `agent.invoke()` | Starts one agent run and resolves to an `AgentResult`. |
+| `agent.stream()` | Starts one agent run, yields native `AgentStreamEvent` objects as work happens, and returns the final `AgentResult`. |
+| `AgentStreamEvent` | Carries model deltas, completed messages, tool calls and results, lifecycle events, and the final result. |
 | `limits.turns` | Caps model-and-tool loop iterations. The port allows eight per phase. |
 | `limits.totalTokens` | Caps total token use for that invocation. |
 | `cancelSignal` | Lets an external abort signal stop the invocation at cancellation points. The workshop supplies a ten-minute native `AbortSignal.timeout()`. |
@@ -124,13 +125,20 @@ Each phase names its skills in `phases()`; the executor decides how the model re
 
 The base phase prompt contains no skill body, so a Strands invocation does not receive duplicate instructions. A skill that is not installed is reported and skipped rather than failing the run. See `packages/workshop-harness/src/skills.ts` and `packages/workshop-harness/tests/skills.test.ts`.
 
-## Why this repository uses `invoke()`
+## Why this repository uses `stream()`
 
-The workshop uses `agent.invoke()` so attendees can see one bounded request, one typed result, and one metrics object. A larger CLI may prefer `agent.stream()` and `AgentStreamEvent` to update progress while a phase runs. Streaming changes observability, not the boundary: the pipeline still owns phase order, budgets, retries, checkpoints, verification, and reporting.
+The workshop consumes `agent.stream()` so the phase transcript is useful before the call ends.
+Each native event is appended immediately to
+`out/<runId>/model-logs/<phase>.jsonl`: model requests and deltas, completed messages, tool
+calls and results, and the final result. `consumeStream()` preserves the generator's returned
+`AgentResult`, so structured output and metrics are handled exactly as they would be after a
+non-streaming invocation. Streaming improves observability; it does not move authority into
+the SDK. The pipeline still owns phase order, budgets, retries, checkpoints, verification, and
+reporting.
 
 ## MCP constructs
 
-The harness uses Strands `McpClient` in two ways. During a live port run it registers the ADBT client as an agent tool source for `analyze` and `plan`, so the model decides which ADBT documents to read. Outside the port run, `doctor --adbt-live` and `context adbt` call the client directly to check the server and capture a replay context.
+The harness uses Strands `McpClient` in two ways. During a live Strands run it registers ADBT as an agent tool source for the feasibility audit and `plan`, so the model decides which documents to read. Outside the port run, `doctor --adbt-live` and `context adbt` call the client directly to check the server and capture replay context. The Claude executor reaches the same pinned stdio server through Claude Code's `--mcp-config`; that is a Claude CLI construct, not a Strands one.
 
 | Construct | Use |
 | --- | --- |
@@ -143,7 +151,7 @@ The harness uses Strands `McpClient` in two ways. During a live port run it regi
 
 `StdioClientTransport` is not a Strands construct. It comes from the official Model Context Protocol TypeScript SDK. It starts pinned ADBT as a child process and carries MCP messages over stdin and stdout.
 
-Registering an `McpClient` directly as an agent tool source is how the live port run works. The harness hands the ADBT client to the agent for `analyze` and `plan`, the model calls `list_documents` and then `read_document` for whichever workflows it needs, and after each phase the harness reconstructs every read from the message history and hashes it into `adbt-port-context.json` (`extractAdbtProvenance` in `packages/workshop-harness/src/context-providers/adbt.ts`). Replay reruns from that recorded context with no live server.
+Registering an `McpClient` directly as an agent tool source is how the live Strands path works. The harness hands ADBT to the feasibility audit and `plan`; the model calls `list_documents` and `read_document`, and afterward the harness reconstructs every read from message history and hashes it into `adbt-port-context.json` (`extractAdbtProvenance` in `packages/workshop-harness/src/context-providers/adbt.ts`). Claude stream events are normalized into the same provenance shape. Replay reruns from that recorded context with no live server.
 
 ## What the harness owns
 

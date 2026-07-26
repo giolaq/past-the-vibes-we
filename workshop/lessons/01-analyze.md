@@ -55,10 +55,20 @@ const agent = new Agent({
   systemPrompt: "Inspect with read-only tools. Return a complete patch. Never claim a file or API exists without reading evidence.",
   printer: false,                             // keep stdout clean for JSON
 });
-const result = await agent.invoke(prompt, {
-  cancelSignal: AbortSignal.timeout(10 * 60_000),  // 10-min hard stop
-  limits: { turns: 8, totalTokens: 40_000 },       // bounded loop
-});
+const result = await consumeStream(
+  agent.stream(prompt, {
+    cancelSignal: AbortSignal.timeout(10 * 60_000),  // 10-min hard stop
+    limits: { turns: 8, totalTokens: 40_000 },       // bounded loop
+  }),
+  event => {
+    const payload = serializable(event);
+    transcripts.append(phase, {
+      attempt, executor: "strands",
+      direction: strandsDirection(payload.type, payload),
+      kind: payload.type, payload,
+    });
+  },
+);
 >look: Strands supplies the model-and-tool loop, provider adapters, skill delivery, schema-validated output, turn and token limits, cancellation, and usage metrics. Writing files, verification, Git, cost policy, and ADBT selection stay in the harness.
 :::
 
@@ -96,7 +106,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 ## Look at what it produced
 
 :::steps
-1. Open `packages/workshop-harness/out/workshop/app/ANALYSIS.md` — the model's answer, written by the harness after the check passed.
+1. Open `out/workshop/app/ANALYSIS.md` — the model's answer, written by the harness after the check passed.
 2. Run `git status` on `apps/pocket-cinema`. Your app never moved: the harness copied it first, and everything happens in the copy.
 3. Run `git log --oneline` inside `out/workshop/app`. Two commits: the imported source, and the phase that passed.
 4. Open `out/workshop/port-result.json` and find the phase's `attempts` and the checks it cleared.

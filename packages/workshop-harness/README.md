@@ -2,23 +2,26 @@
 
 This package is used in the **Past the Vibes** workshop. It inspects a React Native app, copies it into a safe run directory, applies three small TV changes, verifies each change, and hands the result to Vega tools.
 
-It never edits the source app — generated work goes to `packages/workshop-harness/out/<runId>/app`. Run every command below from the repository root.
+It never edits the source app — generated work goes to `out/<runId>/app` at the repository root. Run every command below from the repository root.
 
 ## What happens during a port
 
-Before the pipeline, `source_discovery` copies the app into a guarded directory without Git history, dependencies, builds, caches, or environment files. The port itself then has three phases:
+Before the pipeline, `source_discovery` copies the app into a guarded directory without Git history, dependencies, builds, caches, or environment files. The port itself then has six phases:
 
 1. `analyze` reads the guarded app and writes `ANALYSIS.md`. A deterministic dependency inventory plus a model+ADBT feasibility verdict decide whether the port is possible; a `blocked` verdict stops the run at exit `5`.
 2. `plan` gives the model the ADBT read tools so it discovers and reads the Vega workflows itself, then writes `VEGA_PORT.md` (the flow to preserve and Vega replacements) plus `NextSteps.md` (ADBT sources and unsupported work).
-3. `build_test` creates the Vega package boundary and focus adapter, runs an executable remote-navigation check, then runs the Vega device lifecycle: it launches the app, captures a frame, waits five seconds, reads the device log for crash signatures, and captures a second frame.
+3. `port` creates the Vega package boundary, focus adapter, and executable remote-navigation check.
+4. `build` runs the real Vega build and gives compiler failures back to the model.
+5. `launch` installs the package, starts it, captures a frame, waits five seconds, scans the device log, and captures a second frame.
+6. `test` runs the remote-navigation contract and checks focus restoration after Back.
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause a retry from the clean phase-start commit with the exact failure text — once by default; `--max-attempts N` or `--until-done` raise the budget, still governed by the cost cap and stopped early when the same failures repeat with no progress. When the attempts run out, the harness restores the clean state and stops the run.
 
-The model can inspect and propose, but it cannot write files or run shell commands. Device evidence is a mandatory gate in `build_test`: the run fails unless the app is still running after the dwell and both captured frames pass the pixel gate (at least 640x360, more than one flat colour, not pinned black or white). The key-free path supplies both with `--platform-replay`.
+The model can inspect and propose, but it cannot write files or run shell commands. Device evidence is a mandatory gate in `launch` and `test`: the run fails unless the app is still running after the dwell and both captured frames pass the pixel gate (at least 640x360, more than one flat colour, not pinned black or white). The key-free path supplies both with `--platform-replay`.
 
 ## How Strands is used
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime and the in-process engine for `--executor strands`. This package pins TypeScript SDK `1.10.0`. It supplies model providers behind one interface (Bedrock, OpenAI, OpenRouter), the agent loop, Zod-typed tools, schema-enforced structured output, a native MCP client, limits, cancellation, and metrics — which is why the executor fits in about a hundred lines of workshop code.
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime and the in-process engine for `--executor strands`. This package pins TypeScript SDK `1.10.0`. It supplies model providers behind one interface (Bedrock, OpenAI, OpenRouter), the agent loop, Zod-typed tools, schema-enforced structured output, native stream events, a native MCP client, limits, cancellation, and metrics.
 
 The port agent receives three tools from `src/port-tools.ts`: list project files, read one project file, and search project text. All three are read-only and limited to the guarded app. `src/port-contract.ts` defines the validated patch result. The agent is limited to eight turns, 40,000 total tokens, and ten minutes per phase.
 
@@ -42,7 +45,7 @@ The harness ships two live executors (Claude Code CLI and in-process Strands). A
 
 1. Implement `PortExecutor` — one `call(phase, prompt)` method returning `{text, costUsd}` with the JSON patch in `text`. Model it on `ClaudeCodePortExecutor`: spawn your CLI non-interactively with the prompt on stdin and the guarded app as cwd, and record turns with `PortRecorder` so replay keeps working.
 2. Register it: a new `kind` in `ExecutorConfig`, a branch in `resolveExecutorConfig()` for your `--executor <name>` value, and a branch in `createPortExecutor()`.
-3. Keep the contract: only the returned typed patch is applied — direct writes by your CLI are ignored and rolled back — and your agent reaches ADBT through its own MCP config (`init-context` supports Cursor, Cline, Kiro, Copilot, and `other`).
+3. Keep the contract: only the returned typed patch is applied — direct writes by your CLI are detected and rolled back — and pass the pinned ADBT stdio server explicitly to the CLI subprocess. Do not depend on a user's global MCP settings.
 
 ## Run the port
 
@@ -52,10 +55,10 @@ yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cin
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-Read the plan. Then run the port against a live model (pick your executor). `build_test` needs an attached VDA to capture the device frames:
+Read the plan. Then run the port against a live model (pick your executor). `build`, `launch`, and `test` need the Vega SDK; `launch` and `test` also need an attached VDA:
 
 ```sh
-# Claude Code CLI (ADBT via init-context; see "ADBT during the port" below)
+# Claude Code CLI (the harness starts ADBT MCP; see "ADBT during the port" below)
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \
@@ -81,13 +84,44 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 
 Copy the returned `runId`. Inspect:
 
-- `packages/workshop-harness/out/<runId>/feasibility-report.json` for the feasibility verdict;
-- `packages/workshop-harness/out/<runId>/portability-report.json` for what can move to Vega;
-- `packages/workshop-harness/out/<runId>/port-result.json` for phases, checks, retries, and cost;
-- `packages/workshop-harness/out/<runId>/adbt-port-context.json` for the ADBT workflows the model read during `analyze` and `plan`, with hashes;
-- `packages/workshop-harness/out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
-- `packages/workshop-harness/out/<runId>/01-launch.png` and `02-postlaunch.png` for the build_test device frames;
-- `packages/workshop-harness/out/<runId>/app` for the generated app copy and phase commits.
+- `out/<runId>/feasibility-report.json` for the feasibility verdict;
+- `out/<runId>/portability-report.json` for what can move to Vega;
+- `out/<runId>/port-result.json` for phases, checks, retries, and cumulative cost;
+- `out/<runId>/model-logs/<phase>.jsonl` for the complete prompt, native model events, tool calls and results, usage, verification, and phase outcome;
+- `out/<runId>/adbt-port-context.json` for the ADBT workflows the model read during `analyze` and `plan`, with hashes;
+- `out/<runId>/app/NextSteps.md` for ADBT sources and unsupported mappings;
+- `out/<runId>/01-launch.png` and `02-postlaunch.png` for the launch and test evidence frames;
+- `out/<runId>/app` for the generated app copy and phase commits.
+
+## Read or tail a model transcript
+
+Each phase owns one append-only JSONL file. Every line has `schemaVersion`, `timestamp`,
+`sequence`, `phase`, `attempt`, `executor`, `direction`, `kind`, and the complete native
+`payload`. JSONL keeps each event atomic while the run is active and works for Strands,
+Claude Code, and replay.
+
+```sh
+# Read the complete transcript after a phase
+yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
+
+# Follow it while the model and its tools are working
+yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan --follow
+
+# Or use standard Unix tools
+tail -f out/<runId>/model-logs/plan.jsonl | jq .
+```
+
+Strands records every native stream event, including full model requests, model deltas,
+completed messages, tool calls, and tool results. Claude records every `stream-json` event plus
+raw stdout and stderr. A phase that skips the model still records its checks and outcome.
+Resumed runs append with increasing sequence numbers.
+
+For the optional screenshot review, the transcript stores the full text plus the image path,
+byte count, and SHA-256. It does not duplicate the PNG as a large JSON integer array; the
+content-addressed image remains beside the transcript.
+
+These files can contain prompts, source excerpts, and tool results. They live under the
+gitignored `out/` directory. Review them before sharing; do not commit them unchanged.
 
 ## ADBT during the port
 
@@ -105,14 +139,16 @@ harness: extractAdbtProvenance(agent.messages) -> hash each read -> adbt-port-co
 
 The harness never hardcodes tool names or pre-selects documents. Because the model chooses what to read, the hashed record reconstructed from the message history is the run's proof of the knowledge it used.
 
-**Claude Code CLI** — the CLI has its own MCP client, so ADBT is registered with it once, up front, using Amazon's installer (see below). The harness invokes the CLI with `--allowedTools "*"` so whatever ADBT tools `init-context` configured are permitted without stalling on a permission prompt in non-interactive mode; the CLI owns the connection. The harness still ignores any file the model writes directly — only the returned typed patch is applied, verified, and committed.
+**Claude Code CLI (live)** — the harness starts the same pinned ADBT stdio server for each phase and passes it through Claude Code's explicit `--mcp-config` contract with `--strict-mcp-config`. Claude receives only `Read`, `Grep`, `Glob`, and `mcp__adbt__*`; shell, write, web, and notebook tools are denied. This makes the workshop independent of global Claude MCP settings and gives Claude the same runtime ADBT capability as Strands.
 
-Set up ADBT for the CLI (run in a real system terminal; it completes silently):
+`init-context` is still useful for installing Amazon's `amazon-devices-vega-*` skills. It is not how either live executor connects to ADBT MCP:
 
 ```sh
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest init-context --agent claude-code-cli
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@latest check-status --agent claude-code-cli
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 check-status --agent claude-code-cli
 ```
+
+For both live executors, the harness reconstructs ADBT tool calls from the model history and fails a phase that was required to consult ADBT but read no document. Direct model writes are rejected by a before/after project fingerprint and the app is restored to the phase-start commit.
 
 The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
 
@@ -186,7 +222,7 @@ vega exec vda devices -l
 Then install the generated app's pinned dependencies and run the live lifecycle:
 
 ```sh
-npm --prefix packages/workshop-harness/out/<runId>/app/apps/vega install
+npm --prefix out/<runId>/app/apps/vega install
 yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --json
 ```
 

@@ -10,8 +10,10 @@ export type RecordedTurn = {
 };
 
 export class PortRecorder {
-  private turns: RecordedTurn[] = [];
-  constructor(private path: string) {}
+  private turns: RecordedTurn[];
+  constructor(private path: string) {
+    this.turns = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) as RecordedTurn[] : [];
+  }
   record(turn: RecordedTurn): void {
     this.turns.push(turn);
     writeFileSync(this.path, JSON.stringify(this.turns, null, 2));

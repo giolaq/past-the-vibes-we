@@ -55,8 +55,9 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 
 :::steps
 1. Open `out/workshop/app/tv-focus-result.json` and read it as a sequence, not a score. Six transitions must be present, including `back-restore`.
-2. Open `fixtures/focus-failure/README.md` and find the failed Back transition — what a broken contract looks like.
+2. Open `workshop/fixtures/focus-failure/README.md` and find the failed Back transition — what a broken contract looks like.
 3. Trace the focus state and restoration code in the guarded app. One module answers both the app and the test.
+4. Run `git -C out/workshop/app status --porcelain`. It is empty: the harness committed the deterministic focus evidence even though this green phase needed no model call.
 :::
 
 :::note Where the focus props come from
@@ -100,7 +101,7 @@ Returning to a screen without restoring the user's prior focus loses navigation 
 :::
 
 :::done
-The focus check passes the full transition sequence, `tv-focus-result.json` records it, both device frames render content, and `tv-check` reports `tvReady: true` on the app that failed every check in lesson 0.
+On either path, the focus check passes the full transition sequence, `tv-focus-result.json` records it, and `tv-check` reports `tvReady: true`. Only a prior lesson 5 result marked `evidenceMode: live` lets you add that the two frames came from your device; replay frames prove the gate and report flow only.
 :::
 
 :::fallback
