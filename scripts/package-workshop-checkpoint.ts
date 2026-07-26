@@ -1,11 +1,24 @@
-import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+// Packages a guarded run directory into a committed workshop checkpoint under
+// workshop/checkpoints/, so a blocked attendee can pick up from known-good output.
+//
+// Two jobs: copy the app without Git history, dependencies, or environment files, and
+// scrub the absolute source path out of .workshop-source.json (it names the packager's
+// machine, not anything an attendee should see). Git provides content integrity for the
+// committed result, so there is no separate hash manifest.
+//
+// Run: yarn package:checkpoint <source> <target>
+
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+
+// Arguments are repo-root relative whatever directory yarn ran this from.
+process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
 
 const source = resolve(process.argv[2] ?? "");
 const target = resolve(process.argv[3] ?? "");
 if (!existsSync(source) || !process.argv[3]) {
-  console.error("Usage: tsx scripts/package-workshop-checkpoint.ts <source> <target>");
+  console.error("Usage: yarn package:checkpoint <source> <target>");
   process.exit(1);
 }
 mkdirSync(target, { recursive: true });
@@ -16,10 +29,4 @@ if (existsSync(sourceMetadata)) {
   metadata.source = "<WORKSHOP_SOURCE>";
   writeFileSync(sourceMetadata, JSON.stringify(metadata, null, 2));
 }
-const files = walk(target).filter((path) => !path.endsWith("CHECKSUMS.json"));
-const checksums = Object.fromEntries(files.map((path) => [relative(target, path), createHash("sha256").update(readFileSync(path)).digest("hex")]));
-writeFileSync(join(target, "CHECKSUMS.json"), JSON.stringify({ schemaVersion: 1, checksums }, null, 2));
-
-function walk(path: string): string[] {
-  return statSync(path).isFile() ? [path] : readdirSync(path).flatMap((entry) => walk(join(path, entry)));
-}
+console.log(`Packaged checkpoint: ${target}`);

@@ -70,6 +70,14 @@ pre { margin: 0; padding: 18px; overflow-x: auto; color: #e6edf2; font-size: 13p
 .concept { margin: 30px 0; padding: 4px 0 4px 20px; border-left: 4px solid var(--navy); }
 .concept h2 { margin: 0 0 8px; font-size: 22px; }
 .concept p:last-child { max-width: 820px; margin: 0; color: #3d4b58; }
+.welcome { margin: 0 0 30px; padding: 18px 22px; border-left: 5px solid var(--orange); background: #fff8f2; }
+.welcome .eyebrow { color: var(--orange-dark); }
+.welcome h2 { margin: 0 0 8px; font-size: 23px; color: var(--navy); }
+.welcome p:last-child { max-width: 820px; margin: 0; color: #3d4b58; }
+.yourturn { margin: 30px 0; padding: 18px 20px; border: 1px solid var(--line); border-left: 5px solid var(--navy); background: #f7f9fb; }
+.yourturn .eyebrow { color: var(--navy); }
+.yourturn strong { color: var(--navy); font-size: 18px; }
+.yourturn p:last-child { margin: 7px 0 0; color: #495866; }
 .predict { margin: 28px 0; padding: 18px 20px; border: 1px solid #e6ad82; border-left: 5px solid var(--orange); background: #fff8f2; }
 .predict strong { color: var(--navy); font-size: 18px; }
 .predict p:last-child { margin: 7px 0 0; color: #495866; }

@@ -18,7 +18,7 @@ In the automation session, the installed Vega Virtual Device reports ready and t
 
 The harness now handles this boundary correctly: an empty `vega exec vda devices -l` result stops the lifecycle at `device_status`, returns a failed result, and does not reuse old logs or screenshots. It does not build or claim device evidence while no target is attached.
 
-Install, launch, device logs, and real screenshots remain unverified. For the next rehearsal, start VDA manually in a system terminal, leave it open, and verify both commands before running the lifecycle:
+Install, launch, device logs, and real screenshots remain unverified — and so do the gates that read them: the launch dwell, the crash scan, and the screenshot pixel gate are proven only against the replay fixture and unit tests. Expect the screenshot gate to be the first thing the segfaulting screenshooter blocks. For the next rehearsal, start VDA manually in a system terminal, leave it open, and verify both commands before running the lifecycle:
 
 ```sh
 vega virtual-device status
@@ -33,4 +33,4 @@ The SDK 0.22 template depends on React Native 0.72-era packages. `npm install` r
 
 ## Evidence boundary
 
-The committed replay fixture proves the eight-gate adapter, failure handling, focus check, and report contract. The live rehearsal proves SDK discovery, manifest validation, bundling, and package generation. Neither is a live-device certification until install, launch, logs, and screenshot capture pass against an attached VDA target.
+The committed replay fixture proves the ten-gate adapter, failure handling, focus check, screenshot and crash gates, and report contract. The live rehearsal proves SDK discovery, manifest validation, bundling, and package generation. Neither is a live-device certification until install, launch, logs, and screenshot capture pass against an attached VDA target.

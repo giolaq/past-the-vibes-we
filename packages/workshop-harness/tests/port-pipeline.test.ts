@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdbtContextProvider, AdbtPortContext } from "../src/context-providers/adbt.js";
-import type { PortExecutor, PortModelResult } from "../src/port-executor.js";
-import { PortBudgetError, runPortPipeline } from "../src/port-pipeline.js";
+import type { PortCall, PortExecutor, PortModelResult } from "../src/port-executor.js";
+import { PortReplay } from "../src/port-recorder.js";
+import { VegaReplayAdapter, startDeviceRun } from "../src/platform/vega.js";
+import { PortBudgetError, phases, runPortPipeline } from "../src/port-pipeline.js";
 
 class FakeExecutor implements PortExecutor {
-  calls: { phase: string; prompt: string }[] = [];
+  calls: { phase: string; prompt: string; skills?: string[] }[] = [];
   constructor(private responses: PortModelResult[]) {}
-  async call(phase: string, prompt: string): Promise<PortModelResult> {
-    this.calls.push({ phase, prompt });
+  async call(phase: string, prompt: string, options?: PortCall): Promise<PortModelResult> {
+    this.calls.push({ phase, prompt, skills: options?.skills });
     const result = this.responses.shift();
     if (!result) throw new Error("fake exhausted");
     return result;
@@ -23,13 +25,14 @@ test("ports three concerns and commits each verified phase", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor(successResponses());
   const result = await pipeline(app, executor);
-  assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze", "plan", "build_test"]);
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze", "plan", "port"]);
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
   assert.match(readFileSync(join(app, "src/App.tsx"), "utf8"), /focus-state/);
-  assert.equal(JSON.parse(readFileSync(join(app, "tv-focus-result.json"), "utf8")).passed, true);
+  // The focus test is written here and executed by the test phase, which needs a device session.
+  assert.ok(existsSync(join(app, "tests/verify-tv-focus.ts")));
   assert.equal(result.adbt?.mode, "replay");
   assert.equal(JSON.parse(readFileSync(join(`${app}-out`, "adbt-port-context.json"), "utf8")).targetPlatform, "vega_os");
-  // ADBT guidance is injected only into the plan phase (index 1), not analyze (0) or build_test (2).
+  // ADBT guidance is injected only into the plan phase (index 1), not analyze (0) or port (2).
   assert.doesNotMatch(executor.calls[0].prompt, /ADBT Vega Port Guidance/);
   assert.match(executor.calls[1].prompt, /port_tv_app_to_vega_fos_rn_app\.md/);
   assert.match(executor.calls[1].prompt, /Do not invent Vega APIs/);
@@ -42,6 +45,22 @@ test("feeds exact verification failure into retry", async () => {
   const result = await pipeline(app, executor);
   assert.equal(result.phases[0].attempts, 2);
   assert.match(executor.calls[1].prompt, /Portability analysis documented: missing ANALYSIS.md/);
+});
+
+test("a retry keeps build output instead of rebuilding from zero", async () => {
+  const app = fixtureApp();
+  mkdirSync(join(app, "apps", "vega", "build"), { recursive: true });
+  writeFileSync(join(app, "apps", "vega", "build", "pocket.vpkg"), "binary");
+  mkdirSync(join(app, "node_modules"), { recursive: true });
+  writeFileSync(join(app, "node_modules", "installed.txt"), "dependency");
+  // Attempt 1 fails, so the harness resets the tree before attempt 2. Untracked source the
+  // model wrote goes; the expensive artifacts stay.
+  const executor = new FakeExecutor([response({ "WRONG.md": "no" }), ...successResponses()]);
+  const result = await pipeline(app, executor);
+  assert.equal(result.phases[0].attempts, 2);
+  assert.ok(existsSync(join(app, "apps", "vega", "build", "pocket.vpkg")), "the built package was deleted by the retry");
+  assert.ok(existsSync(join(app, "node_modules", "installed.txt")), "dependencies were deleted by the retry");
+  assert.equal(existsSync(join(app, "WRONG.md")), false, "the rejected attempt's file survived");
 });
 
 test("a raised attempt budget loops until the checks pass", async () => {
@@ -77,6 +96,148 @@ test("budget abort restores a clean generated tree", async () => {
   assert.throws(() => readFileSync(join(app, "VEGA_PORT.md")));
 });
 
+test("runs only the requested phases and leaves the rest for later", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor(successResponses());
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze"], executor, adbt: fakeAdbt() });
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze"]);
+  assert.equal(executor.calls.length, 1);
+  // The guarded copy keeps the import commit plus the one phase that ran.
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "2");
+});
+
+test("a second pipeline run continues in the same guarded copy", async () => {
+  const app = fixtureApp();
+  const first = new FakeExecutor(successResponses());
+  await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze", "plan"], executor: first, adbt: fakeAdbt() });
+  const second = new FakeExecutor(successResponses().slice(2));
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["port"], executor: second, adbt: fakeAdbt() });
+  assert.deepEqual(result.phases.map((phase) => phase.name), ["port"]);
+  // import + analyze + plan + port: git init did not wipe the earlier history.
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
+  assert.match(readFileSync(join(app, "ANALYSIS.md"), "utf8"), /## Portable/);
+});
+
+test("replay serves a partial run the turns it asks for, in order", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "port-replay-")), "recording.json");
+  writeFileSync(path, JSON.stringify(["analyze", "plan", "plan", "port"].map(recordedTurn)));
+  const replay = new PortReplay(path);
+  // A resumed run skips the phases it is not executing, and a recorded retry still replays.
+  assert.equal(replay.next("plan").phase, "plan");
+  assert.equal(replay.next("plan").phase, "plan");
+  assert.equal(replay.next("port").phase, "port");
+  assert.throws(() => replay.next("plan"), /Replay has no turn left for plan/);
+});
+
+test("phases are ordered by the plan, not by the request, and unknown names are named", () => {
+  assert.deepEqual(phases(["test", "analyze"]).map((phase) => phase.name), ["analyze", "test"]);
+  assert.throws(() => phases(["analyse"]), /Unknown phase analyse; use analyze, plan, port, build, launch, test/);
+});
+
+test("only the device phases ask for a device, and they say so when there is none", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor(successResponses());
+  await pipeline(app, executor);
+  const withDevice = phases().filter((phase) => phase.device?.length).map((phase) => phase.name);
+  assert.deepEqual(withDevice, ["build", "launch", "test"]);
+  await assert.rejects(
+    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor: new FakeExecutor([]), adbt: fakeAdbt() }),
+    /build needs a device session/,
+  );
+});
+
+test("each phase asks its executor for its own skills", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor(successResponses());
+  await pipeline(app, executor);
+  assert.deepEqual(executor.calls.map((call) => call.skills), [
+    ["amazon-devices-vega-best-practices"],
+    ["amazon-devices-vega-focus-management"],
+    ["amazon-devices-vega-build-and-run"],
+  ]);
+  // The plan phase is the one that carries both kinds of knowledge: the focus skill and ADBT.
+  assert.equal(phases().filter((phase) => phase.mcp?.includes("adbt")).map((phase) => phase.name).join(","), "plan");
+  // The phase instruction reaches the prompt; skill bodies do not — the executor delivers those.
+  assert.match(executor.calls[0].prompt, /Instruction: Discovery first/);
+});
+
+test("a green build costs no model call, and a failed one becomes the retry's context", async () => {
+  const app = fixtureApp();
+  writeFileSync(join(app, "apps", "vega", "manifest.toml"), 'schema-version = 1\nid = "fixture.main"\n');
+  // The package a successful build would leave behind, so the second attempt can find it.
+  mkdirSync(join(app, "apps", "vega", "build", "aarch64-debug"), { recursive: true });
+  writeFileSync(join(app, "apps", "vega", "build", "aarch64-debug", "fixture.vpkg"), "binary");
+  // Attempt 1: the build fails and the compiler says why. Attempt 2, after the model's patch: green.
+  const device = startDeviceRun({
+    adapter: new VegaReplayAdapter([
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "build", result: { code: 2, stdout: "src/App.tsx(12,5): error TS2304: Cannot find name 'Rail'.", stderr: "", timedOut: false } },
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "build", result: ok("build-vega completed") },
+    ]),
+    outDir: `${app}-out`,
+    evidenceMode: "replay",
+    packagePath: "",
+  });
+  const executor = new FakeExecutor([response({ "src/App.tsx": "fixed" })]);
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
+  assert.equal(result.phases[0].attempts, 1, "the model was called once, after the first build failed");
+  // The compiler's own diagnostic reached the prompt — not "the build failed".
+  assert.match(executor.calls[0].prompt, /error TS2304: Cannot find name 'Rail'/);
+  assert.match(result.phases[0].failures[0].join(" "), /error TS2304/);
+  // No package until the build succeeds, and the harness says so rather than guessing.
+  assert.match(result.phases[0].failures[0].join(" "), /build produced no \.vpkg package/);
+});
+
+test("a build that already passes skips the model entirely", async () => {
+  const app = fixtureApp();
+  const device = startDeviceRun({
+    adapter: new VegaReplayAdapter([
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "build", result: ok("build-vega completed") },
+    ]),
+    outDir: `${app}-out`,
+    evidenceMode: "replay",
+    packagePath: "build/fixture.vpkg",
+    appId: "fixture.main",
+  });
+  const executor = new FakeExecutor([]);
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
+  assert.equal(executor.calls.length, 0);
+  assert.equal(result.phases[0].attempts, 0);
+  assert.match(result.phases[0].summary, /no model call/);
+  // Nothing changed, so nothing was committed on top of the import.
+  assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "1");
+});
+
+test("a crash on the device is what the launch phase hands back to the model", async () => {
+  const app = fixtureApp();
+  const device = startDeviceRun({
+    // The first launch check runs against the package the build phase produced, so it does not
+    // rebuild — only a retry, which carries a fix, does.
+    adapter: new VegaReplayAdapter([
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "device_status", result: ok("List of devices attached\nemulator-5554 device") },
+      { capability: "install", result: ok("installed") },
+      { capability: "launch", result: ok("launched") },
+      { capability: "capture", result: ok("saved") },
+      { capability: "pull", result: ok("pulled") },
+      { capability: "logs", result: ok("PocketCinema: started\nFATAL EXCEPTION: main") },
+    ], readFileSync(join(import.meta.dirname, "../../../workshop/fixtures/vega-lifecycle/launch-frame.png"))),
+    outDir: `${app}-out`,
+    evidenceMode: "replay",
+    packagePath: "build/fixture.vpkg",
+    appId: "fixture.main",
+  });
+  const executor = new FakeExecutor([]);
+  await assert.rejects(
+    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["launch"], executor, device, adbt: fakeAdbt() }),
+    /fake exhausted/,
+  );
+  // The model was asked to fix it, and the crash line is what it was given.
+  assert.match(executor.calls[0].prompt, /the app crashed after launch: fatal exception: FATAL EXCEPTION: main/);
+});
+
 test("rejects model paths outside the guarded app", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([response({ "../escape.txt": "bad" })]);
@@ -89,22 +250,30 @@ test("rejects model writes to environment files", async () => {
   await assert.rejects(() => pipeline(app, executor), /Unsafe model output path/);
 });
 
+/** The three model phases. The device phases need a device session; see the tests below. */
+const MODEL_PHASES = ["analyze", "plan", "port"];
+
 function pipeline(appDir: string, executor: PortExecutor, maxCostUsd = 10, maxAttempts?: number) {
-  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd, maxAttempts, executor, adbt: fakeAdbt() });
+  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd, maxAttempts, phaseNames: MODEL_PHASES, executor, adbt: fakeAdbt() });
 }
 
 function fixtureApp(): string {
   const dir = mkdtempSync(join(tmpdir(), "port-pipeline-"));
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "fixture", type: "module", scripts: {} }, null, 2));
   writeFileSync(join(dir, "App.txt"), "original");
+  mkdirSync(join(dir, "apps", "vega"), { recursive: true });
   return dir;
+}
+
+function ok(stdout: string) {
+  return { code: 0, stdout, stderr: "", timedOut: false };
 }
 
 function successResponses(): PortModelResult[] {
   return [
     response({ "ANALYSIS.md": "# Analysis\n\n## Portable\nShared RN logic ports to Vega." }),
     response({
-      "VEGA_PORT.md": "# Port\n\n## TV Flow\nremote",
+      "VEGA_PORT.md": "# Port\n\n## TV Flow\nremote\n\n## Focus\nstarts on the hero",
       "NextSteps.md": "# Next Steps\n\n## ADBT sources\nport_tv_app_to_vega.md\n\nNo unsupported mappings in this fixture.",
     }),
     response({
@@ -119,6 +288,10 @@ function successResponses(): PortModelResult[] {
       "TV_VERIFICATION.md": "Back restores the originating card.",
     }),
   ];
+}
+
+function recordedTurn(phase: string) {
+  return { timestamp: "2026-01-01T00:00:00.000Z", phase, request: { model: "replay", system: "workshop-vega-port", messages: [] }, response: [{ type: "result", result: "{}" }], usage: { input_tokens: 0, output_tokens: 0 } };
 }
 
 function response(files: Record<string, string>): PortModelResult {

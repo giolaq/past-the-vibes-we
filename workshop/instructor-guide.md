@@ -1,5 +1,9 @@
 # Instructor Guide
 
+Rehearsing before you teach? [The dry run](dry-run.md) is the timed run-through:
+every demo command with its verified output, the demos most likely to fail on
+stage, the go/no-go for the device path, and briefs for two co-hosts.
+
 ## Before the workshop
 
 1. Send [setup](lessons/00-welcome.md) 48 hours early.
@@ -13,30 +17,28 @@
 
 Open with this boundary: Strands supplies the model loop, typed tools, structured output, MCP client, limits, and metrics. The harness supplies the phases, approval, writes, checks, retry, commits, budget, and evidence. Show `port-tools.ts`, `port-contract.ts`, and `context-providers/adbt.ts` before any live model demo.
 
-During lesson 4, trace one ADBT skill (for example `amazon-devices-vega-focus-management`) through both routes: full-text prompt injection for Claude CLI, then `Skill` → `AgentSkills` → `plugins` → `skills` tool for Strands. Point out that the skills are Amazon's, installed by `init-context` — the harness consumes vendor knowledge without owning it. Continue with provider `Model`, `Agent`, `systemPrompt`, `invoke()` limits, and `AgentResult` metrics. Next show what the full harness adds: `AnthropicModel`, `stream()`, and `AgentStreamEvent`. During lesson 6, add `tool()` schemas and callbacks, structured output, `McpClient`, `listTools()`, `callTool()`, and `disconnect()`. State that Zod, native `AbortSignal`, and `StdioClientTransport` are adjacent dependencies, not Strands APIs. Keep [the construct reference](strands-constructs.md) open for questions.
+During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-management`) through both routes: full-text prompt injection for Claude CLI, then `Skill` → `AgentSkills` → `plugins` → `skills` tool for Strands. Point out that the skills are Amazon's, installed by `init-context` — the harness consumes vendor knowledge without owning it. Continue with provider `Model`, `Agent`, `systemPrompt`, `invoke()` limits, and `AgentResult` metrics. Next show what the full harness adds: `AnthropicModel`, `stream()`, and `AgentStreamEvent`. During lesson 3, add `tool()` schemas and callbacks, structured output, `McpClient`, `listTools()`, `callTool()`, and `disconnect()`. State that Zod, native `AbortSignal`, and `StdioClientTransport` are adjacent dependencies, not Strands APIs. Keep [the construct reference](strands-constructs.md) open for questions.
 
 ## Four-hour schedule
 
 | Time | Attendees do | If blocked |
 | --- | --- | --- |
 | 00:00 | Set up, choose an app, and run doctor | Use Pocket Cinema and replay |
-| 00:10 | Lesson 1: run one model call and list missing evidence | Show the Step 1 replay |
-| 00:25 | Lesson 2: trace a failed check into one retry, then the accessibility assignment | Run the assignment on replay and explain the honest failure |
-| 00:55 | Lesson 3: pause after one phase, inspect the checkpoint, and resume | Use the resume fixture |
-| 01:20 | Lesson 4: trace skills, executors, and recording, then the team-skill assignment | Run the assignment on replay and explain which artifact replay honors |
-| 01:50 | **Break** | Keep it a full 10 minutes |
-| 02:00 | Lesson 5: review and apply a synthetic memory proposal | Use the copied fixture |
-| 02:15 | Lesson 6: trace runtime ADBT context into the guarded Pocket Cinema port | Use the recorded ADBT context and Vega-buildable checkpoint |
-| 02:50 | Lesson 7: run the focus state checks and inspect a failure | Use the focus fixture |
-| 03:10 | **Break** | Keep it a full 10 minutes |
-| 03:20 | Lesson 8: run the complete Vega lifecycle on an attached VDA | Fall back to platform replay or the complete checkpoint |
-| 03:45 | Lesson 10: draft a harness for another domain | Use the worksheet example |
+| 00:20 | Lesson 1: analyze the app, list what the answer cannot prove | Run `--phases analyze` on the recording |
+| 00:45 | Lesson 2: the focus skill and ADBT, then the team-skill assignment | Run the assignment on replay and explain which artifact replay honors |
+| 01:15 | Lesson 3: write the port, then trace a failed check into one retry | Use `fixtures/port-retry/` and the check assignment |
+| 01:45 | **Break** | Keep it a full 10 minutes |
+| 01:55 | Lesson 4: build until it compiles, with the compiler driving the retry | Use `fixtures/build-retry/` — it fails and repairs on purpose |
+| 02:25 | Lesson 5: install and launch on the VDA, then break each gate on purpose | Fall back to platform replay or the complete checkpoint |
+| 02:55 | **Break** | Keep it a full 10 minutes |
+| 03:05 | Lesson 6: run the focus contract and close the loop with `tv-check` | Use the focus fixture and the vega-buildable checkpoint |
+| 03:30 | Lesson 9: draft a harness for another domain | Use the worksheet example |
 
-Lesson 9, Bee context, is optional. Run it only if a lesson finishes early and a slot frees up, and only if setup, consent, and time allow.
+Lessons 7 and 8 — project memory and Bee context — are outside the four-hour path. Run one only if a lesson finishes early, and only if setup, consent, and time allow.
 
-For lesson 6, show the five boundaries on screen: native ADBT MCP connection, approved workflow lookup, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
+For lesson 2, show the five boundaries on screen: native ADBT MCP connection, the model's own document choice, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
-The core path takes 220 minutes; two 10-minute breaks bring the session to four hours. The former recovery buffer now lives inside the lesson 2 and lesson 4 assignments — the 10-minute rule and the per-lesson replay fallbacks are the remaining slack, so an attendee who falls behind treats the assignment as the thing to drop first and catches up during a break.
+The core path takes 205 minutes; two 10-minute breaks and a 15-minute close bring the session to four hours. Lessons 4 to 6 need the Vega SDK and a device for their live claim, so check the room's setup during the first break — an attendee without it runs the recorded fallback and says which claim they earned. The 10-minute rule and the per-lesson fallbacks are the slack; an attendee who falls behind drops the assignment first.
 
 ## Teaching rule
 

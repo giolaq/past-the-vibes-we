@@ -5,24 +5,26 @@
   "adbtPackage": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
   "appId": "com.tvbuild.pocketcinema.main",
   "packagePath": "build/aarch64-debug/pocket-cinema_aarch64.vpkg",
+  "dwellMs": 0,
   "steps": [
     { "capability": "sdk_version", "command": ["replay", "sdk_version"], "code": 0, "stdout": "0.22.5875\n", "stderr": "" },
     { "capability": "device_status", "command": ["replay", "device_status"], "code": 0, "stdout": "List of devices attached\nemulator-5554 device product:VegaVirtualDevice\n", "stderr": "" },
     { "capability": "build", "command": ["replay", "build"], "code": 0, "stdout": "build-vega completed: pocket-cinema_aarch64.vpkg\n", "stderr": "" },
     { "capability": "install", "command": ["replay", "install", "build/aarch64-debug/pocket-cinema_aarch64.vpkg"], "code": 0, "stdout": "Installing/Updating pocket-cinema_aarch64.vpkg .. success\n", "stderr": "" },
     { "capability": "launch", "command": ["replay", "launch", "com.tvbuild.pocketcinema.main"], "code": 0, "stdout": "Launching app com.tvbuild.pocketcinema.main .. success\n", "stderr": "" },
-    { "capability": "logs", "command": ["replay", "logs"], "code": 0, "stdout": "Pocket Cinema started\nInitial focus: featured-action\n", "stderr": "" },
     { "capability": "capture", "command": ["replay", "capture", "/tmp/tv-build-launch.png"], "code": 0, "stdout": "Saved /tmp/tv-build-launch.png\n", "stderr": "" },
-    { "capability": "pull", "command": ["replay", "pull", "/tmp/tv-build-launch.png", "01-launch.png"], "code": 0, "stdout": "Transferred /tmp/tv-build-launch.png\n", "stderr": "" }
+    { "capability": "pull", "command": ["replay", "pull", "/tmp/tv-build-launch.png", "01-launch.png"], "code": 0, "stdout": "Transferred /tmp/tv-build-launch.png\n", "stderr": "" },
+    { "capability": "logs", "command": ["replay", "logs"], "code": 0, "stdout": "00:00:03.114 I PocketCinema: component com.tvbuild.pocketcinema.main started\n00:00:03.402 I ReactNativeJS: Running application PocketCinema\n00:00:03.688 I PocketCinema: initial focus featured-action\n00:00:05.021 I PocketCinema: rail new mounted with 4 cards\n00:00:05.244 I PocketCinema: rail slow mounted with 4 cards\n00:00:07.910 I PocketCinema: frame rendered, waiting for remote input\n", "stderr": "" },
+    { "capability": "capture", "command": ["replay", "capture", "/tmp/tv-build-launch.png"], "code": 0, "stdout": "Saved /tmp/tv-build-launch.png\n", "stderr": "" },
+    { "capability": "pull", "command": ["replay", "pull", "/tmp/tv-build-launch.png", "02-postlaunch.png"], "code": 0, "stdout": "Transferred /tmp/tv-build-launch.png\n", "stderr": "" }
   ],
   "checks": [
-    {
-      "name": "focus transition suite",
-      "passed": true,
-      "evidence": "../vega-buildable/app/tv-focus-result.json"
-    }
+    { "name": "launch screenshot renders content", "passed": true, "evidence": "01-launch.png: 1280x720, 315 colours, 37% non-uniform, mean luminance 0.196" },
+    { "name": "device log free of crash signatures", "passed": true, "evidence": "vega-device.log: no crash signature in 6 lines" },
+    { "name": "post-launch screenshot renders content", "passed": true, "evidence": "02-postlaunch.png: 1280x720, 315 colours, 37% non-uniform, mean luminance 0.196 (replayed frame, no dwell)" },
+    { "name": "focus transition suite", "passed": true, "evidence": "../vega-buildable/app/tv-focus-result.json" }
   ],
-  "screenshots": ["01-launch.png"],
+  "screenshots": ["01-launch.png", "02-postlaunch.png"],
   "logFiles": ["vega-device.log"],
   "blockers": []
 }

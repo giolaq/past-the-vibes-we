@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -26,11 +26,14 @@ const outFile = join(here, "..", "workshop", "workshop.data.js");
 // Inline + block Markdown rendering
 // ---------------------------------------------------------------------------
 
+const trimBlankLines = (value) => value.replace(/^\n+|\n+$/g, "");
+
 const escapeHtml = (value) =>
   String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 // Inline Markdown -> HTML. Raw HTML the author wrote is preserved verbatim, so
 // existing inline tags (<code>, <a>, <strong>, <em>) keep working. We only
@@ -61,6 +64,13 @@ function markdown(src) {
 
   const isTableRow = (line) => /^\s*\|.*\|\s*$/.test(line);
   const isDivider = (line) => /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(line) && line.includes("-");
+  // Block starters. Used both to dispatch below and to terminate a paragraph, so the two
+  // can never drift apart.
+  const isHeading = (line) => /^(#{1,4})\s+/.test(line);
+  const isOrdered = (line) => /^\s*\d+\.\s+/.test(line);
+  const isUnordered = (line) => /^\s*[-*]\s+/.test(line);
+  const isRawBlock = (line) => /^\s*<(div|section|figure|aside|table|ul|ol|nav|p|h[1-6]|pre|blockquote)\b/.test(line);
+  const startsBlock = (line) => isHeading(line) || isOrdered(line) || isUnordered(line) || isRawBlock(line) || isTableRow(line);
 
   while (i < lines.length) {
     let line = lines[i];
@@ -79,7 +89,7 @@ function markdown(src) {
 
     // Raw HTML block: a line starting with a block-level tag. Passed through
     // verbatim until a blank line. Lets lessons drop in bespoke markup.
-    if (/^\s*<(div|section|figure|aside|table|ul|ol|nav|p|h[1-6]|pre|blockquote)\b/.test(line)) {
+    if (isRawBlock(line)) {
       const buf = [];
       while (i < lines.length && lines[i].trim()) { buf.push(lines[i]); i++; }
       parts.push(buf.join("\n"));
@@ -100,9 +110,9 @@ function markdown(src) {
     }
 
     // Ordered list.
-    if (/^\s*\d+\.\s+/.test(line)) {
+    if (isOrdered(line)) {
       const items = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+      while (i < lines.length && isOrdered(lines[i])) {
         items.push(inline(lines[i].replace(/^\s*\d+\.\s+/, "").trim()));
         i++;
       }
@@ -111,9 +121,9 @@ function markdown(src) {
     }
 
     // Unordered list.
-    if (/^\s*[-*]\s+/.test(line)) {
+    if (isUnordered(line)) {
       const items = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+      while (i < lines.length && isUnordered(lines[i])) {
         items.push(inline(lines[i].replace(/^\s*[-*]\s+/, "").trim()));
         i++;
       }
@@ -126,10 +136,7 @@ function markdown(src) {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !/^(#{1,4})\s+/.test(lines[i]) &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i]) &&
-      !isTableRow(lines[i])
+      !startsBlock(lines[i])
     ) {
       buf.push(lines[i].trim());
       i++;
@@ -158,6 +165,12 @@ function renderTable(headers, rows) {
 const comp = {
   concept: (title, text) =>
     `<section class="concept"><p class="eyebrow">Concept</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
+  // The lesson opener: what we build here and why it matters.
+  welcome: (title, text) =>
+    `<section class="welcome"><p class="eyebrow">Welcome</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
+  // Marks the moment the attendee stops reading and starts running things.
+  yourturn: (text) =>
+    `<aside class="yourturn"><p class="eyebrow">Over to you</p><strong>Now it's your turn</strong><p>${inline(text)}</p></aside>`,
   note: (title, text, type = "") =>
     `<aside class="note ${type}"><strong>${inline(title)}</strong><br>${inline(text)}</aside>`,
   predict: (text) =>
@@ -197,29 +210,29 @@ function phaseCard(opts) {
 const partials = {
   skillDelivery: () =>
     `<h2>One skill, two delivery paths</h2>
-    ${comp_table(["Executor", "How the selected skill arrives"], [
+    ${rawTable(["Executor", "How the selected skill arrives"], [
       ["Claude CLI", "<code>injectSkillText()</code> appends the complete skill body to the subprocess prompt."],
       ["Strands", "<code>Skill</code> objects enter an <code>AgentSkills</code> plugin. Metadata appears first; the agent activates instructions with the <code>skills</code> tool."],
       ["Replay", "No model runs. A recorded response replaces the live executor while the same phase plan remains visible."],
     ])}
-    ${comp.note("Why Strands gets three turns", "With a selected skill, the mini agent needs room to discover the skill, activate it, and return JSON. Without skills it keeps the one-turn limit.")}`,
+    ${comp.note("A missing skill never blocks a run", "<code>loadSkills()</code> reports a skill it cannot find and continues. An uninstalled ADBT skill costs the model that knowledge, not the run.")}`,
   strandsConstructs: () =>
     `<h2>Strands constructs used here</h2>
     <p>Read this table from setup to result. These are the Strands APIs the workshop uses — and everything in it is SDK-supplied: one dependency provides the loop, providers, validated tools, enforced schemas, limits, and metrics, while writes, checks, retries, cost, and commits stay in workshop code.</p>
-    ${comp_table(["Construct", "What it does here", "Where to find it"], [
+    ${rawTable(["Construct", "What it does here", "Where to find it"], [
       ["<code>Agent</code>", "Runs the model-and-tool loop for one phase. <code>name</code> and <code>description</code> identify its job.", "<code>port-executor.ts</code>"],
       ["<code>Model</code>, <code>BedrockModel</code>, <code>OpenAIModel</code>", "Hide provider-specific model calls. OpenRouter uses <code>OpenAIModel</code> with an OpenAI-compatible base URL.", "<code>model-factory.ts</code>"],
       ["<code>systemPrompt</code>", "Sets durable operating rules: inspect first, use read-only evidence, and return a complete patch.", "<code>port-executor.ts</code>"],
       ["<code>tool()</code>", "Turns a named callback into a model-callable capability. The description tells the model when to use it.", "<code>port-tools.ts</code>"],
       ["<code>inputSchema</code>", "Uses Zod to validate tool arguments and type the callback input before project code runs.", "<code>port-tools.ts</code>"],
       ["<code>tools</code>", "Registers only list, read, and literal search. No write or shell capability enters the agent loop.", "<code>port-executor.ts</code>"],
-      ["<code>Skill</code>", "Represents one selected mini-harness instruction with a name, description, and full body.", "<code>model-runtime.ts</code>"],
-      ["<code>AgentSkills</code>", "Adds progressive skill disclosure and the model-callable <code>skills</code> activation tool.", "<code>model-runtime.ts</code>"],
-      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent. Claude CLI does not use this field.", "<code>model-runtime.ts</code>"],
+      ["<code>Skill</code>", "Represents one selected phase skill with a name, description, and full body.", "<code>skills.ts</code>"],
+      ["<code>AgentSkills</code>", "Adds progressive skill disclosure and the model-callable <code>skills</code> activation tool.", "<code>skills.ts</code>"],
+      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent. Claude CLI does not use this field.", "<code>port-executor.ts</code>"],
       ["<code>structuredOutputSchema</code>", "Requires the final answer to match <code>{ summary, files }</code>. Strands validates it and can feed schema failures back to the model.", "<code>port-contract.ts</code>"],
       ["<code>printer: false</code>", "Disables Strands' automatic console renderer so the CLI keeps stdout reserved for versioned JSON events.", "<code>port-executor.ts</code>"],
       ["<code>agent.invoke()</code>", "Starts one bounded run with the assembled phase prompt.", "<code>port-executor.ts</code>"],
-      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Bound the loop. The mini-harness allows three turns with skills and one without; the port allows 8 turns and 40,000 tokens.", "<code>port-executor.ts</code>, <code>model-runtime.ts</code>"],
+      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Bound the loop at 8 turns and 40,000 tokens per phase.", "<code>port-executor.ts</code>"],
       ["<code>cancelSignal</code>", "Lets a native ten-minute <code>AbortSignal</code> cancel the invocation at Strands cancellation points.", "<code>port-executor.ts</code>"],
       ["<code>AgentResult</code>", "Carries validated <code>structuredOutput</code>, messages, stop state, and metrics after invocation.", "returned by <code>invoke()</code>"],
       ["<code>StructuredOutputError</code>", "Makes a missing structured patch an explicit executor failure.", "<code>port-executor.ts</code>"],
@@ -232,7 +245,7 @@ const partials = {
     ${comp.note("Features still outside the design", "The repository does not use Strands hooks, Graph, Swarm, agent-as-tool, SDK session or memory managers, custom conversation managers, or SDK-provided write and shell tools.")}`,
   mcpConstructs: () =>
     `<h2>Strands MCP constructs used here</h2>
-    ${comp_table(["Construct", "Role in the ADBT path"], [
+    ${rawTable(["Construct", "Role in the ADBT path"], [
       ["<code>McpClient</code>", "Strands client wrapper that connects lazily, exposes MCP tools, calls them, and cleans up the connection."],
       ["<code>applicationName</code> / <code>applicationVersion</code>", "Identify Past the Vibes Workshop to the MCP server during connection setup."],
       ["<code>listTools()</code>", "Strands calls this for the passed <code>McpClient</code> to discover ADBT's tools dynamically, then exposes them to the model. The harness does not require or pre-pick tool names."],
@@ -245,7 +258,7 @@ const partials = {
 
 // Table builder used by partials (headers/rows are pre-formatted HTML, so no
 // inline() re-processing — matches the old workshop.js table() helper exactly).
-function comp_table(headers, rows) {
+function rawTable(headers, rows) {
   return `<table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows
     .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
     .join("")}</tbody></table>`;
@@ -304,6 +317,10 @@ function renderDirective(name, header, modifier, content) {
   switch (name) {
     case "concept":
       return comp.concept(header, content.trim());
+    case "welcome":
+      return comp.welcome(header, content.trim());
+    case "yourturn":
+      return comp.yourturn(content.trim());
     case "note":
       return comp.note(header, content.trim(), modifier);
     case "predict":
@@ -315,9 +332,9 @@ function renderDirective(name, header, modifier, content) {
     case "fallback":
       return comp.fallback(content.trim());
     case "expected":
-      return comp.expected(content.replace(/^\n+|\n+$/g, ""));
+      return comp.expected(trimBlankLines(content));
     case "command":
-      return comp.command(header, content.replace(/^\n+|\n+$/g, ""));
+      return comp.command(header, trimBlankLines(content));
     case "steps":
       return comp.steps(listItems());
     case "flow":
@@ -331,7 +348,7 @@ function renderDirective(name, header, modifier, content) {
       );
     case "snippet": {
       // Content: code, then optional line starting with `>look:` for the note.
-      const src = content.replace(/^\n+|\n+$/g, "");
+      const src = trimBlankLines(content);
       const lookMatch = /\n>look:\s*([\s\S]*)$/.exec(src);
       const code = lookMatch ? src.slice(0, lookMatch.index) : src;
       const look = lookMatch ? lookMatch[1].trim() : "";
@@ -349,7 +366,7 @@ function renderDirective(name, header, modifier, content) {
       return comp.visual(spec);
     }
     case "raw":
-      return content.replace(/^\n+|\n+$/g, "");
+      return trimBlankLines(content);
     case "include": {
       const partial = partials[header];
       if (!partial) throw new Error(`Unknown partial :::include ${header}`);
@@ -386,20 +403,20 @@ function render() {
       throw new Error(`${f}: ${err.message}`);
     }
   });
-  return `${banner}window.WORKSHOP_MODULES = ${JSON.stringify(modules)};\n`;
+  return { modules, output: `${banner}window.WORKSHOP_MODULES = ${JSON.stringify(modules)};\n` };
 }
 
 function build() {
-  const output = render();
+  const { modules, output } = render();
   writeFileSync(outFile, output);
-  console.log(`Built ${output.match(/,"body":/g)?.length ?? 0} modules -> workshop/workshop.data.js`);
+  console.log(`Built ${modules.length} modules -> workshop/workshop.data.js`);
 }
 
 // --check: fail (nonzero exit) if the committed workshop.data.js is stale
 // relative to the lesson sources. Wired into `yarn verify` so the generated
 // site can never silently drift from its single source of truth.
 function check() {
-  const expected = render();
+  const { output: expected } = render();
   if (!existsSync(outFile) || readFileSync(outFile, "utf8") !== expected) {
     console.error(
       "workshop/workshop.data.js is out of date. Run `node scripts/build-site.mjs` and commit the result."
@@ -409,6 +426,6 @@ function check() {
   console.log("workshop/workshop.data.js is up to date with workshop/lessons/*.md.");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.argv.includes("--check") ? check() : build();
 }

@@ -19,7 +19,7 @@ yarn verify
 yarn doctor
 ```
 
-Proceed when `yarn verify` passes and `yarn doctor` reports `state: ready`. Model, ADBT, Vega, and Bee checks marked `optional` are expected in replay mode.
+Proceed when `yarn verify` passes and `yarn doctor` reports `state: ready`. Model, ADBT, Vega, and Bee checks marked `optional` are expected in replay mode. Also run `yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema` and record `tvReady: false` with its failure list — the workshop's "before" evidence.
 
 ## Lesson sequence and evidence
 
@@ -27,16 +27,15 @@ Run each lesson's replay command from its "If blocked" or fallback section, then
 
 | Lesson | File | Evidence to verify and record |
 | --- | --- | --- |
-| 1 | `workshop/lessons/01-single-agent.md` | `packages/mini-harness/out/ANALYSIS.md` exists. Report three claims the one-call script cannot prove. |
-| 2 | `workshop/lessons/02-verify.md` | Output shows `Pattern "## Remote Control" not found in out/TV_PORT_PLAN.md`, then a successful repair. Report the requirement → failed check → retry → pass trace. Then run the assignment's replay variant (accessibility check on a `/tmp` copy of the phases file): it must end with `Phase plan failed after 2 attempts`; report why a frozen recording cannot satisfy a new requirement. |
-| 3 | `workshop/lessons/03-phases.md` | After the stop-after command, `packages/mini-harness/out/checkpoint.json` has `"nextPhase": 2`. After resume, only `build_test` ran. |
-| 4 | `workshop/lessons/04-skills.md` | The replay run completes. ADBT skills are not installed in your environment: inspect `workshop/fixtures/adbt-skills.json` and report which skill maps to which phase, and which file owns skills, prompts, executors, and checks. Then run the assignment's replay variant (own skill + `## Open Questions` check): it must end with `Replay phase mismatch: wanted plan, got build_test`; report which artifact replay honors (the check) and which it cannot (the skill). |
-| 5 | `workshop/lessons/05-memory.md` | `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md` exists, every entry names a source, and the committed fixture is unchanged. |
-| 6 | `workshop/lessons/06-plan.md` | The replay port reports `run_complete` with phases `analyze`, `plan`, `build_test`. Record the `runId`. Confirm `apps/pocket-cinema` is unchanged (`git status`). |
-| 7 | `workshop/lessons/07-tv.md` | `tv-focus-result.json` in the lesson 6 run output (or in `workshop/checkpoints/vega-buildable/app`) shows `"passed": true` with the full transition list. |
-| 8 | `workshop/lessons/08-vega.md` | `vega-run` with `--platform-replay` passes all eight gates and reports `evidenceMode: replay`. State explicitly that this proves control flow, not device behavior. |
-| 9 | `workshop/lessons/09-bee.md` | Skip. It is optional and requires live Bee access and human consent. Note the skip and the reason in the report. |
-| 10 | `workshop/lessons/10-finish.md` | Answer `workshop/worksheet.md` in the report for a domain of your choice: phases, one mechanical check per phase, approval point, budget, and retained evidence. |
+| 1 | `workshop/lessons/01-analyze.md` | The replay `--phases analyze` run reports `phasesComplete: ["analyze"]` and `out/<runId>/app/ANALYSIS.md` exists. Confirm `apps/pocket-cinema` is unchanged (`git status`). Report three claims in the analysis that nothing in the run has checked. |
+| 2 | `workshop/lessons/02-plan.md` | `--phases plan` produces `VEGA_PORT.md` containing both `## TV Flow` and `## Focus`, and `adbt-port-context.json` names hashed ADBT documents. Report which knowledge each check came from: the focus skill or the ADBT workflows. |
+| 3 | `workshop/lessons/03-port.md` | `--phases port` produces `apps/vega/` and `src/tv/focus-state.ts`, committed after nine checks. Then run the retry replay (`workshop/fixtures/port-retry/port-recording.json`, `--phases analyze,plan`): it must print `plan attempt 1 failed:` naming the missing `## TV Flow`, and `port-result.json` must record `attempts: 2`. |
+| 4 | `workshop/lessons/04-build.md` | The build-retry replay (`workshop/fixtures/build-retry/`) prints `build needs a fix:` carrying the compiler's `TS2551` line, then completes. Report that the model was called once, and that `launch` and `test` then passed with `attempts: 0` — a green check costs no model call. |
+| 5 | `workshop/lessons/05-launch.md` | The recorded lifecycle passes install, launch, dwell, log scan, and both frames. Then run the lesson's break-it steps: a copy of the fixture with `FATAL EXCEPTION: main` in the `logs` turn must fail naming that line, and a copy without its `screenshot` line must fail on `frame is 1x1`. Both exit 2. State that this proves control flow, not device behavior. |
+| 6 | `workshop/lessons/06-test.md` | `tv-focus-result.json` shows `"passed": true` with all six transitions, and `tv-check` on the ported app reports `tvReady: true` — the "after" to setup's "before". |
+| 7 | `workshop/lessons/07-memory.md` | Optional. `/tmp/past-the-vibes-pocket-cinema-inputs/PROJECT_CONTEXT.md` exists, every entry names a source, and the committed fixture is unchanged. |
+| 8 | `workshop/lessons/08-bee.md` | Optional, and runnable from the recording — live Bee access needs an account and human consent, so run the replay. `bee-run --propose` must write `BEE_SPEC.md` and `bee-spec.json` and change no source (`git diff --name-only HEAD~2 HEAD` on the guarded copy names those two files only). Then `--apply --yes` must print `bee_apply needs a fix:` naming the spec's own checks, and finish with `phasesComplete: ["bee_spec","bee_apply","build","launch"]`. Report which requests the spec excluded and why, and confirm `out/bee/bee-context.json` holds hashes and no conversation text. |
+| 9 | `workshop/lessons/09-finish.md` | Answer `workshop/worksheet.md` in the report for a domain of your choice: phases, one mechanical check per phase, approval point, budget, and retained evidence. |
 
 ## You are done when
 

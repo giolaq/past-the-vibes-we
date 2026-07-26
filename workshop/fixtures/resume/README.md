@@ -1,3 +1,3 @@
 # Resume Fixture
 
-Use the Step 3 recording in `packages/mini-harness/steps/03-phases/fixtures/`. Run it with `--stop-after plan`, then open `out/checkpoint.json`. Confirm `nextPhase` is `2`, which maps to `build_test` in `phases.json`. Run the command again with `--resume`. You are done when only `build_test` runs and the earlier commits are not repeated.
+Run lesson 3's port with `--phases analyze --run-id lesson3`, then run it again with `--phases plan --run-id lesson3`. The guarded copy and its Git history are reused, `status.json` accumulates `phasesComplete`, and `report.md` records that the source was not copied again. You are done when the second run adds one commit on top of the first without repeating it.
