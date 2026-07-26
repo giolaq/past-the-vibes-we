@@ -30,7 +30,7 @@ export class ModelTranscriptStore {
   readonly directory: string;
   private sequences = new Map<string, number>();
 
-  constructor(outDir: string) {
+  constructor(outDir: string, private onEntry?: (entry: TranscriptEntry) => void) {
     this.directory = join(outDir, "model-logs");
     mkdirSync(this.directory, { recursive: true });
   }
@@ -48,6 +48,7 @@ export class ModelTranscriptStore {
       ...input,
     };
     appendFileSync(this.pathFor(phase), `${JSON.stringify(entry, jsonReplacer)}\n`);
+    this.onEntry?.(entry);
     return entry;
   }
 

@@ -473,7 +473,7 @@ fumble.
 | 02:25 | 5 · Launch | 30 |
 | 02:55 | **Break** | 10 |
 | 03:05 | 6 · Test | 25 |
-| 03:30 | 9 · Take it home | 15 |
+| 03:30 | 9 · Full-run TUI, then take it home | 20 |
 
 Slack lives in two places only: the 10-minute repair rule and the per-lesson
 assignments — an attendee who falls behind drops the assignment first. Check

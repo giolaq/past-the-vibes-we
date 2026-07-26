@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { auditSource, summarize } from "./portability-audit.js";
-import { runFeasibility, type FeasibilityResult } from "./feasibility.js";
+import { FEASIBILITY_PHASE, runFeasibility, type FeasibilityResult } from "./feasibility.js";
 import { ADBT_PORT_WORKFLOWS, AdbtMcpContextProvider, AdbtContextError, AdbtReplayContextProvider, createAdbtCliMcpServer, createAdbtMcpClient, type AdbtContextProvider } from "./context-providers/adbt.js";
 import { BEE_SERVER, BeeContextProvider, createBeeMcpClient, extractBeeProvenance, loadRecordedBeeContext, recordedBeeProvenance } from "./context-providers/bee.js";
 import { BEE_APPLY_PHASE, BEE_SPEC_PHASE, beePhases } from "./bee-pipeline.js";
@@ -23,6 +23,7 @@ import { ADBT_PACKAGE, VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME, VEGA_SCREENSHOT
 import { copySource, discoverSource } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
 import { loadPortResult, loadRunCost, loadVegaResult, mergePortResults, mergeVegaResults } from "./run-state.js";
+import { shouldUseTui, WorkshopTui } from "./tui.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -76,7 +77,7 @@ function feasibilityReplayPath(): string | undefined {
   return flag("--feasibility-replay") ?? (replayPath ? join(dirname(resolve(replayPath)), "feasibility-recording.json") : undefined);
 }
 
-async function buildPlan(sourcePath: string, outDir: string) {
+async function buildPlan(sourcePath: string, outDir: string, transcripts?: ModelTranscriptStore) {
   const source = discoverSource(sourcePath);
   const findings = auditSource(source);
   const inputDir = flag("--inputs");
@@ -104,6 +105,7 @@ async function buildPlan(sourcePath: string, outDir: string) {
       recordingName: "feasibility-recording.json",
       config: executorConfig,
       cliMcpServers: liveMcp ? { [ADBT_SERVER]: createAdbtCliMcpServer() } : undefined,
+      transcripts,
     });
     feasibility = await runFeasibility({
       source: { ...source, source: feasibilityDir },
@@ -213,14 +215,29 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
   let feasibilityCost = 0;
   let invocationCost = 0;
   let budgetUsd: number | undefined;
+  let tui: WorkshopTui | undefined;
   const completedThisInvocation: string[] = [];
   // Read before the first status write: a resumed run must not forget the phases it already did.
   const alreadyComplete = completedPhases(statusPath);
   try {
     const selected = phases(phaseNames());
-    const plan = await buildPlan(sourcePath, out);
+    const executorConfig = selectedExecutorConfig();
+    const initialBudget = Number(flag("--max-cost") ?? 10);
+    tui = shouldUseTui(args) ? new WorkshopTui({
+      runId,
+      executor: executorName(executorConfig),
+      seed: flag("--seed") ?? "workshop-v1",
+      budgetUsd: initialBudget,
+      phases: [FEASIBILITY_PHASE, ...selected.map((phase) => phase.name)],
+    }) : undefined;
+    const transcripts = new ModelTranscriptStore(out, tui?.transcript);
+    tui?.start(FEASIBILITY_PHASE);
+    for (const phase of alreadyComplete) tui?.phasePassed(phase, "completed in an earlier invocation", 0);
+    const plan = await buildPlan(sourcePath, out, transcripts);
     feasibilityCost = plan.feasibility.costUsd;
     budgetUsd = plan.maxCostUsd;
+    tui?.phasePassed(FEASIBILITY_PHASE, plan.feasibility.summary);
+    tui?.cost(previousPort.costUsd + plan.feasibility.costUsd);
     if (previousPort.costUsd + plan.feasibility.costUsd > plan.maxCostUsd) {
       throw new PortBudgetError(`Run cost $${(previousPort.costUsd + plan.feasibility.costUsd).toFixed(2)} exceeded $${plan.maxCostUsd.toFixed(2)}`);
     }
@@ -238,7 +255,6 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     writeFileSync(join(out, "tv-build-inputs.json"), JSON.stringify({ schemaVersion: 1, sourceApp: join(out, "app"), target: "firetv-vega", seed: plan.seed, maxCostUsd: plan.maxCostUsd }, null, 2));
     const replayPath = flag("--replay");
     const liveModel = !replayPath;
-    const transcripts = new ModelTranscriptStore(out);
     const executor = createPortExecutor({
       appDir,
       outDir: out,
@@ -288,14 +304,24 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       mcpClients,
       liveMcp: liveModel ? [ADBT_SERVER] : [],
       transcripts,
-      onPhase: (currentPhase) => { activePhase = currentPhase; writeRunningStatus(); },
+      onPhase: (currentPhase) => {
+        activePhase = currentPhase;
+        tui?.phaseStart(currentPhase);
+        writeRunningStatus();
+      },
       onPhaseComplete: (phase, snapshot) => {
+        tui?.phaseComplete(phase);
         completedThisInvocation.push(phase.name);
         const checkpoint = mergePortResults(previousPort, { ...snapshot, costUsd: snapshot.costUsd + plan.feasibility.costUsd });
         writeFileSync(portResultPath, JSON.stringify({ schemaVersion: 1, ...checkpoint }, null, 2));
         writeRunningStatus();
       },
-      onCost: (costUsd) => { invocationCost = costUsd; writeRunningStatus(); },
+      onCost: (costUsd) => {
+        invocationCost = costUsd;
+        tui?.cost(previousPort.costUsd + plan.feasibility.costUsd + costUsd);
+        writeRunningStatus();
+      },
+      onNotice: tui?.notice,
     });
     invocation.costUsd += plan.feasibility.costUsd;
     const port = mergePortResults(previousPort, invocation);
@@ -309,8 +335,16 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     // A resumed run reports every phase this run id has completed, not only this invocation's.
     const phasesComplete = [...new Set([...alreadyComplete, ...port.phases.map((phase) => phase.name)])];
     writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "complete", currentPhase: null, phasesComplete, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() }, null, 2));
-    json({ event: "run_complete", runId, state: "complete", out, seed: plan.seed, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() });
+    tui?.cost(port.costUsd);
+    await tui?.complete();
+    if (tui) {
+      humanRunComplete(runId, out, port.costUsd, phasesComplete, transcripts.directory);
+    } else {
+      json({ event: "run_complete", runId, state: "complete", out, seed: plan.seed, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() });
+    }
   } catch (error) {
+    tui?.fail(error instanceof Error ? error.message : String(error));
+    tui?.finish();
     if (error instanceof CliFailure) throw error;
     const budget = error instanceof PortBudgetError;
     const adbtFailure = error instanceof AdbtContextError;
@@ -590,6 +624,17 @@ function selectedExecutorConfig() {
     outputRate: flag("--output-rate"),
   });
 }
+function executorName(config: ReturnType<typeof selectedExecutorConfig>): string {
+  if (flag("--replay")) return "replay";
+  return config.kind === "strands" ? `strands:${config.model.provider}` : "claude-cli";
+}
+function humanRunComplete(runId: string, out: string, costUsd: number, phasesComplete: string[], modelLogsDir: string): void {
+  process.stdout.write(`Run ${runId} complete.\n`);
+  process.stdout.write(`Phases: ${phasesComplete.join(", ")}\n`);
+  process.stdout.write(`Cost: $${costUsd.toFixed(4)}\n`);
+  process.stdout.write(`Output: ${out}\n`);
+  process.stdout.write(`Full model logs: ${modelLogsDir}\n`);
+}
 function openLogFile(path: string): number { mkdirSync(dirname(path), { recursive: true }); return openSync(path, "a"); }
 function help(): void {
   process.stdout.write(`Workshop Harness
@@ -624,6 +669,7 @@ Pipeline:
   --yes                                 Required confirmation for writes or device work
   --detach                              Run in the background; use status and logs
   --json                                JSON/NDJSON contract (the workshop CLI emits JSON)
+  --tui                                 Final-lesson phase dashboard; q exits after review
 
 Device evidence:
   --platform-replay <fixture.json>      Recorded lifecycle; proves control flow, not a device
@@ -633,6 +679,9 @@ Both live executors receive pinned ADBT as MCP. Claude is restricted to read/sea
 named ADBT MCP tools; only the harness writes validated patches.
 Every phase appends complete requests, native model events, tool traffic, results, and checks
 to out/<runId>/model-logs/<phase>.jsonl. Add --follow or use tail -f with jq.
+Add --tui for the final-lesson phase dashboard. Use up/down to select a phase, Tab to switch
+between checks/model/tools/all, f to follow the active phase, and q to close after completion.
+The dashboard is a filtered view; it never shortens the canonical logs.
 Strands providers: bedrock, openai, openrouter
 `);
 }
