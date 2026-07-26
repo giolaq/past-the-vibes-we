@@ -118,9 +118,9 @@ test("tv-ready checks fail on a touch-first app and pass on a ported one", async
   assert.deepEqual(await verifyPort(ported, staticChecks), []);
 });
 
-test("tv-check and the build_test gate run the focus verifier the same way", async () => {
+test("tv-check and the test phase run the focus verifier the same way", async () => {
   const { phases } = await import("../src/port-pipeline.js");
-  const gate = phases().find((phase) => phase.name === "build_test")!.checks.find((check) => check.type === "command");
+  const gate = phases().find((phase) => phase.name === "test")!.checks.find((check) => check.type === "command");
   assert.deepEqual(gate, FOCUS_TEST_CHECK);
   assert.ok(tvReadyChecks().includes(FOCUS_TEST_CHECK));
 });
