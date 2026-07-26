@@ -2,11 +2,11 @@
 id: finish
 number: "09"
 nav: Build your own
-time: 15 minutes
-title: Design one harness for your work
-lead: "Last stretch, and it's yours: keep the pipeline, swap the TV skill, Vega commands, and D-pad checks for your own domain."
-objective: Draft the smallest useful harness for one task in your own engineering domain.
-evidence: A worksheet names the phases, checks, approval point, budget, and evidence the run must retain.
+time: 20 minutes
+title: Control the whole pipeline, then design your own
+lead: "You learned the parts one at a time. Now operate the whole pipeline from one small dashboard, then reuse the pattern for your own domain."
+objective: Read one complete run as a system, then draft the smallest useful harness for one task in your own engineering domain.
+evidence: A reviewed six-phase run and a worksheet naming the phases, checks, approval point, budget, and evidence your harness must retain.
 ---
 
 :::raw
@@ -14,13 +14,60 @@ evidence: A worksheet names the phases, checks, approval point, budget, and evid
 :::
 
 :::welcome Now take it home
-You've built the loop and watched it hold. The last thing to do is point it at work you actually care about, so this lesson is a worksheet rather than a command — you design the harness and we'll help you check it. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point. What you keep is the control and the observability you used in lesson 3: authority stays in your code, and every run leaves phase transcripts, reads, costs, checks, and commits you can audit.
+You've built the loop and inspected each part separately. This final lesson changes scale: first use one dashboard to see the preflight and all six phases as a single controlled run, then point the same design at work you actually care about. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point.
+:::
+
+## See the complete harness
+
+The earlier lessons use plain output on purpose. You were learning one check, retry, or device
+gate at a time. Now add `--tui` to open the operator view. The TUI does not run a second
+pipeline and it does not replace the logs. It renders the same phase callbacks, cost tally, and
+append-only transcripts you already inspected.
+
+:::yourturn
+Run the complete key-free pipeline. When it finishes, keep the dashboard open and inspect at
+least one model phase and one device phase before you close it.
+:::
+
+:::command Run all phases in the final dashboard
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --seed workshop-v1 --max-cost 3 --yes \
+  --run-id final-dashboard --tui
+:::
+
+:::raw
+<table><thead><tr><th>Key</th><th>What it changes</th></tr></thead><tbody><tr><td><code>↑</code> / <code>↓</code></td><td>Select a phase. The run keeps going.</td></tr><tr><td><code>Tab</code></td><td>Cycle the visible activity: checks, model, tools, or all.</td></tr><tr><td><code>f</code></td><td>Return to the phase that is currently running.</td></tr><tr><td><code>q</code> or <code>Enter</code></td><td>Close the dashboard after the run completes.</td></tr></tbody></table>
+:::
+
+:::steps
+1. Start in `checks`. Watch acceptance stay separate from model output.
+2. Select `plan`, press `Tab` until `model` appears, and find its request and response.
+3. Select `plan` and switch to `tools`. Replay says `No matching activity yet` because it injects
+   recorded ADBT context instead of calling MCP. A live run would show the model's ADBT tool traffic here.
+4. Select `build`, `launch`, or `test`. These phases are decided by the platform adapter and checks, not by a model saying the app works.
+5. Press `q` or `Enter`. Open `out/final-dashboard/model-logs/` if you need a complete payload; the dashboard only controls what is visible on screen.
+:::
+
+:::concept Control the view, not the evidence
+`src/tui.ts` is a small adapter over existing run state. It keeps at most a short activity preview
+on screen and filters that preview by concern. The canonical JSONL files remain complete. This
+is the safe observability pattern: a human gets a calm operator view without losing the detailed
+record needed for debugging or audit.
+:::
+
+:::knowledge Why introduce the TUI only after the phase lessons?
+An overview is useful after you know what each signal means. Earlier it would hide the checks,
+retry context, and device evidence behind a convenient screen. Here it helps you control a system
+you already understand.
 :::
 
 ## Draft your harness
 
 :::yourturn
-This one has no command to copy. Design your own harness on the worksheet, and we'll come round to help you check it.
+Design your own harness on the worksheet, and we'll come round to help you check it.
 :::
 
 :::steps
@@ -37,7 +84,8 @@ One repeatable task, a short phase sequence, one strong prior, one independent c
 :::
 
 :::done
-Another developer can follow your worksheet, inspect the evidence, and knows when the harness must stop.
+You can use the final dashboard to explain the complete TV port, and another developer can follow
+your worksheet, inspect the evidence, and knows when your own harness must stop.
 :::
 
 :::raw

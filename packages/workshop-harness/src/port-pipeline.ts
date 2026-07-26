@@ -47,7 +47,7 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; liveMcp?: string[]; transcripts?: ModelTranscriptStore; onPhase?: (phase: string) => void; onPhaseComplete?: (phase: PortResult["phases"][number], snapshot: PortResult) => void; onCost?: (costUsd: number) => void; onMessages?: (phase: string, messages: unknown[]) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; liveMcp?: string[]; transcripts?: ModelTranscriptStore; onPhase?: (phase: string) => void; onPhaseComplete?: (phase: PortResult["phases"][number], snapshot: PortResult) => void; onCost?: (costUsd: number) => void; onMessages?: (phase: string, messages: unknown[]) => void; onNotice?: (headline: string, failures: string[]) => void }): Promise<PortResult> {
   // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
   // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
   // phase — repeating a failure the model cannot fix only spends budget.
@@ -93,7 +93,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       // model is asked to do anything about it.
       if (failures.length) {
         rejected.push(failures);
-        report(`${phase.name} needs a fix`, failures);
+        report(options, `${phase.name} needs a fix`, failures);
       }
       let previousFailures = failures.join("; ");
       let summary = "";
@@ -143,7 +143,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
           });
           if (failures.length === 0) break;
           rejected.push(failures);
-          report(`${phase.name} attempt ${attempt} failed`, failures);
+          report(options, `${phase.name} attempt ${attempt} failed`, failures);
           const signature = failures.join("; ");
           if (attempt === phaseAttempts) throw new Error(`${phase.name} failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${signature}`);
           if (signature === previousFailures) throw new Error(`${phase.name} stopped after ${attempt} attempts: no progress, the same failures repeated: ${signature}`);
@@ -199,7 +199,8 @@ async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeli
 
 // A retry that happens silently is a retry nobody can audit. stdout stays JSON-only, so this
 // goes to stderr — and it is the exact text the next prompt carries.
-function report(headline: string, failures: string[]): void {
+function report(options: Parameters<typeof runPortPipeline>[0], headline: string, failures: string[]): void {
+  if (options.onNotice) return options.onNotice(headline, failures);
   process.stderr.write(`${headline}:\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`);
 }
 

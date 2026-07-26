@@ -32,13 +32,17 @@ During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-ma
 | 02:25 | Lesson 5: install and launch on the VDA, then break each gate on purpose | Fall back to platform replay or the complete checkpoint |
 | 02:55 | **Break** | Keep it a full 10 minutes |
 | 03:05 | Lesson 6: run the focus contract and close the loop with `tv-check` | Use the focus fixture and the vega-buildable checkpoint |
-| 03:30 | Lesson 9: draft a harness for another domain | Use the worksheet example |
+| 03:30 | Lesson 9: inspect the full run in the TUI, then draft another harness | Use replay; browse checks/model/tools before the worksheet |
 
 Lessons 7 and 8 — project memory and Bee context — are outside the four-hour path. Run one only if a lesson finishes early, and only if setup, consent, and time allow.
 
 For lesson 2, show the five boundaries on screen: native ADBT MCP connection, the model's own document choice, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
-The core path takes 205 minutes; two 10-minute breaks and a 15-minute close bring the session to four hours. Lessons 4 to 6 need the Vega SDK and a device for their live claim, so check the room's setup during the first break — an attendee without it runs the recorded fallback and says which claim they earned. The 10-minute rule and the per-lesson fallbacks are the slack; an attendee who falls behind drops the assignment first.
+The scheduled work, two breaks, and the 20-minute close take 230 minutes. Keep the final 10
+minutes as recovery and questions. Lessons 4 to 6 need the Vega SDK and a device for their live
+claim, so check the room's setup during the first break — an attendee without it runs the
+recorded fallback and says which claim they earned. The 10-minute rule and the per-lesson
+fallbacks are the slack; an attendee who falls behind drops the assignment first.
 
 ## Teaching rule
 
