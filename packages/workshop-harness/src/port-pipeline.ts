@@ -7,13 +7,29 @@ import type { AuditFinding } from "./contracts.js";
 import { PortOutputSchema, parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
 import { FOCUS_TEST_CHECK, verifyPort, type PortCheck } from "./port-verification.js";
+import { runDeviceStages, type DeviceRun, type DeviceStage, type ScreenshotJudge } from "./platform/vega.js";
 
 /**
- * One phase of the port. `instruction` is the rule this harness writes into the prompt;
- * `skills` names skill files the executor delivers to the model (see `skills.ts`);
- * `checks` is the code that decides whether the phase passed. Three different jobs.
+ * One phase of the port.
+ * - `instruction` is the rule this harness writes into the prompt.
+ * - `skills` names skill files the executor delivers to the model (see `skills.ts`).
+ * - `checks` and `device` are the code that decides whether the phase passed — static file
+ *   assertions and real device work respectively. Never the model.
+ * - `verifyFirst` checks before calling the model, so a phase whose work is already correct
+ *   costs nothing. The build and launch loops use it: they only prompt when something failed.
+ * - `adbt` hands the model the ADBT tools for this phase.
  */
-export type PortPhase = { name: string; goal: string; instruction: string; skills: string[]; checks: PortCheck[] };
+export type PortPhase = {
+  name: string;
+  goal: string;
+  instruction: string;
+  skills: string[];
+  checks: PortCheck[];
+  device?: DeviceStage[];
+  verifyFirst?: boolean;
+  maxAttempts?: number;
+  adbt?: boolean;
+};
 export type PortResult = {
   /** failures holds the checks that failed on each earlier attempt, oldest first. */
   phases: { name: string; summary: string; attempts: number; checks: string[]; failures: string[][] }[];
@@ -23,7 +39,7 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; phaseNames?: string[]; executor: PortExecutor; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; adbtClient?: McpClient; onPhase?: (phase: string) => void }): Promise<PortResult> {
   // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
   // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
   // phase — repeating a failure the model cannot fix only spends budget.
@@ -38,21 +54,36 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
       // Live: hand the ADBT McpClient to the agent so it discovers and calls the ADBT tools
       // itself; provenance is reconstructed afterward from the agent's messages. Replay: no live
       // model, so load the recorded context and inject it as prompt text.
-      const usesAdbt = phase.name === ADBT_PHASE;
+      const usesAdbt = phase.adbt === true;
       const replayContext = usesAdbt && !options.adbtClient && options.adbt ? await options.adbt.load() : undefined;
+      const phaseAttempts = options.maxAttempts ?? phase.maxAttempts ?? maxAttempts;
       const start = gitHead(options.appDir);
-      let failures: string[] = [];
-      let previousFailures = "";
+      // Device blockers accumulate across the session; each attempt starts from this mark so a
+      // rebuilt package is judged on its own failures, not the previous attempt's.
+      const deviceMark = options.device?.blockers.length ?? 0;
       const rejected: string[][] = [];
+      let failures = phase.verifyFirst ? await verify(phase, options, deviceMark) : [];
+      // The failure that provoked the fix is evidence too: record and report it before the
+      // model is asked to do anything about it.
+      if (failures.length) {
+        rejected.push(failures);
+        report(`${phase.name} needs a fix`, failures);
+      }
+      let previousFailures = failures.join("; ");
+      let summary = "";
+      let attempts = 0;
       try {
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          if (attempt > 1) reset(options.appDir, start);
+        // verifyFirst phases that already pass never reach the model: a green build costs nothing.
+        for (let attempt = 1; attempt <= phaseAttempts && !(phase.verifyFirst && attempt === 1 && failures.length === 0); attempt++) {
+          if (attempt > 1 || phase.verifyFirst) reset(options.appDir, start);
+          attempts = attempt;
           const extraTools = usesAdbt && options.adbtClient ? [options.adbtClient] : undefined;
           const model = await options.executor.call(phase.name, prompt(phase, options, failures, replayContext), { extraTools, skills: phase.skills });
           result.costUsd += model.costUsd;
           if (result.costUsd > options.maxCostUsd) throw new PortBudgetError(`Port cost $${result.costUsd.toFixed(2)} exceeded $${options.maxCostUsd.toFixed(2)}`);
           const output = parseJsonBlock(model.text, PortOutputSchema, phase.name);
           writeOutput(options.appDir, output.files);
+          summary = output.summary;
           // Record ADBT provenance: reconstructed from the model's tool calls (live) or the
           // recorded fixture (replay).
           // replayContext is only set when this phase uses ADBT without a live client.
@@ -62,21 +93,18 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
             writeFileSync(evidencePath, JSON.stringify(adbtContext, null, 2));
             result.adbt = { mode: adbtContext.mode, documents: adbtContext.documents.map((document) => document.name), evidence: evidencePath };
           }
-          failures = await verifyPort(options.appDir, phase.checks);
-          if (failures.length === 0) {
-            commit(options.appDir, `workshop(${phase.name}): ${output.summary.slice(0, 60)}`);
-            result.phases.push({ name: phase.name, summary: output.summary, attempts: attempt, checks: phase.checks.map((check) => check.label), failures: rejected });
-            break;
-          }
+          failures = await verify(phase, options, deviceMark);
+          if (failures.length === 0) break;
           rejected.push(failures);
-          // A retry that happens silently is a retry nobody can audit. stdout stays JSON-only,
-          // so this goes to stderr — and it is the exact text the next prompt carries.
-          process.stderr.write(`${phase.name} attempt ${attempt} failed:\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`);
+          report(`${phase.name} attempt ${attempt} failed`, failures);
           const signature = failures.join("; ");
-          if (attempt === maxAttempts) throw new Error(`${phase.name} failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${signature}`);
+          if (attempt === phaseAttempts) throw new Error(`${phase.name} failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${signature}`);
           if (signature === previousFailures) throw new Error(`${phase.name} stopped after ${attempt} attempts: no progress, the same failures repeated: ${signature}`);
           previousFailures = signature;
         }
+        // Nothing to commit when the phase passed without the model changing anything.
+        if (attempts > 0) commit(options.appDir, `workshop(${phase.name}): ${summary.slice(0, 60)}`);
+        result.phases.push({ name: phase.name, summary: summary || "already satisfied, no model call", attempts, checks: phaseLabels(phase), failures: rejected });
       } catch (error) {
         reset(options.appDir, start);
         throw error;
@@ -88,7 +116,31 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
   return result;
 }
 
-export const ADBT_PHASE = "plan";
+/**
+ * What decides a phase: static file assertions plus, for the device phases, the build and the
+ * device itself. Device work runs first — a package that did not build cannot be launched.
+ */
+async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0], deviceMark: number): Promise<string[]> {
+  const deviceFailures: string[] = [];
+  if (phase.device?.length) {
+    // Not a failure to hand the model: no patch can attach a device. Stop the run instead.
+    if (!options.device) throw new Error(`${phase.name} needs a device session: pass --platform-replay or attach a VDA`);
+    options.device.blockers.length = deviceMark;
+    await runDeviceStages(options.device, phase.device, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge });
+    deviceFailures.push(...options.device.blockers.slice(deviceMark));
+  }
+  return [...deviceFailures, ...await verifyPort(options.appDir, phase.checks)];
+}
+
+// A retry that happens silently is a retry nobody can audit. stdout stays JSON-only, so this
+// goes to stderr — and it is the exact text the next prompt carries.
+function report(headline: string, failures: string[]): void {
+  process.stderr.write(`${headline}:\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`);
+}
+
+function phaseLabels(phase: PortPhase): string[] {
+  return [...(phase.device ?? []).map((stage) => `device: ${stage}`), ...phase.checks.map((check) => check.label)];
+}
 
 /**
  * The whole port plan. Pass `only` to run part of it — the lessons build the pipeline up one
@@ -97,9 +149,76 @@ export const ADBT_PHASE = "plan";
  */
 export function phases(only?: string[]): PortPhase[] {
   const all: PortPhase[] = [
-    { name: "analyze", goal: "Read the guarded React Native app and write ANALYSIS.md describing its screens, components, data, and which parts are portable to Vega TV.", instruction: "Discovery first. Keep facts and assumptions separate. Do not change app code during analysis.", skills: ["amazon-devices-vega-best-practices"], checks: [{ type: "contains", path: "ANALYSIS.md", value: "## Portable", label: "Portability analysis documented" }] },
-    { name: "plan", goal: "Plan the Vega TV port. Write VEGA_PORT.md describing preserved product behavior, Vega replacements, and the exact remote flow, and record ADBT sources and gaps in NextSteps.md.", instruction: "Use the ADBT tools to discover and read the Vega migration workflows before making Vega claims. Keep facts and assumptions separate, port one vertical slice, and record unsupported gaps instead of inventing APIs.", skills: ["amazon-devices-vega-focus-management"], checks: [{ type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" }, { type: "contains", path: "NextSteps.md", value: "ADBT", label: "ADBT gaps and sources" }] },
-    { name: "build_test", goal: "Build the apps/vega package from the SDK shape, wire the remote-only home-to-details flow, and prove its focus transitions with an executable check.", instruction: "Preserve portable JS/TSX, start from the Vega template shape, use one focus-state module from both the app and the verifier, and verify launch, movement boundaries, details, back, and restoration.", skills: ["amazon-devices-vega-build-and-run"], checks: [{ type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" }, { type: "contains", path: "apps/vega/manifest.toml", value: "[[components.interactive]]", label: "Interactive component" }, { type: "contains", path: "apps/vega/package.json", value: "build-vega", label: "Vega React Native build" }, { type: "file_exists", path: "apps/vega/app.json", label: "Vega app registration" }, { type: "file_exists", path: "apps/vega/metro.config.js", label: "Vega Metro boundary" }, { type: "contains", path: "package.json", value: "vega:build", label: "Vega build script" }, { type: "file_exists", path: "src/tv/focus-state.ts", label: "Focus state adapter" }, { type: "contains", path: "src/App.tsx", value: "./tv/focus-state", label: "App uses shared focus state" }, FOCUS_TEST_CHECK, { type: "contains", path: "tv-focus-result.json", value: "\"passed\": true", label: "Focus evidence report" }, { type: "contains", path: "TV_VERIFICATION.md", value: "originating card", label: "Focus restoration documented" }] },
+    {
+      name: "analyze",
+      goal: "Read the guarded React Native app and write ANALYSIS.md describing its screens, components, data, and which parts are portable to Vega TV.",
+      instruction: "Discovery first. Keep facts and assumptions separate. Do not change app code during analysis.",
+      skills: ["amazon-devices-vega-best-practices"],
+      checks: [{ type: "contains", path: "ANALYSIS.md", value: "## Portable", label: "Portability analysis documented" }],
+    },
+    {
+      name: "plan",
+      goal: "Decide how this app becomes a TV app. Write VEGA_PORT.md with the preserved product behavior, the 10-foot layout and focus model, the exact remote flow, and the Vega replacements — and record ADBT sources and unsupported gaps in NextSteps.md.",
+      instruction: "Two kinds of knowledge, both required. The focus skill covers the 10-foot interface: what a remote can reach, where focus starts, and how Back restores it. The ADBT tools carry Vega's own migration workflows — read them before making Vega claims. Keep facts and assumptions separate, plan one vertical slice, and record unsupported mappings instead of inventing APIs.",
+      skills: ["amazon-devices-vega-focus-management"],
+      adbt: true,
+      checks: [
+        { type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" },
+        { type: "contains", path: "VEGA_PORT.md", value: "## Focus", label: "Focus model documented" },
+        { type: "contains", path: "NextSteps.md", value: "ADBT", label: "ADBT gaps and sources" },
+      ],
+    },
+    {
+      name: "port",
+      goal: "Write the port the plan describes: the apps/vega package from the SDK shape, the shared focus-state module, the remote-only home-to-details flow, and the executable focus test that proves it.",
+      instruction: "Preserve portable JS/TSX, start from the Vega template shape, and use one focus-state module from both the app and the verifier. Follow VEGA_PORT.md — it is the plan you are implementing.",
+      skills: ["amazon-devices-vega-build-and-run"],
+      checks: [
+        { type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" },
+        { type: "contains", path: "apps/vega/manifest.toml", value: "[[components.interactive]]", label: "Interactive component" },
+        { type: "contains", path: "apps/vega/package.json", value: "build-vega", label: "Vega React Native build" },
+        { type: "file_exists", path: "apps/vega/app.json", label: "Vega app registration" },
+        { type: "file_exists", path: "apps/vega/metro.config.js", label: "Vega Metro boundary" },
+        { type: "contains", path: "package.json", value: "vega:build", label: "Vega build script" },
+        { type: "file_exists", path: "src/tv/focus-state.ts", label: "Focus state adapter" },
+        { type: "contains", path: "src/App.tsx", value: "./tv/focus-state", label: "App uses shared focus state" },
+        { type: "file_exists", path: "tests/verify-tv-focus.ts", label: "Executable focus check written" },
+      ],
+    },
+    {
+      name: "build",
+      goal: "Make the Vega package build. Read the compiler output in the failure above, fix the cause, and return only the files that change.",
+      instruction: "The build is the judge. Do not weaken the app to satisfy it: fix the real cause the diagnostics name. Return complete file contents for every file you touch.",
+      skills: ["amazon-devices-vega-build-and-run"],
+      device: ["build"],
+      verifyFirst: true,
+      maxAttempts: 5,
+      checks: [],
+    },
+    {
+      name: "launch",
+      goal: "Make the app run on the device. Install it, launch it, and keep it alive — read the device log in the failure above and fix what crashed it.",
+      instruction: "A launch that exits 0 is not a running app. The device log and the frames decide. Fix the cause of the crash; the harness rebuilds and relaunches to check your work.",
+      skills: ["amazon-devices-vega-build-and-run"],
+      device: ["build", "launch"],
+      verifyFirst: true,
+      maxAttempts: 3,
+      checks: [],
+    },
+    {
+      name: "test",
+      goal: "Prove the remote-control contract holds: launch focus, movement boundaries, opening details, and Back restoring the originating card — with device frames as evidence.",
+      instruction: "A screenshot shows where focus is, never whether it moved correctly. The executable test decides the transitions; the frames prove the app was rendering while it ran.",
+      skills: ["amazon-devices-vega-focus-management"],
+      device: ["review", "focus"],
+      verifyFirst: true,
+      maxAttempts: 3,
+      checks: [
+        FOCUS_TEST_CHECK,
+        { type: "contains", path: "tv-focus-result.json", value: "\"passed\": true", label: "Focus evidence report" },
+        { type: "contains", path: "TV_VERIFICATION.md", value: "originating card", label: "Focus restoration documented" },
+      ],
+    },
   ];
   if (!only) return all;
   const unknown = only.filter((name) => !all.some((phase) => phase.name === name));
@@ -115,7 +234,7 @@ function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0]
   }).join("\n");
   // Model-driven: instruct the agent to use the ADBT MCP tools itself. In replay (no live tools)
   // the recorded context is shown so the offline path still has authoritative guidance.
-  const adbtGuidance = phase.name === ADBT_PHASE
+  const adbtGuidance = phase.adbt
     ? adbt
       ? `\n\n## ADBT sources (recorded)\n${adbt.documents.map((d) => `### ${d.name}\n${d.excerpt}`).join("\n\n")}\n\nUse these ADBT sources for Vega-specific decisions. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md and name the ADBT documents consulted.`
       : `\n\nUse the adbt_list_documents and adbt_read_document tools to discover and read the Vega migration workflows you need. Do not invent Vega APIs. Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents you consulted.`
