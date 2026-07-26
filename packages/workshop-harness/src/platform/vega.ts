@@ -84,8 +84,12 @@ export class VegaReplayAdapter implements VegaCommandAdapter {
   constructor(private turns: Array<{ capability: VegaCapability; result: ProcessResult }>, private screenshot: Buffer = PLACEHOLDER_PIXEL_PNG) {}
   command(capability: VegaCapability, ...values: string[]): string[] { return ["replay", capability, ...values]; }
   async execute(capability: VegaCapability, ...values: string[]): Promise<ProcessResult> {
+    // A fixture records a whole device session. A phase run on its own — `--phases launch` —
+    // asks for only part of it, so skip forward past capabilities this run is not exercising.
+    // Order within a capability is preserved, which is what lets a recorded rebuild replay.
+    while (this.index < this.turns.length && this.turns[this.index].capability !== capability) this.index++;
     const turn = this.turns[this.index++];
-    if (!turn || turn.capability !== capability) throw new Error(`Vega replay expected ${turn?.capability ?? "end"}, received ${capability}`);
+    if (!turn) throw new Error(`Vega replay has no turn left for ${capability}`);
     if (capability === "pull" && turn.result.code === 0 && values[1]) writeFileSync(values[1], this.screenshot);
     return turn.result;
   }

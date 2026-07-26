@@ -1,6 +1,6 @@
 ---
 id: finish
-number: "10"
+number: "09"
 nav: Build your own
 time: 15 minutes
 title: Design one harness for your work

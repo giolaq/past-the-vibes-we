@@ -1,6 +1,6 @@
 # Complete Checkpoint
 
-Use this checkpoint when Vega SDK, ADBT, or VDA blocks lesson 8. Open `report.md` and `vega-platform-result.json`. Trace the expected SDK, device, build, install, launch, capture, pull, log, second capture, second pull, and focus evidence, and read the four named checks with their evidence.
+Use this checkpoint when Vega SDK, ADBT, or VDA blocks lessons 4 to 6. Open `report.md` and `vega-platform-result.json`. Trace the expected SDK, device, build, install, launch, capture, pull, log, second capture, second pull, and focus evidence, and read the four named checks with their evidence.
 
 `live-build-result.json` records the successful SDK build rehearsal. Device evidence remains replay-only.
 

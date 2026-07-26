@@ -9,7 +9,7 @@ This file is for agents maintaining or modifying the repository. If you are an a
 - `workshop/lessons/*.md`: the single source of truth for all lesson content (YAML frontmatter + `:::directive` blocks). Edit these to change the website.
 - `workshop/workshop.data.js`: generated from `lessons/` by `scripts/build-site.mjs`. Do not edit by hand.
 - `workshop/`: attendee website chrome (`index.html`, `workshop.css`, `workshop.js` — runtime only), fixtures, checkpoints, and instructor material.
-- `packages/workshop-harness/`: the guarded React Native-to-Vega pipeline. Lessons 1-4 build it up one element at a time (`--phases` runs a subset); lessons 5-9 run it whole.
+- `packages/workshop-harness/`: the guarded React Native-to-Vega pipeline. Six phases — `analyze → plan → port → build → launch → test` — and one lesson each (`--phases` runs a subset).
 - `apps/pocket-cinema/`: prepared React Native target.
 - `scripts/`: `build-site.mjs` (lessons → site data), workshop link checks, checkpoint packaging, and the static site server.
 
@@ -37,7 +37,9 @@ Read every edit aloud. If it sounds like something you would say standing in fro
 
 ## Before changing workshop material
 
-Run `yarn verify`. Preserve the key-free replay path. Do not make a live model, ADBT, Vega SDK, or device mandatory for the main learning outcome.
+Run `yarn verify`. Preserve the key-free replay path: every phase, including build, launch, and test, must run from recordings.
+
+Lessons 4-6 require Vega SDK `0.22.5875` and an attached VDA for their *live* claim — that is deliberate, since a build loop with a recorded compiler teaches less. Replay remains a working fallback for all six phases and must stay that way, labeled `evidenceMode: replay`. A live model and ADBT are never mandatory.
 
 Every exercise must state:
 
