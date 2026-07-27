@@ -3,14 +3,50 @@ id: analyze
 number: "01"
 nav: Analyze the app
 time: 25 minutes
-title: Meet the app, the harness, and your first agent
-lead: We start where the port starts — with an agent that reads your React Native app and writes down what it found.
-objective: Build a mental model of the harness and locate the boundary between what the model proposes and what your code does.
-evidence: ANALYSIS.md exists in the guarded copy, and you can name three claims in it that nothing has checked.
+title: First ask once, then build the boundary
+lead: Start with the tempting one-shot port. It may look excellent. Then inspect the five things it cannot prove and add the first controlled phase.
+objective: Explain why a plausible patch is not a verified result, then locate the boundary between what the model proposes and what your code does.
+evidence: A saved one-shot proposal that changed nothing, followed by a checked ANALYSIS.md in the guarded copy.
 ---
 
-:::welcome The app, the harness, and one agent
-Over the next four hours we build a harness that ports a React Native app to Vega TV, one phase at a time. This lesson introduces all three things you need to start: the app we're porting, the shape of the harness around it, and the Strands agent that does the reading. Then we run the first phase for real and look at what it produced.
+:::welcome Begin with the shortcut
+The fastest way to understand a harness is to remove it. First ask one model to port the whole app in one call. We save its patch but apply nothing. Then we put the first boundary back: one phase, one structured result, one check, one commit. The difference between those two runs is the workshop.
+:::
+
+## The tempting one-shot version
+
+This call still gets read-only project tools and a typed patch because we refuse to give a live
+model direct write access. It gets no phase plan, TV skill, ADBT MCP server, verification, retry,
+compiler, or device. That is close to how “just ask the agent” feels in practice.
+
+:::predict
+If the proposal contains a Vega manifest, focus code, and a test, has the port succeeded? Name the
+first claim you would still refuse to make.
+:::
+
+:::command Save one live proposal; apply nothing
+yarn --cwd packages/workshop-harness tsx src/index.ts naive ../../apps/pocket-cinema \
+  --executor claude-cli --model sonnet \
+  --max-cost 1 --run-id naive-demo --yes
+:::
+
+:::note Using Strands
+Replace `--executor claude-cli --model sonnet` with the provider and model flags you chose in
+lesson 0. This probe works through either executor and deliberately supplies neither skills nor MCP.
+:::
+
+:::steps
+1. Open `out/naive-demo/naive-proposal.json`. It can be detailed, coherent, and still unproved.
+2. Open `out/naive-demo/naive-result.json`. Every coverage row says `proven: false`, including rows the model proposed.
+3. Read `missingProof`: no ADBT source, no applied patch, no compiler, no device, no remote behavior.
+4. Run `git status` on `apps/pocket-cinema`. The anti-demo changed nothing outside its guarded copy.
+5. Keep the proposal open. At the end of lesson 6, compare its claims with the evidence the full harness retained.
+:::
+
+:::concept The defect is the process, not necessarily the code
+The model may produce good code. That does not repair the missing contract around it. Without an
+independent observer, “correct” and “convincing” look identical. A harness does not assume the
+model will fail; it makes success distinguishable from confidence.
 :::
 
 ## The app
@@ -73,7 +109,8 @@ const result = await consumeStream(
 :::
 
 :::predict
-The agent is about to read Pocket Cinema and report what is portable. Name one thing it could get wrong in a way that still reads as confident.
+The controlled agent is about to report what is portable. Which part of its answer can the first
+phase check mechanically, and which part remains only a claim?
 :::
 
 ## Run the first phase
@@ -122,12 +159,33 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 The guarded copy is where the model's authority ends. Git inside it is not decoration: a failed attempt is reset to the phase's starting commit, so a rejected patch leaves nothing behind. Rollback and record are the same mechanism, and you will watch it work in lesson 3.
 :::
 
+## Same harness, different executor
+
+Pair with someone who chose a different live path. Do not rerun the phase. Compare the first and
+last events in your two `model-logs/analyze.jsonl` files.
+
+| Changes with the executor | Stays owned by the harness |
+| --- | --- |
+| Provider event names and token accounting | Phase name and prompt contract |
+| Claude subprocess versus Strands `Agent` | `{summary, files}` schema |
+| Skill delivery mechanism | Guarded write, check, budget, commit |
+
+The executor is an adapter. If changing providers also changes what “passed” means, the boundary is
+in the wrong place.
+
+:::proof
+claim: "I understand what can move to Vega"
+gate: "ANALYSIS.md exists and contains the required portability section"
+evidence: "out/workshop/app/ANALYSIS.md + model-logs/analyze.jsonl"
+limit: "The first gate proves structure, not that every portability conclusion is correct"
+:::
+
 :::knowledge What has this phase actually proved?
 That a file exists and contains a required section. Nothing has checked whether the analysis is complete, whether its portability calls are right, or whether a later phase will invent an API. Every phase that follows closes one of those gaps.
 :::
 
 :::done
-`ANALYSIS.md` exists in the guarded copy, `apps/pocket-cinema` is untouched, and you have three unverified claims written down.
+The one-shot proposal changed nothing, `ANALYSIS.md` exists in the guarded copy, the source app is untouched, and you have three unverified claims written down.
 :::
 
 :::fallback

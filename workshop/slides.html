@@ -61,8 +61,7 @@ body {
     pointer-events: none;
     background: var(--slide-bg, #fff);
 }
-.slide.active,
-.slide.visible {
+.slide.active {
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
@@ -299,7 +298,7 @@ h2 {
     position: absolute;
     bottom: 48px;
     left: 140px;
-    right: 140px;
+    right: 290px;
     display: flex;
     justify-content: space-between;
     font-family: var(--mono);
@@ -370,7 +369,7 @@ h2 {
           <div class="panel" style="padding:22px 38px; font-size:30px; font-weight:700; border-radius:22px;">Kourtney Meiss</div>
         </div>
       </div>
-      <div class="foot"><span>past-the-vibes-we</span><span>replay works with zero credentials</span></div>
+      <div class="foot"><span>past-the-vibes-we</span><span>live model first · evidence over claims</span></div>
     </section>
 
     <!-- 2 ▸ THE LINE -->
@@ -451,10 +450,10 @@ h2 {
           <div class="panel">
             <h3 style="color:var(--muted)">The arc</h3>
             <ul>
-              <li><strong>1–3</strong> · analyze, plan, port — the model writes</li>
+              <li><strong>1</strong> · one-shot anti-demo, then the first boundary</li>
+              <li><strong>2–3</strong> · plan and port — knowledge plus checked writes</li>
               <li><strong>4–6</strong> · build, launch, test — the toolchain judges</li>
-              <li><strong>7</strong> · optional: a conversation becomes reviewed code</li>
-              <li><strong>8</strong> · control the full run, then design <strong>your</strong> harness</li>
+              <li><strong>7</strong> · control the full run, then defend <strong>your</strong> harness</li>
             </ul>
           </div>
           <div class="panel">
@@ -471,14 +470,32 @@ h2 {
       <div class="foot"><span>intro</span><span>site: yarn site → localhost:4173</span></div>
     </section>
 
+    <!-- 6b ▸ TRUST BOARD -->
+    <section class="slide">
+      <div class="tag"><b>The throughline</b> · claim → independent proof</div>
+      <div class="wrap" style="gap:36px;">
+        <h2 class="reveal" style="--d:0ms">When the model says “done,”<br>ask <span class="accent">what observed it?</span></h2>
+        <div class="codeline reveal" style="--d:140ms"><span class="c">CLAIM</span>                      <span class="c">INDEPENDENT OBSERVER</span>
+“the port is correct”      → static + executable checks
+“it builds”                → Vega compiler + .vpkg
+“it runs”                  → dwell + crash log + two frames
+“the remote works”         → focus transition contract</div>
+        <div class="support reveal" style="--d:300ms">Every lesson adds one row. The observer gets closer to real user behavior, and every row names what it <strong>still does not prove</strong>. This is how you keep an agent honest without pretending verification is perfect.</div>
+      </div>
+      <div class="foot"><span>the board stays visible all day</span><span>plausible ≠ verified</span></div>
+    </section>
+
     <!-- 7 ▸ LESSON 1 -->
     <section class="slide">
       <div class="tag"><b>Lesson 1</b> · analyze the app</div>
       <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">One agent reads your app.<br>Then ask what it <span class="accent">cannot prove</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms">$ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span>
-<span class="g">✓</span> out/&lt;runId&gt;/app/ANALYSIS.md   <span class="r">✗</span> <span class="c">…checked by what?</span></div>
-        <div class="support reveal" style="--d:300ms">Read-only tools, a typed <code>{summary, files}</code> answer, and a guarded copy your source never leaves. The check says a file exists and names a section. <strong>Your job: write down three claims nothing has verified.</strong></div>
+        <h2 class="reveal" style="--d:0ms">First, remove the harness.<br>The answer looks <span class="accent">great</span>.</h2>
+        <div class="codeline reveal" style="--d:160ms">$ workshop-harness naive apps/pocket-cinema
+<span class="g">23 proposed files</span>   <span class="r">0 applied · 0 checks · 0 builds · 0 device turns</span>
+
+$ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span>
+<span class="g">✓ guarded write · check · commit · transcript</span></div>
+        <div class="support reveal" style="--d:300ms">The one-shot patch may even be correct. <strong>That is not the same as knowing it is correct.</strong> The first phase adds the boundary; every later lesson adds a stronger observer.</div>
       </div>
       <div class="foot"><span>lesson 01 · 25 min</span><span>the model proposes — the harness writes</span></div>
     </section>
@@ -584,11 +601,11 @@ h2 {
       <div class="tag"><b>Lesson 4</b> · build until it compiles</div>
       <div class="wrap" style="gap:44px;">
         <h2 class="reveal" style="--d:0ms">Now the check is a <span class="accent">compiler</span></h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> build failed: react-native build-vega exited with code 2
-   src/tv/focus-state.ts(18,24): error TS2551: Property 'preferedFocus'
-   does not exist on type 'FocusState'. Did you mean 'preferredFocus'?
+        <div class="codeline reveal" style="--d:160ms">$ inject-build-failure workshop <span class="c"># guarded copy only</span>
+<span class="r">✗</span> src/workshop-build-break.ts(2,14): error TS2322:
+   Type 'number' is not assignable to type 'string'.
 <span class="c">→ the compiler's own words go to the model · rebuild · judge again</span></div>
-        <div class="support reveal" style="--d:300ms">A file can be talked around; a <code>.vpkg</code> cannot. The phase <strong>checks before it prompts</strong> — a build that already passes never reaches the model — and the log is bounded before it hits a 40,000-token budget.</div>
+        <div class="support reveal" style="--d:300ms">This failure is deterministic and the repair is live. A file can be talked around; a <code>.vpkg</code> cannot. The phase <strong>checks before it prompts</strong>, carries the exact diagnostic, removes the teaching fault, and commits only the passing repair.</div>
       </div>
       <div class="foot"><span>lesson 04 · 30 min</span><span>Vega SDK required · recorded fallback available</span></div>
     </section>
@@ -647,7 +664,7 @@ before relying on them — they are <span class="o">not invented APIs presented 
 
     <!-- 16 ▸ OPTIONAL BEE -->
     <section class="slide">
-      <div class="tag"><b>Lesson 7</b> · optional, consent required</div>
+      <div class="tag"><b>Appendix A1</b> · optional, consent required</div>
       <div class="wrap" style="gap:44px;">
         <h2 class="reveal" style="--d:0ms">A conversation is input.<br>It is not <span class="accent">permission</span>.</h2>
         <div class="cols reveal" style="--d:160ms">
@@ -670,12 +687,12 @@ before relying on them — they are <span class="o">not invented APIs presented 
         </div>
         <div class="support reveal" style="--d:320ms">The model may propose a spec. <strong>It cannot silently turn a conversation into code.</strong> Each request arrives with the check that will prove it, so you approve the acceptance criteria <strong>before the code exists</strong>.</div>
       </div>
-      <div class="foot"><span>lesson 07 · optional</span><span>consent first · approval before code</span></div>
+      <div class="foot"><span>appendix A1 · optional</span><span>consent first · approval before code</span></div>
     </section>
 
     <!-- 16b ▸ THE SECOND PIPELINE -->
     <section class="slide">
-      <div class="tag"><b>Lesson 7</b> · same engine, different plan</div>
+      <div class="tag"><b>Appendix A1</b> · same engine, different plan</div>
       <div class="wrap" style="gap:44px;">
         <h2 class="reveal" style="--d:0ms">Reusable is a claim.<br><span class="accent">Here it is demonstrated.</span></h2>
         <div class="codeline reveal" style="--d:160ms">--propose   <span class="c">bee_spec</span>   Bee over MCP → bee-spec.json + BEE_SPEC.md · <span class="o">no code</span>
@@ -685,21 +702,52 @@ before relying on them — they are <span class="o">not invented APIs presented 
             <span class="c">launch</span>     on the VDA         <span class="c">← the port's phase</span></div>
         <div class="support reveal" style="--d:300ms"><code>runPortPipeline</code> takes a plan, and this is the second one. Spec checks are <strong>declarative only</strong> — <code>file_exists</code> and <code>contains</code>, never a command line — and <code>bee_apply</code> declares the spec <strong>read-only</strong>, so the thing being measured cannot edit the measurement.</div>
       </div>
-      <div class="foot"><span>lesson 07 · optional, 25 min</span><span>bee-run · explicit consent required</span></div>
+      <div class="foot"><span>appendix A1 · optional, 25 min</span><span>bee-run · explicit consent required</span></div>
     </section>
 
-    <!-- 17 ▸ LESSON 8 -->
+    <!-- 17 ▸ OPERATOR VIEW -->
     <section class="slide">
-      <div class="tag"><b>Lesson 8</b> · take it home</div>
+      <div class="tag"><b>Lesson 7</b> · the controls become one system</div>
+      <div class="wrap" style="gap:38px;">
+        <h2 class="reveal" style="--d:0ms">The TUI is the <span class="accent">payoff</span>, not the abstraction.</h2>
+        <div class="codeline reveal" style="--d:140ms"><span class="b">executor</span> strands:openai/gpt-4.1   <span class="b">evidence</span> live   <span class="b">seed</span> workshop-v1   <span class="b">cost</span> $1.84 / $3.00
+<span class="g">✓ analyze</span>   <span class="g">✓ plan</span>   <span class="g">✓ port</span>   <span class="o">● build</span>   ○ launch   ○ test
+checks: compiler failed → diagnostic retained → repair passed
+commit: 8f2c4d1 workshop(build): produce Vega package</div>
+        <div class="cols reveal" style="--d:280ms">
+          <div class="panel">
+            <h3 class="blue">Control what you see</h3>
+            <ul>
+              <li>Choose a phase</li>
+              <li>Filter checks, model events, or tools</li>
+              <li>Follow the active phase without stopping it</li>
+            </ul>
+          </div>
+          <div class="panel" style="border-color:var(--orange)">
+            <h3 class="accent">Keep the full evidence</h3>
+            <ul>
+              <li>Exact executor and model</li>
+              <li>ADBT calls, retries, costs, commits</li>
+              <li>Append-only JSONL remains canonical</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>lesson 07 · operator view</span><span>the dashboard filters evidence; it does not replace it</span></div>
+    </section>
+
+    <!-- 18 ▸ LESSON 7 -->
+    <section class="slide">
+      <div class="tag"><b>Lesson 7</b> · dashboard + team challenge</div>
       <div class="wrap" style="gap:50px;">
         <h2 class="reveal" style="--d:0ms">TV was the example.<br><span class="accent">The loop is the point.</span></h2>
         <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → commit → report</div>
-        <div class="support reveal" style="--d:300ms">Take the worksheet. Name <strong>one outcome</strong>, the fewest useful phases, <strong>one mechanical check per phase</strong>, an approval point, a budget, and the evidence another developer can inspect. Swap the TV skill, the Vega adapter, and the D-pad check for your domain.</div>
+        <div class="support reveal" style="--d:300ms">First inspect executor, tools, checks, costs, retries, and commits in one live TUI. Then teams design a three-phase harness, <strong>swap worksheets, find a false positive</strong>, strengthen one check, and report: claim, proof, remaining limit.</div>
       </div>
-      <div class="foot"><span>lesson 08 · 20 min</span><span>worksheet.md</span></div>
+      <div class="foot"><span>lesson 07 · 30 min</span><span>another team attacks the proof</span></div>
     </section>
 
-    <!-- 18 ▸ CLOSE -->
+    <!-- 19 ▸ CLOSE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start; gap:44px;">
         <div class="kicker reveal" style="--d:0ms">Fork it · swap the skills, MCP, or executor · point it at your domain</div>
@@ -716,7 +764,7 @@ before relying on them — they are <span class="o">not invented APIs presented 
 </div>
 
 <div class="deck-progress" id="progress"></div>
-<div class="deck-counter" id="counter">1 / 20</div>
+<div class="deck-counter" id="counter">1 / 21</div>
 
 <script>
 /* ============================================================
@@ -748,7 +796,11 @@ before relying on them — they are <span class="o">not invented APIs presented 
       /* .visible is added a frame later so .reveal transitions replay
          every time a slide is entered */
       slide.classList.remove("visible");
-      if (i === index) requestAnimationFrame(() => requestAnimationFrame(() => slide.classList.add("visible")));
+      if (i === index) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (slide.classList.contains("active")) slide.classList.add("visible");
+        }));
+      }
     });
     progress.style.width = `${((index + 1) / slides.length) * 100}%`;
     counter.textContent = `${index + 1} / ${slides.length}`;

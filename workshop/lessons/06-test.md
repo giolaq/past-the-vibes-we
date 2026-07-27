@@ -105,6 +105,13 @@ Every failure from lesson 0 was produced by the six phases and is now verified m
 Returning to a screen without restoring the user's prior focus loses navigation context. The UI may look correct while the remote interaction is broken.
 :::
 
+:::proof
+claim: "A remote user can complete the TV flow"
+gate: "The executable focus contract observes launch, movement, selection, boundaries, and Back restoration"
+evidence: "tv-focus-result.json + tv-check tvReady:true"
+limit: "This host-side contract proves the shared focus model; only a separate device-input test can prove physical key delivery"
+:::
+
 :::done
 On either path, the focus check passes the full transition sequence, `tv-focus-result.json` records it, and `tv-check` reports `tvReady: true`. Only a prior lesson 5 result marked `evidenceMode: live` lets you add that the two frames came from your device; replay frames prove the gate and report flow only.
 :::

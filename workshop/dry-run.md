@@ -1,6 +1,6 @@
 # Dry Run: test everything, then rehearse
 
-For the instructor, the day before the session. Work through the 33 steps in
+For the instructor, the day before the session. Work through the 32 steps in
 order — each one is a command, the output you should see, and a pass criterion
 you can tick. Budget **3 hours** for parts A–E and **15 minutes** on the
 morning for part F. Two colleague briefs are steps 30–32.
@@ -84,20 +84,20 @@ does not exist yet.
 
 **Run:** open `workshop/slides.html` in a browser and arrow through it.
 
-**Expect:** 19 slides, ending on the close. Confirm the two lesson-7 slides
+**Expect:** 21 slides, ending on the close. Confirm the trust-board slide, the final operator-view
+slide, and two appendix-A1 slides
 are present: the privacy/consent panel and the
 second-pipeline slide with the propose/approve/apply flow.
 
-**Pass:** all 19 render, reveal animations fire, the counter reads `19 / 19`
+**Pass:** all 21 render, reveal animations fire, the counter reads `21 / 21`
 at the end.
 
 ### Step 6 — Website
 
 **Run:** `yarn site`, then open the printed URL.
 
-**Expect:** 9 modules in the navigation, lesson 7 titled "A conversation
-becomes code, with a gate in the middle". Leave the server running for the
-rest of the rehearsal.
+**Expect:** 9 modules in the navigation, lesson 7 titled "Control the whole pipeline, then design
+one as a team", followed by appendix A1. Leave the server running for the rest of the rehearsal.
 
 **Pass:** every module opens; no raw directive markers visible.
 
@@ -113,7 +113,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 
 **Expect:** `adbt` reports `native MCP: 2 Vega port workflows available`.
 
-**Pass:** or skip — replay covers the lesson.
+**Pass:** or skip the live MCP demonstration and use the lesson's explicit recovery path.
 
 ### Step 8 — Start clean
 
@@ -178,9 +178,8 @@ it before you promise anyone a device.
 ## Part C · Demo-by-demo test pass (~60 min)
 
 Run every demo you will show, in lesson order, and check the output against
-what the lesson promises. All commands below are the replay path — the one
-most of the room will run. If step 12 said live, run the live variant first,
-then this one anyway.
+what the lesson promises. Use the same live executor the room will use. Run a recorded fallback
+only where the rehearsal names it explicitly.
 
 From here on, work in the harness directory:
 
@@ -188,19 +187,23 @@ From here on, work in the harness directory:
 cd packages/workshop-harness
 ```
 
-### Step 13 — Lesson 1: analyze
+### Step 13 — Lesson 1: one-shot anti-demo, then analyze
 
 **Run:**
 
 ```
+yarn tsx src/index.ts naive ../../apps/pocket-cinema \
+  --executor claude-cli --model sonnet \
+  --max-cost 1 --run-id naive-rehearsal --yes
+
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
+  --executor claude-cli --model sonnet \
   --phases analyze --yes --run-id rehearsal
 ```
 
-**Expect:** `phasesComplete: ["analyze"]`, and `out/rehearsal/app/ANALYSIS.md`
-exists.
+**Expect:** `out/naive-rehearsal/naive-result.json` lists five missing proofs and applies nothing;
+then `phasesComplete: ["analyze"]`, and `out/rehearsal/app/ANALYSIS.md` exists.
 
 **Pass:** `git status apps/pocket-cinema` (from the repo root) is clean — the
 model worked in the guarded copy. Rehearse the sentence: *the model is a
@@ -276,27 +279,28 @@ yarn tsx src/index.ts tv-check ../../workshop/checkpoints/vega-buildable/app
 `git checkout -- src/port-verification.ts` — or step 2's suite fails tomorrow
 morning and you will spend the pre-session window debugging yourself.
 
-### Step 18 — Lesson 4: build on replay
+### Step 18 — Lesson 4: deterministic live compiler repair
 
 **Run:**
 
 ```
+yarn tsx src/index.ts inject-build-failure rehearsal --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --executor claude-cli --model sonnet \
   --phases build --yes --run-id rehearsal
 ```
 
-**Expect:** the build passes from the recording and the result labels itself
-`evidenceMode: replay`.
+**Expect:** the real build fails on `src/workshop-build-break.ts` with TS2322, that exact line
+appears in the live model request, the fault file and import disappear, and a `.vpkg` is produced.
 
-**Pass:** green, and you can say what it does and does not prove.
+**Pass:** `git -C out/rehearsal/app status --porcelain` is empty, `port-result.json` retains the
+rejected compiler failure, and the build commit appears in the phase transcript and Git log.
 
-### Step 19 — Lesson 4: the build-repair demo
+### Step 19 — Lesson 4: recorded recovery path
 
-The single most useful command in the rehearsal — all six phases, one run,
-with a failure in the middle.
+This is recovery material, not the main demo: all six phases, one run, with a recorded failure in
+the middle. Verify it so a blocked attendee still has a working route.
 
 **Run:**
 
@@ -392,7 +396,7 @@ six-phase run instead.
 same time**. That pair is the workshop's before-and-after photo, and it lands
 much harder side by side than sequentially.
 
-### Step 23 — Lesson 7: both halves and the refusal
+### Step 23 — Appendix A1: both halves and the refusal
 
 **Run:** the propose half:
 
@@ -461,33 +465,36 @@ fumble.
 | 02:25 | 5 · Launch | 30 |
 | 02:55 | **Break** | 10 |
 | 03:05 | 6 · Test | 25 |
-| 03:30 | 8 · Full-run TUI, then take it home | 20 |
+| 03:30 | 7 · Full-run TUI and adversarial team challenge | 30 |
 
 Slack lives in two places only: the 10-minute repair rule and the per-lesson
 assignments — an attendee who falls behind drops the assignment first. Check
 the room's Vega setup during the **first** break, not during lesson 4.
 
-### Step 25 — The seven predict prompts
+Run the final ten-minute challenge as if you were an attendee. Give your design
+to a co-host and require them to name a false positive before you strengthen
+the check. If they cannot attack it from the worksheet alone, your explanation
+or the worksheet is still too vague.
+
+### Step 25 — The seven core predict prompts
 
 Each lesson opens hands-on work with a `:::predict`. Rehearse your own answer
 to each, because you will be asked "well, what is it then":
 
-1. **L1** — an analysis claim that reads confident but is unchecked: e.g. "the
+1. **L1 one-shot** — proposed files are not proof: nothing was applied, compiled, launched, or exercised.
+2. **L1 analyze** — an analysis claim that reads confident but is unchecked: e.g. "the
    catalog logic ports cleanly" — nothing has compiled or run anything yet.
-2. **L2** — the focus skill answers where focus starts and what Back does;
+3. **L2** — the focus skill answers where focus starts and what Back does;
    ADBT answers which Vega API replaces what.
-3. **L3** — an invented-but-plausible manifest passes every lesson-3 check;
+4. **L3** — an invented-but-plausible manifest passes every lesson-3 check;
    `file_exists` and `contains` cannot catch it. That is the cliffhanger for
    lesson 4, where the check becomes a compiler.
-4. **L4** — the harness may send the compiler's diagnostics, verbatim.
+5. **L4** — the harness may send the compiler's diagnostics, verbatim.
    "Try again" and a paraphrase of the error are useless.
-5. **L5** — an app that throws two seconds after its first frame is caught by
+6. **L5** — an app that throws two seconds after its first frame is caught by
    the log scan and the second frame, not the first screenshot.
-6. **L6** — Back restoring focus to the originating card: looks identical in a
+7. **L6** — Back restoring focus to the originating card: looks identical in a
    screenshot, broken for a real remote user.
-7. **L7** — the flight and the family visit go to *excluded*; so does search,
-   because nobody agreed what it searches; the rail and the runtime become
-   requests with checks.
 
 ### Step 26 — The claims list
 
@@ -496,8 +503,13 @@ gets caught by someone in the room.
 
 Say:
 
-- Replay proves command order, stop conditions, and the report shape — and
-  labels itself `evidenceMode: replay`. It is not device evidence.
+- The one-shot proposal proves only that a model can return a plausible typed
+  answer. It does not prove that the patch applies, compiles, launches, or
+  behaves correctly.
+- Every row on the trust board names a claim, an independent observer, and a
+  remaining limitation.
+- The TUI summarizes the run; the append-only transcript, phase checks, Git
+  commits, build artifact, logs, and frames are the retained evidence.
 - Every device turn in the fixtures is synthetic. Nobody's device produced
   them.
 - The six-phase pipeline has not run end to end against a live model and a
@@ -505,9 +517,12 @@ Say:
   validation, bundling, `.vpkg` generation.
 - The focus test drives the focus module, not the device's input system. It
   does not press a button.
-- Lesson 7's Bee path is fixture-verified here; the live path needs an account
+- Appendix A1's Bee path is fixture-verified here; the live path needs an account
   and `bee login`, outside the harness.
 - A model reporting on its own work is another generated claim.
+- A recorded recovery proves command order, stop conditions, and report shape,
+  and labels itself `evidenceMode: replay`. It is not live model or device
+  evidence.
 
 Do not claim:
 
@@ -517,12 +532,13 @@ Do not claim:
 - That the harness prevents bad code. It prevents *unchecked* code — checks
   are only as strong as their shape.
 
-### Step 27 — The four-things rule
+### Step 27 — The five-things rule
 
 Before every exercise, state: what they run, what they inspect, what proves
-completion, and which fixture or checkpoint to use when blocked. Practice
-saying all four for lesson 4 in under thirty seconds — it is the lesson where
-the room is most likely to fork into live and replay halves.
+completion, what remains unproven, and which recovery path to use when
+blocked. Practice saying all five for lesson 4 in under thirty seconds — it is
+the lesson where the room is most likely to split across live and recovery
+paths.
 
 ### Step 28 — The failure drill
 
@@ -575,7 +591,7 @@ During:
 - Track the measurement list from the instructor guide: lessons completed,
   port completed, TV behavior understood, live run completed, fallback used,
   cost, help requests.
-- Watch the clock against step 25's table and hand-signal at five minutes over
+- Watch the clock against step 24's table and hand-signal at five minutes over
   on any lesson.
 
 ### Step 31 — The adversarial drill
@@ -609,10 +625,14 @@ opinion — checks pass, budget runs out, or the same failure repeats twice.
 cd /tmp/ptv-rehearsal
 git pull
 yarn verify
-yarn doctor
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor claude-cli --model sonnet --json
 rm -rf out/*
 yarn site
 ```
+
+Replace the doctor flags with the Strands provider and model you selected if
+that is the path you teach.
 
 Then, in the dedicated terminal: `vega virtual-device start --gui`, confirm
 `status` and `devices -l`, and re-confirm the step 12 posture with both

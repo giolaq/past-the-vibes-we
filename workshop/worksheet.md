@@ -1,6 +1,7 @@
-# Harness Worksheet
+# Ten-Minute Harness Challenge
 
-Use short, concrete answers. Start with one workflow that can finish in a single session.
+Work in a team of two or three. Use short, concrete answers. Start with one workflow that can
+finish in a single session, then give this sheet to another team and ask them to break your proof.
 
 ## 1. Outcome
 
@@ -18,7 +19,7 @@ Example: Do not change server APIs, release signing, or other app modules.
 
 ## 2. Phases
 
-List the smallest useful sequence.
+List the smallest useful sequence: three phases at most for this exercise.
 
 | Phase | Change made | Independent check |
 | --- | --- | --- |
@@ -70,7 +71,22 @@ What should the report contain so another developer can review the run?
 Example: plan, commits, commands, test output, costs, retries, and unresolved risks.
 ```
 
-## 7. Your domain adapter
+## 7. Attack the design
+
+Another team completes this section. Describe one false positive: all the proposed checks pass,
+but the intended outcome is still wrong.
+
+```text
+
+```
+
+Which check should become stronger? Name the independent observer you would add.
+
+```text
+
+```
+
+## 8. Your domain adapter
 
 Replace the TV parts:
 
@@ -79,3 +95,11 @@ Replace the TV parts:
 | TV adaptation skill | |
 | Vega command adapter | |
 | D-pad behavior check | |
+
+## 9. Thirty-second report
+
+| Say this | Your answer |
+| --- | --- |
+| The harness claims… | |
+| We prove it with… | |
+| This still does not prove… | |

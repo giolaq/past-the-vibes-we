@@ -92,6 +92,13 @@ The pairing is the point: the skill carries the knowledge, the check does the en
 4. Run the phase again, live.
 :::
 
+:::proof
+claim: "This is the right TV and Vega plan"
+gate: "The plan names the TV flow and focus model, and a live run retains the ADBT documents the model read"
+evidence: "VEGA_PORT.md + NextSteps.md + adbt-port-context.json"
+limit: "A checked plan still does not prove that its proposed APIs compile"
+:::
+
 :::done
 `VEGA_PORT.md` documents a focus model and a TV flow, `adbt-port-context.json` names hashed ADBT documents, and — for the assignment — your own section is there because your skill asked for it and your check insisted on it. Neither is pipeline code.
 :::
