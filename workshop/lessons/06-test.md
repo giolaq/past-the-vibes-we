@@ -45,6 +45,35 @@ Back | Restore the same card
 Which transition can look correct in a screenshot but fail for a remote user?
 :::
 
+## Trace Strands in the test phase
+
+The test phase starts with independent focus and device checks.
+Strands runs only when those checks identify a source repair.
+
+:::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
+{
+  name: "test",
+  skills: ["amazon-devices-vega-focus-management"],
+  device: ["review", "focus"],
+  repairDevice: ["build", "launch", "review", "focus"],
+  verifyFirst: true,
+  maxAttempts: 3,
+  checks: [FOCUS_TEST_CHECK, focusResultCheck, restorationCheck],
+}
+>look: After a repair, the harness rebuilds and starts the app before it accepts the focus result.
+:::
+
+| Owner | Test action |
+| --- | --- |
+| Strands | Uses the focus skill to propose a typed repair after failed evidence. |
+| Harness and Vega CLI | Run the focus test, rebuild after source changes, start the repaired app, and repeat all device checks. |
+| Evidence | `tv-focus-result.json`, `TV_VERIFICATION.md`, device evidence, and the test commit |
+
+:::note No model call is a valid result
+If all focus and device checks pass, the phase does not call Strands or Claude
+Code.
+:::
+
 ## Run the test phase
 
 Use the same run ID.

@@ -39,6 +39,35 @@ The model can write a plausible Vega manifest.
 Which static checks can accept the manifest even if Vega rejects it?
 :::
 
+## Trace Strands in the port phase
+
+Strands returns a typed patch.
+The harness owns every operation that changes the guarded copy.
+
+:::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
+const model = await options.executor.call(
+  phase.name,
+  prompt(phase, options, failures, replayContext),
+  { skills: phase.skills, attempt },
+);
+const output = parseJsonBlock(model.text, PortOutputSchema, phase.name);
+writeOutput(options.appDir, output.files, phase.readOnly);
+failures = await verify(phase, options, deviceMark, true, attempt);
+if (failures.length === 0) break;
+>look: The executor proposes files. The harness parses, writes, and verifies them.
+:::
+
+| Owner | Port action |
+| --- | --- |
+| Strands | Uses read-only tools and the build skill to return `{summary, files}`. |
+| Harness | Rejects unsafe paths, protects the approved plan, writes complete files, runs nine checks, and commits. |
+| Evidence | `port-result.json`, `model-logs/port.jsonl`, and the port commit |
+
+:::note Claude CLI path
+The Claude CLI executor implements the same `PortExecutor.call()` interface.
+It cannot bypass `writeOutput()` or the independent checks.
+:::
+
 ## Run the port phase
 
 Use the same run ID and executor.
