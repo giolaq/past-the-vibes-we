@@ -17,7 +17,7 @@ Before the pipeline, `source_discovery` copies the app into a guarded directory 
 
 For each phase, `src/port-pipeline.ts` saves the current commit, assembles the prompt, asks an executor for a `PortOutputSchema` proposal, validates every path, writes the files, checks the cost cap, and runs phase-specific checks. Passing work gets one Git commit. Failed checks cause a retry from the clean phase-start commit with the exact failure text — once by default; `--max-attempts N` or `--until-done` raise the budget, still governed by the cost cap and stopped early when the same failures repeat with no progress. When the attempts run out, the harness restores the clean state and stops the run.
 
-The model can inspect and propose, but it cannot write files or run shell commands. Device evidence is a mandatory gate in `launch` and `test`: the run fails unless the app is still running after the dwell and both captured frames pass the pixel gate (at least 640x360, more than one flat colour, not pinned black or white). The key-free path supplies both with `--platform-replay`.
+The model can inspect and propose, but it cannot write files or run shell commands. Device evidence is a mandatory gate in `launch` and `test`: the run fails unless the app is still running after the dwell and both captured frames pass the pixel gate (at least 640x360, more than one flat colour, not pinned black or white). The recorded fallback exercises those gates with `--platform-replay`, but cannot make a device claim.
 
 ## How Strands is used
 
@@ -72,7 +72,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
   --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
-Fallback if a live model, ADBT, or VDA is unavailable — the fully recorded path (`adbt.mode` will be `replay`):
+Recovery command if a live model, ADBT, or VDA blocks one exercise — the fully recorded path (`adbt.mode` will be `replay`):
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
@@ -150,7 +150,7 @@ npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 check-status --agen
 
 For both live executors, the harness reconstructs ADBT tool calls from the model history and fails a phase that was required to consult ADBT but read no document. Direct model writes are rejected by a before/after project fingerprint and the app is restored to the phase-start commit.
 
-The normal replay command automatically loads `fixtures/adbt-port-context.json`. To call ADBT for real while keeping the model response key-free, add `--adbt-live`:
+The recorded fallback automatically loads `fixtures/adbt-port-context.json`. Maintainers can call ADBT live while keeping a recorded model response by adding `--adbt-live`:
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
@@ -162,12 +162,6 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 A fully live model run calls ADBT automatically. If ADBT cannot supply the workflows, the harness stops with exit `3`; it does not let the port continue from unsupported assumptions.
 
 ## Choose a model executor
-
-Replay is the workshop default because it needs no account:
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run <app> --replay <recording.json> --yes --json
-```
 
 Use local Claude Code:
 
@@ -186,6 +180,14 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run <app> \
 ```
 
 Strands supports `bedrock`, `openai`, and `openrouter`; configure the provider credentials before running `doctor`.
+
+If an external service blocks one exercise, use its recorded fallback:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts run <app> --replay <recording.json> --yes --json
+```
+
+Recorded output proves the pipeline contract and retry behavior. It is not evidence from your selected model, toolchain, or device.
 
 ## Vega handoff
 

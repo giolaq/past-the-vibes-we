@@ -1,20 +1,20 @@
 ---
 id: bee
-number: "08"
+number: "07"
 nav: Optional a conversation becomes code
 time: 25 minutes
 title: A conversation becomes code, with a gate in the middle
 lead: "An optional second pipeline on the same engine: a conversation about the app becomes a reviewed spec, then working code, then a running app."
-objective: Turn recorded conversation into shipped change without committing a transcript or letting a model grade its own work.
+objective: Turn an approved conversation into shipped change without committing a transcript or letting a model grade its own work.
 evidence: BEE_SPEC.md carries a paraphrase and a source id per request, and the applied change clears those checks plus the app's own tests on the device.
 ---
 
 :::welcome Optional, and here is why
-This is the one lesson we may skip together, and the reason is worth stating out loud: it touches private conversations. Run it only with consent. The recorded fixture gives you the same mechanics with none of the risk, and it is the normal path in this room. [Bee](https://www.aboutamazon.com/news/devices/bee-amazon-wearable-ai-device-new-features) is Amazon's wearable AI device: it listens to your day, when you let it, and turns conversations into searchable summaries. Somewhere in a week of those conversations is the decision about what the app should do next. This lesson gets that decision into the app.
+This is the one lesson we may skip together, and the reason is worth stating out loud: it touches private conversations. Run the live path only with explicit consent and your own Bee account. If either is missing, skip the exercise; the instructor can use the synthetic recording to demonstrate the gate without handling anyone's data. [Bee](https://www.aboutamazon.com/news/devices/bee-amazon-wearable-ai-device-new-features) is Amazon's wearable AI device: it listens to your day, when you let it, and turns conversations into searchable summaries. Somewhere in a week of those conversations is the decision about what the app should do next. This lesson gets that decision into the app.
 :::
 
 :::note What this needs, and what it does not
-`bee login` and `bee mcp serve` happen outside the harness, in your own terminal, with your own account. Without them the harness reads a recorded conversation instead — the same phases, the same gates, and one honest difference in the report. The device half uses the VDA from lessons 4 and 5.
+`bee login` and `bee mcp serve` happen outside the harness, in your own terminal, with your own account. The synthetic recording is demonstration material, not a substitute for claiming a live integration. The device half uses the VDA from lessons 4 and 5.
 :::
 
 :::note Privacy boundary
@@ -54,8 +54,15 @@ Run the first half. It writes no code — check that yourself rather than taking
 
 :::command Extract a spec from the conversation
 yarn --cwd packages/workshop-harness tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --replay ../../workshop/fixtures/bee-run/port-recording.json \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
   --propose
+:::
+
+:::note Why this optional lesson uses Strands
+The live Bee MCP client is handed directly to a Strands agent. You may use Bedrock, OpenAI, or
+OpenRouter, but you must keep the same Strands provider and model for propose and apply. Claude
+Code remains supported by the main TV-port pipeline; it is not the live Bee executor in this lesson.
 :::
 
 :::steps
@@ -90,8 +97,8 @@ This is the moment the lesson is built around. Read the spec as the requirement 
 
 :::command Implement the approved spec, then build and launch
 yarn --cwd packages/workshop-harness tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --replay ../../workshop/fixtures/bee-run/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --executor strands --provider bedrock \
+  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
   --apply --yes
 :::
 
@@ -115,5 +122,9 @@ The port pipeline answers one question — does this app run on Vega — and its
 :::
 
 :::fallback
-The recorded path above is the fallback and the default. To run it live, `bee login` in your own terminal first, then drop `--replay` — the harness starts `bee mcp serve` and the agent discovers its tools. Say which half you ran live when you report your evidence.
+Without Bee consent or account access, skip the live exercise. For an instructor-led case study,
+replace the executor/provider/model flags in both commands with
+`--replay ../../workshop/fixtures/bee-run/port-recording.json`; add
+`--platform-replay ../../workshop/fixtures/vega-lifecycle.json` to the apply command when no VDA
+is attached. The conversation is synthetic, and the result is recorded evidence only.
 :::

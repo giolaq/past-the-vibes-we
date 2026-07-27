@@ -8,8 +8,8 @@ stage, the go/no-go for the device path, and briefs for two co-hosts.
 
 1. Send [setup](lessons/00-welcome.md) 48 hours early.
 2. Open the [speaker deck](slides.html) (`workshop/slides.html`, also served at `/slides.html` by `yarn site`). It carries the intro plus one slide per teaching beat: the boundary, each lesson's key idea, the Strands and ADBT highlights, and the close. Arrow keys or swipe to navigate; print to PDF from the browser for a handout.
-3. Use replay as the room-wide path. Ask attendees who want the optional live lane to report **Claude Code ready** or **Strands + Bedrock ready**. Do not split the core workshop around model accounts.
-4. Test both the live path and every replay/checkpoint fallback from a clean clone.
+3. Use one live executor as the room-wide path. Ask attendees to report **Claude Code ready** or their chosen **Strands provider ready** before lesson 1. Keep recordings and checkpoints ready for individual recovery.
+4. Test the live path and every recorded/checkpoint fallback from a clean clone.
 5. Rehearse ADBT `1.0.5`, Vega SDK `0.22.5875`, and the target VDA image. Confirm pinned `init-context --force` installed the `amazon-devices-vega-*` skills on live demo machines. The harness supplies ADBT MCP explicitly to both Strands and Claude Code; it does not rely on global MCP settings.
 6. Read [the latest live rehearsal](live-rehearsal.md), and don't present the device path as ready until the VDA stays attached.
 7. Start VDA in a separate system terminal, keep it open, and confirm `vega virtual-device status` plus `vega exec vda devices -l` before attendees arrive.
@@ -23,7 +23,7 @@ During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-ma
 
 | Time | Attendees do | If blocked |
 | --- | --- | --- |
-| 00:00 | Set up, choose an app, and run doctor | Use Pocket Cinema and replay |
+| 00:00 | Set up, choose an app, and validate one live executor | Use Pocket Cinema; move a blocked attendee to the recorded fallback after one repair |
 | 00:20 | Lesson 1: analyze the app, list what the answer cannot prove | Run `--phases analyze` on the recording |
 | 00:45 | Lesson 2: the focus skill and ADBT, then the team-skill assignment | Run the assignment on replay and explain which artifact replay honors |
 | 01:15 | Lesson 3: write the port, then trace a failed check into one retry | Use `fixtures/port-retry/` and the check assignment |
@@ -32,9 +32,9 @@ During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-ma
 | 02:25 | Lesson 5: install and launch on the VDA, then break each gate on purpose | Fall back to platform replay or the complete checkpoint |
 | 02:55 | **Break** | Keep it a full 10 minutes |
 | 03:05 | Lesson 6: run the focus contract and close the loop with `tv-check` | Use the focus fixture and the vega-buildable checkpoint |
-| 03:30 | Lesson 9: inspect the full run in the TUI, then draft another harness | Use replay; browse checks/model/tools before the worksheet |
+| 03:30 | Lesson 8: inspect the full run in the TUI, then draft another harness | Use the completed checkpoint if the attendee has no full run |
 
-Lessons 7 and 8 — project memory and Bee context — are outside the four-hour path. Run one only if a lesson finishes early, and only if setup, consent, and time allow.
+Lesson 7 — the Bee-to-spec pipeline — is outside the four-hour path. Run it only if a lesson finishes early and the room has explicit consent, account access, and time. Otherwise use the synthetic case study or skip it.
 
 For lesson 2, show the five boundaries on screen: native ADBT MCP connection, the model's own document choice, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
@@ -51,7 +51,7 @@ State four things before each exercise:
 1. What attendees will run.
 2. What file or output they will inspect.
 3. What proves the exercise is complete.
-4. Which replay or checkpoint to use if blocked.
+4. Which recording or checkpoint to use if blocked.
 
 Do not let model, device, or account setup consume the workshop. Try one repair for no more than 10 minutes, then move to the fallback.
 

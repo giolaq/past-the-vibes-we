@@ -39,29 +39,29 @@ Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a cod
 4. Build until it compiles, with the compiler's diagnostics driving each retry.
 5. Install and launch on the device, and prove the app stayed running.
 6. Test the remote-control contract, with device frames as supporting evidence.
-7. Optionally review project context before saving it as memory, or turn a recorded conversation into reviewed, running code.
-8. Sketch a harness for your own work.
+7. Optionally turn an explicitly approved Bee conversation into reviewed, running code.
+8. Control the full pipeline, then sketch a harness for your own work.
 
 You can use `apps/pocket-cinema` for every exercise. Bring your own app only if it already runs and contains no secrets.
 
 ## Recommended four-hour path
 
-Follow lessons 1–6, skip the optional lessons 7 and 8, and finish with lesson 9. The schedule includes two 10-minute breaks and a 20-minute recovery block. Replay is the standard workshop path, so everyone can finish without a model account or Vega device.
+Follow lessons 1–6 with one live executor, skip optional lesson 7 if you do not have Bee consent and access, and finish with lesson 8. The schedule includes two 10-minute breaks and a 20-minute recovery block. Use recordings only when an external dependency blocks a specific exercise or when the instructor asks everyone to inspect the same failure.
 
 ## Choose how to run models
 
-- **Replay:** no account, API key, model, or device required. Use this path during the workshop if setup fails.
 - **Claude Code:** use `--executor claude-cli --model sonnet`. Claude Code must already be installed and authenticated.
 - **Strands + Bedrock:** use `--executor strands --provider bedrock --model <id> --region <region>` with AWS credentials.
 - **Strands + OpenAI:** use `--executor strands --provider openai --model <id>` with `OPENAI_API_KEY`.
 - **Strands + OpenRouter:** use `--executor strands --provider openrouter --model <id>` with `OPENROUTER_API_KEY`.
+- **Recorded fallback:** use the lesson's `--replay` command only when the live path is blocked or the exercise intentionally examines a known failure.
 
 Choose one path and keep the same executor, provider, and model flags in every live lesson command.
 The setup lesson includes exact examples, default model ids, pricing flags for other models, and a
 matching `doctor` command for each provider. Start with [Before You Arrive](lessons/00-welcome.md).
 Keep [Troubleshooting](troubleshooting.md) open during the session.
 
-Handing this workshop to an AI agent instead of a person? Point it at the [agent runbook](AGENT_RUNBOOK.md) — it maps the lessons to replay commands, evidence, and a completion report.
+Handing this workshop to an automated test agent instead of an attendee? Point it at the [agent runbook](AGENT_RUNBOOK.md). That runbook deliberately uses recordings for deterministic repository verification; it is not the attendee path.
 
 ## Lessons
 
@@ -71,12 +71,11 @@ Handing this workshop to an AI agent instead of a person? Point it at the [agent
 4. [Build until it compiles](lessons/04-build.md)
 5. [Run it on the device](lessons/05-launch.md)
 6. [Test the remote](lessons/06-test.md)
-7. [Optional: project memory](lessons/07-memory.md)
-8. [Optional: a conversation becomes code](lessons/08-bee.md)
-9. [Take it home](lessons/09-finish.md)
+7. [Optional: a conversation becomes code](lessons/07-bee.md)
+8. [Take it home](lessons/08-finish.md)
 
-Lesson 8's optional Bee run has its own recordings under `fixtures/bee-run/`: `bee-conversation.json` is a synthetic conversation, hash-verified on load, and `port-recording.json` holds the spec and apply turns. It reuses `fixtures/vega-lifecycle.json` for build and launch.
+Lesson 7's optional Bee run has recordings under `fixtures/bee-run/` for an instructor-led case study: `bee-conversation.json` is synthetic and hash-verified, while `port-recording.json` holds the spec and apply turns. It reuses `fixtures/vega-lifecycle.json` for build and launch.
 
-The key-free port uses `fixtures/port-recording.json` plus `fixtures/adbt-port-context.json`. `fixtures/port-retry/` holds a recording whose first plan attempt fails checks on purpose, and `fixtures/build-retry/` one whose first build fails and is repaired. Regenerate all of them with `node scripts/build-port-fixtures.mjs`. Add `--adbt-live` to call ADBT at runtime while keeping the model replayed. The Vega lifecycle uses `fixtures/vega-lifecycle.json`. Replay proves the workshop control flow and report contract; it is not proof that a package compiled or a device passed. A live build claim requires `evidenceMode: live` and a local `.vpkg`; a live device claim also requires filtered post-launch logs and two pulled frames. If a live Vega step fails, continue with `checkpoints/vega-buildable/` or `checkpoints/complete/`.
+Maintainer fixtures live under `fixtures/`. `port-retry/` and `build-retry/` intentionally capture one failed attempt and its repair so every attendee can inspect identical retry context. Regenerate them with `node scripts/build-port-fixtures.mjs`. A recording proves control flow and report compatibility only. A build claim requires `evidenceMode: live` and a local `.vpkg`; a device claim also requires filtered post-launch logs and two pulled frames. If live Vega setup blocks a lesson, continue from `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 
 Read [the live rehearsal record](live-rehearsal.md) before teaching the Vega section. The SDK build and manifest validation pass. Install, launch, logs, and screenshots still need a VDA process that remains attached outside the automation session.

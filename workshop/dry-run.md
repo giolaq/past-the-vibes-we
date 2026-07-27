@@ -41,8 +41,8 @@ dependencies on purpose.
 
 **Run:** `yarn verify`
 
-**Expect:** the harness suite (92 tests, 0 failures), the app suite (2 tests),
-then `Checked 36 workshop documents and 57 command paths.` and
+**Expect:** the harness suite and app suite report zero failures, followed by
+the workshop document/path check and
 `workshop.data.js is up to date with workshop/lessons/*.md.` The counts move
 when documents change; zero failures is the criterion.
 
@@ -50,10 +50,17 @@ when documents change; zero failures is the criterion.
 
 ### Step 3 — Doctor
 
-**Run:** `yarn doctor`
+**Run:** the exact live executor command you will teach. For Claude Code:
 
-**Expect:** `state: ready`, with `adbt`, `vega`, and `bee` reported as
-`optional` — that is correct for replay mode, not a problem to fix.
+```
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --executor claude-cli --model sonnet --json
+```
+
+For Strands, replace the executor and model flags with your selected provider.
+
+**Expect:** `state: ready` for the selected executor and credential. The live
+Vega and Bee checks may remain optional until their lessons.
 
 **Pass:** `state: ready`.
 
@@ -77,8 +84,8 @@ does not exist yet.
 
 **Run:** open `workshop/slides.html` in a browser and arrow through it.
 
-**Expect:** 19 slides, ending on the close. Confirm the two lesson-8 slides
-are present: the optional panel ("a conversation becomes code") and the
+**Expect:** 19 slides, ending on the close. Confirm the two lesson-7 slides
+are present: the privacy/consent panel and the
 second-pipeline slide with the propose/approve/apply flow.
 
 **Pass:** all 19 render, reveal animations fire, the counter reads `19 / 19`
@@ -88,7 +95,7 @@ at the end.
 
 **Run:** `yarn site`, then open the printed URL.
 
-**Expect:** 10 modules in the navigation, lesson 8 titled "A conversation
+**Expect:** 9 modules in the navigation, lesson 7 titled "A conversation
 becomes code, with a gate in the middle". Leave the server running for the
 rest of the rehearsal.
 
@@ -385,26 +392,7 @@ six-phase run instead.
 same time**. That pair is the workshop's before-and-after photo, and it lands
 much harder side by side than sequentially.
 
-### Step 23 — Lesson 7: memory (optional lesson, rehearse anyway)
-
-**Run:** from the repo root:
-
-```
-WORKSHOP_INPUTS="/tmp/past-the-vibes-pocket-cinema-inputs"
-rm -rf "$WORKSHOP_INPUTS"
-cp -R workshop/fixtures/pocket-cinema-inputs "$WORKSHOP_INPUTS"
-yarn --cwd packages/workshop-harness tsx src/index.ts memory apply \
-  /tmp/past-the-vibes-pocket-cinema-inputs \
-  --from ../../workshop/fixtures/bee-context/snapshot.json --yes --json
-```
-
-**Expect:** four entries — two product decisions, one constraint, one open
-question — each naming its source id.
-
-**Pass:** `PROJECT_CONTEXT.md` exists in the copy and every entry has a
-source. The committed fixture is unchanged.
-
-### Step 24 — Lesson 8: both halves and the refusal
+### Step 23 — Lesson 7: both halves and the refusal
 
 **Run:** the propose half:
 
@@ -456,7 +444,7 @@ output are lesson 4 and lesson 5's phases, unchanged.
 
 ## Part D · Teaching rehearsal (~45 min)
 
-### Step 25 — Run the clock once
+### Step 24 — Run the clock once
 
 Talk through the session against the schedule, out loud, with a timer. You do
 not need to re-run commands — the point is discovering which transitions you
@@ -473,13 +461,13 @@ fumble.
 | 02:25 | 5 · Launch | 30 |
 | 02:55 | **Break** | 10 |
 | 03:05 | 6 · Test | 25 |
-| 03:30 | 9 · Full-run TUI, then take it home | 20 |
+| 03:30 | 8 · Full-run TUI, then take it home | 20 |
 
 Slack lives in two places only: the 10-minute repair rule and the per-lesson
 assignments — an attendee who falls behind drops the assignment first. Check
 the room's Vega setup during the **first** break, not during lesson 4.
 
-### Step 26 — The eight predict prompts
+### Step 25 — The seven predict prompts
 
 Each lesson opens hands-on work with a `:::predict`. Rehearse your own answer
 to each, because you will be asked "well, what is it then":
@@ -497,13 +485,11 @@ to each, because you will be asked "well, what is it then":
    the log scan and the second frame, not the first screenshot.
 6. **L6** — Back restoring focus to the originating card: looks identical in a
    screenshot, broken for a real remote user.
-7. **L7** — auto-importing every remembered sentence turns private or wrong
-   material into trusted context with no reviewer.
-8. **L8** — the flight and the family visit go to *excluded*; so does search,
+7. **L7** — the flight and the family visit go to *excluded*; so does search,
    because nobody agreed what it searches; the rail and the runtime become
    requests with checks.
 
-### Step 27 — The claims list
+### Step 26 — The claims list
 
 Rehearse until each is one sentence. Every one is a place where overclaiming
 gets caught by someone in the room.
@@ -519,7 +505,7 @@ Say:
   validation, bundling, `.vpkg` generation.
 - The focus test drives the focus module, not the device's input system. It
   does not press a button.
-- Lesson 8's Bee path is replay-verified here; the live path needs an account
+- Lesson 7's Bee path is fixture-verified here; the live path needs an account
   and `bee login`, outside the harness.
 - A model reporting on its own work is another generated claim.
 
@@ -527,18 +513,18 @@ Do not claim:
 
 - That the device path is certified — not until install, launch, logs, and a
   real screenshot pass against an attached VDA.
-- That any lesson requires a live model. None does.
+- That a recorded fallback proves what a live model, compiler, or device did.
 - That the harness prevents bad code. It prevents *unchecked* code — checks
   are only as strong as their shape.
 
-### Step 28 — The four-things rule
+### Step 27 — The four-things rule
 
 Before every exercise, state: what they run, what they inspect, what proves
 completion, and which fixture or checkpoint to use when blocked. Practice
 saying all four for lesson 4 in under thirty seconds — it is the lesson where
 the room is most likely to fork into live and replay halves.
 
-### Step 29 — The failure drill
+### Step 28 — The failure drill
 
 Pick one demo and break it on purpose in front of your co-hosts — unplug the
 device mid-lesson-5, or point a command at a missing fixture. Practice the
@@ -553,7 +539,7 @@ than a green run does.
 One owns the device, one owns the room. Neither teaches — you keep one voice
 at the front.
 
-### Step 30 — Colleague A: device and build
+### Step 29 — Colleague A: device and build
 
 Before the session:
 
@@ -574,7 +560,7 @@ During:
 - Keep the ledger of "what claim have we earned" — live vs replay, per lesson.
   You will be asked, and the answer must be immediate.
 
-### Step 31 — Colleague B: room and fallbacks
+### Step 30 — Colleague B: room and fallbacks
 
 Before the session:
 
@@ -592,7 +578,7 @@ During:
 - Watch the clock against step 25's table and hand-signal at five minutes over
   on any lesson.
 
-### Step 32 — The adversarial drill
+### Step 31 — The adversarial drill
 
 During the rehearsal, each colleague picks three questions from this list and
 asks them cold, mid-demo:
@@ -617,7 +603,7 @@ opinion — checks pass, budget runs out, or the same failure repeats twice.
 
 ## Part F · Morning of (15 min)
 
-### Step 33 — The final sweep
+### Step 32 — The final sweep
 
 ```
 cd /tmp/ptv-rehearsal
