@@ -38,7 +38,8 @@ Otherwise, use `apps/pocket-cinema`.
 
 ## A model call fails
 
-Run `doctor` with the same executor, provider, and model flags.
+Check `workshop.config.json`.
+Then run `doctor` without model options.
 
 - For Claude Code, verify installation and authentication.
 - For Bedrock, verify AWS credentials, region, and model access.
@@ -68,7 +69,7 @@ It does not continue without required platform context.
 Run this command one time:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+yarn tsx src/index.ts doctor \
   --replay --adbt-live --json
 ```
 

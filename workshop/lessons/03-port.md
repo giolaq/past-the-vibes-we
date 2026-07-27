@@ -44,15 +44,13 @@ Which static checks can accept the manifest even if Vega rejects it?
 Use the same run ID and executor.
 
 :::command Run the port phase
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases port --yes --run-id workshop
 :::
 
-:::note Use your selected executor
-If you selected Strands, replace only the executor, provider, and model flags.
-Use the values from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 :::
 
 ## Inspect the files and commit
@@ -79,7 +77,7 @@ The phase writes `out/workshop/model-logs/port.jsonl`.
 Each line contains one complete event.
 
 :::command Read the port transcript
-yarn --cwd packages/workshop-harness tsx src/index.ts logs workshop --phase port
+yarn tsx src/index.ts logs workshop --phase port
 :::
 
 :::steps
@@ -99,7 +97,7 @@ Use `--follow` to read a live phase in a second terminal.
 You can also run:
 
 ```sh
-tail -f out/workshop/model-logs/port.jsonl | jq .
+tail -f ../../out/workshop/model-logs/port.jsonl | jq .
 ```
 
 The transcript can contain prompts, source text, and tool results.
@@ -112,7 +110,7 @@ The committed recording contains one failed plan attempt.
 Use it to inspect exact retry context.
 
 :::command Run the retry example
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-retry/port-recording.json \
   --phases analyze,plan --yes
@@ -173,8 +171,8 @@ Add a requirement for focus restoration documentation.
 :::
 
 :::command Run the same checks on two apps
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../workshop/checkpoints/vega-buildable/app
+yarn tsx src/index.ts tv-check ../../apps/pocket-cinema
+yarn tsx src/index.ts tv-check ../../workshop/checkpoints/vega-buildable/app
 :::
 
 Use the strongest applicable check type:
@@ -207,7 +205,7 @@ Your added rule fails on the starter app and passes on the ported app.
 :::
 
 :::fallback
-Replace the live executor flags with this flag:
+Add this recorded model option:
 
 `--replay ../../workshop/fixtures/port-recording.json`
 :::

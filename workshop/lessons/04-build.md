@@ -56,7 +56,7 @@ The injector changes only `out/workshop/app`.
 It does not change `apps/pocket-cinema`.
 
 :::command Add the workshop build failure
-yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure workshop --yes
+yarn tsx src/index.ts inject-build-failure workshop --yes
 :::
 
 :::expected
@@ -68,15 +68,13 @@ yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure works
 Use the same executor that you used in the earlier lessons.
 
 :::command Run the build phase
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases build --yes --run-id workshop
 :::
 
-:::note Use your selected executor
-If you selected Strands, replace only the executor, provider, and model flags.
-Use the values from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 :::
 
 :::expected
@@ -96,7 +94,7 @@ src/workshop-build-break.ts(2,14): error TS2322: Type 'number' is not assignable
 6. Open `out/workshop/port-result.json`.
 7. Find the rejected failure.
 8. Find the passing attempt and its cost.
-9. Run `git -C out/workshop/app status --porcelain`.
+9. Run `git -C ../../out/workshop/app status --porcelain`.
 10. Verify that the result is empty.
 11. Find the `.vpkg` file in `out/workshop/app/apps/vega/build/`.
 12. Find the build-phase commit.
@@ -138,7 +136,7 @@ If the Vega SDK is not available, run the recorded repair in a new run:
 :::
 
 :::command Recorded compiler repair
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \
   --platform-replay ../../workshop/fixtures/build-retry/vega-lifecycle.json \
