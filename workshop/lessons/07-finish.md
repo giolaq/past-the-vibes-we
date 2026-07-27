@@ -166,5 +166,5 @@ The team can identify the pass, retry, and stop conditions.
 :::
 
 :::raw
-<div class="links"><a href="worksheet.md">Open the worksheet</a><a href="troubleshooting.md">Troubleshooting</a><a href="instructor-guide.md">Instructor guide</a><button data-go-module="bee">Appendix: Bee pipeline</button></div>
+<div class="links"><a href="worksheet.md">Open the worksheet</a><a href="troubleshooting.md">Troubleshooting</a><a href="editing-guide.md">Edit the workshop</a><a href="instructor-guide.md">Instructor guide</a><button data-go-module="bee">Appendix: Bee pipeline</button></div>
 :::

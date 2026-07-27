@@ -2,6 +2,8 @@
 
 Use [the dry run](dry-run.md) before you teach.
 It contains each demonstration command and its expected result.
+Use [the workshop editing guide](editing-guide.md) when a rehearsal finds a
+change that you must make.
 
 ## Prepare the workshop
 
