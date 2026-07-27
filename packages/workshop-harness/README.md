@@ -39,6 +39,30 @@ Set `WORKSHOP_OUT` to move run directories somewhere other than `out/`.
 
 `openai` and `@opentelemetry/api` appear in `dependencies` only because they are peer dependencies of `@strands-agents/sdk`; no workshop code imports them directly.
 
+## Teaching commands
+
+Lesson 1 begins with a safe one-shot probe:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts naive ../../apps/pocket-cinema \
+  --executor claude-cli --model sonnet \
+  --max-cost 1 --run-id naive-demo --yes
+```
+
+The executor can inspect the guarded copy and return a typed proposal. The harness saves the
+proposal under `out/naive-demo/`, but it does not apply the patch, run checks, compile, launch, or
+claim success. The exercise makes the missing control loop visible before attendees build it.
+
+Lesson 4 creates one deterministic live compiler failure inside an existing guarded run:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure workshop --yes
+```
+
+The command adds `src/workshop-build-break.ts` only under `out/workshop/app` and commits that
+teaching state. The normal `build` phase must remove the file and its import, pass the real Vega
+build, and leave a clean Git tree. It never edits `apps/pocket-cinema`.
+
 ## Bring your own CLI agent
 
 The harness ships two live executors (Claude Code CLI and in-process Strands). Adding your own CLI agent takes three steps, all in `src/port-executor.ts`:
@@ -122,6 +146,22 @@ content-addressed image remains beside the transcript.
 
 These files can contain prompts, source excerpts, and tool results. They live under the
 gitignored `out/` directory. Review them before sharing; do not commit them unchanged.
+
+## Final operator view
+
+The first six lessons use plain output so each control is visible. Lesson 7 runs the same pipeline
+with `--tui`:
+
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --executor claude-cli --model sonnet \
+  --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui
+```
+
+The header shows the exact executor, provider and model, evidence mode, seed, elapsed time, and
+cost. The phase view separates checks, model events, tool calls, retries, and passing commits.
+The TUI controls what is visible; the append-only JSONL transcript remains the complete record.
 
 ## ADBT during the port
 

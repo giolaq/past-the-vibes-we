@@ -15,7 +15,12 @@ stage, the go/no-go for the device path, and briefs for two co-hosts.
 7. Start VDA in a separate system terminal, keep it open, and confirm `vega virtual-device status` plus `vega exec vda devices -l` before attendees arrive.
 8. Keep the completed TV app hidden until the TV exercise ends.
 
-Open with this boundary: Strands supplies the model loop, typed tools, structured output, MCP client, limits, and metrics. The harness supplies the phases, approval, writes, checks, retry, commits, budget, and evidence. Show `port-tools.ts`, `port-contract.ts`, and `context-providers/adbt.ts` before any live model demo.
+Open with the one-shot anti-demo, not the architecture. Let the proposal look convincing, then
+read its five missing proofs. Put the claim-versus-proof board on screen and keep returning to it.
+Only then name the boundary: Strands supplies the model loop, typed tools, structured output, MCP
+client, limits, and metrics. The harness supplies phases, approval, writes, checks, retry, commits,
+budget, and evidence. Show `port-tools.ts`, `port-contract.ts`, and `context-providers/adbt.ts` after
+attendees have felt the missing boundary.
 
 During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-management`) through both routes: full-text prompt injection for Claude CLI, then `Skill` → `AgentSkills` → `plugins` → `skills` tool for Strands. Point out that the skills are Amazon's, installed by `init-context` — the harness consumes vendor knowledge without owning it. Then contrast skills with runtime MCP: the harness passes the same pinned ADBT stdio server explicitly to Claude Code and to Strands' native `McpClient`. Continue with provider `Model`, `Agent`, `systemPrompt`, `invoke()` limits, `AgentResult` metrics, typed `tool()` callbacks, structured output, `listTools()`, `callTool()`, and `disconnect()`. State that Zod, native `AbortSignal`, and `StdioClientTransport` are adjacent dependencies, not Strands APIs. Keep [the construct reference](strands-constructs.md) open for questions.
 
@@ -24,17 +29,17 @@ During lesson 2, trace one ADBT skill (for example `amazon-devices-vega-focus-ma
 | Time | Attendees do | If blocked |
 | --- | --- | --- |
 | 00:00 | Set up, choose an app, and validate one live executor | Use Pocket Cinema; move a blocked attendee to the recorded fallback after one repair |
-| 00:20 | Lesson 1: analyze the app, list what the answer cannot prove | Run `--phases analyze` on the recording |
+| 00:20 | Lesson 1: one-shot anti-demo, analyze, and cross-provider comparison | Skip the anti-demo model call; inspect the instructor result, then run recorded analyze |
 | 00:45 | Lesson 2: the focus skill and ADBT, then the team-skill assignment | Run the assignment on replay and explain which artifact replay honors |
 | 01:15 | Lesson 3: write the port, then trace a failed check into one retry | Use `fixtures/port-retry/` and the check assignment |
 | 01:45 | **Break** | Keep it a full 10 minutes |
-| 01:55 | Lesson 4: build until it compiles, with the compiler driving the retry | Use `fixtures/build-retry/` — it fails and repairs on purpose |
+| 01:55 | Lesson 4: inject one guarded type error and repair it live from compiler output | Use `fixtures/build-retry/` — it fails and repairs on purpose |
 | 02:25 | Lesson 5: install and launch on the VDA, then break each gate on purpose | Fall back to platform replay or the complete checkpoint |
 | 02:55 | **Break** | Keep it a full 10 minutes |
 | 03:05 | Lesson 6: run the focus contract and close the loop with `tv-check` | Use the focus fixture and the vega-buildable checkpoint |
-| 03:30 | Lesson 8: inspect the full run in the TUI, then draft another harness | Use the completed checkpoint if the attendee has no full run |
+| 03:30 | Lesson 7: inspect the live run in the TUI, then trade and attack team harness designs | Use the completed checkpoint if the attendee has no full run |
 
-Lesson 7 — the Bee-to-spec pipeline — is outside the four-hour path. Run it only if a lesson finishes early and the room has explicit consent, account access, and time. Otherwise use the synthetic case study or skip it.
+Appendix A1 — the Bee-to-spec pipeline — is outside the four-hour path. Run it only if a lesson finishes early and the room has explicit consent, account access, and time. Otherwise use the synthetic case study or skip it.
 
 For lesson 2, show the five boundaries on screen: native ADBT MCP connection, the model's own document choice, `plan` prompt context, `NextSteps.md`, and the verified phase commit. Use `--adbt-live` with the recorded model response to demonstrate the real MCP call without spending model budget.
 
@@ -53,6 +58,9 @@ State four things before each exercise:
 3. What proves the exercise is complete.
 4. Which recording or checkpoint to use if blocked.
 
+After each exercise, ask for three short statements: the claim, its independent proof, and what
+that proof still cannot establish. Do not accept “the model said so” in the proof column.
+
 Do not let model, device, or account setup consume the workshop. Try one repair for no more than 10 minutes, then move to the fallback.
 
 ## What to measure
@@ -67,7 +75,9 @@ Track these separately:
 - time and model cost;
 - help requests.
 
-The main learning outcome must not depend on a live model, Vega device, or Bee.
+The teaching path uses a live model and prefers real Vega evidence. Recovery material prevents an
+external account or device failure from erasing the learning outcome; it must never be presented as
+equivalent evidence. Bee remains optional appendix A1.
 
 ## Live Vega evidence
 
