@@ -29,13 +29,16 @@ Patch | Write, rebuild, judge again
 :::
 
 :::predict
-The build fails with a type error in `focus-state.ts`. What is the harness allowed to send the model, and what would be useless to send?
+The build fails with `Type 'number' is not assignable to type 'string'`. What exact information
+should reach the model, and why is “the build failed, try again” not enough?
 :::
 
-## Run the build phase
+## Create the failure, then repair it live
 
 :::yourturn
-Run phase 4 onto the same run id. If the port phase produced a clean package this passes without calling the model at all — watch for that.
+Inject one known TypeScript fault into the guarded copy, then run the normal build phase. The fault
+command refuses to touch your source app. The compiler, not a recording or a lucky model mistake,
+starts the retry loop.
 :::
 
 :::note Keep your executor choice
@@ -43,49 +46,51 @@ The command shows Claude Code. If you selected Strands, replace only
 `--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
 :::
 
-:::command Build the Vega package
+:::command Inject the workshop fault into the guarded app
+yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure workshop --yes
+:::
+
+:::expected
+"expectedDiagnostic":"Type 'number' is not assignable to type 'string'"
+:::
+
+:::command Run the live compiler-repair loop
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \
   --phases build --yes --run-id workshop
 :::
 
-:::steps
-1. Read `out/workshop/port-result.json`. If the build phase shows `"attempts": 0` and `already satisfied, no model call`, the package built first time and the phase spent nothing.
-2. Find the `.vpkg` under `out/workshop/app/apps/vega/build/`. That file is the phase's pass condition — not a log line saying it worked.
-3. Open `out/workshop/vega-platform-result.json` and read the `steps`. Each one records the exact command, its exit code, and its output.
-:::
-
-## Watch a broken build get repaired
-
-The recorded fixture forces the interesting case: the first build fails on a misspelled focus property, exactly the way a real one would.
-
-:::command Replay a failing build and its repair
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/build-retry/port-recording.json \
-  --platform-replay ../../workshop/fixtures/build-retry/vega-lifecycle.json \
-  --yes
-:::
-
 :::expected
 build needs a fix:
   - build failed: react-native build-vega exited with code 2
-src/tv/focus-state.ts(18,24): error TS2551: Property 'preferedFocus' does not exist on type 'FocusState'. Did you mean 'preferredFocus'?
+src/workshop-build-break.ts(2,14): error TS2322: Type 'number' is not assignable to type 'string'.
 :::
 
 :::steps
-1. That diagnostic is what the model receives. Open `prompt()` in `src/port-pipeline.ts` and confirm nothing summarizes or paraphrases it on the way.
-2. Open `port-result.json` and find the build phase's `failures` — the rejected attempt is kept, so the repair is auditable after the terminal has scrolled away.
-3. Notice what the harness did **not** do: it did not lower the bar. The check is the same build either way.
+1. Watch the build fail before the first model call. The phase verifies first, so the error is the reason the model runs.
+2. Open `out/workshop/model-logs/build.jsonl`. Find the failed `verification_result`, then the model request containing the same compiler text.
+3. Open `out/workshop/port-result.json`. The rejected failure remains beside the passing attempt and its cost.
+4. Run `git -C out/workshop/app status --porcelain`: empty. The phase removed the injected file and import, built successfully, and committed the verified repair.
+5. Find the `.vpkg` under `out/workshop/app/apps/vega/build/`. That artifact, not the model response, is the pass condition.
 :::
 
-:::note A retry keeps the build directory
-`reset()` reverts the model's files between attempts, but `apps/vega/build` and `node_modules` are excluded from the clean. Rebuilding from zero on every attempt would cost minutes each time and throw away the artifact the retry is trying to fix.
+:::note Why this demo is deterministic
+`inject-build-failure` adds a tiny invalid TypeScript module and commits it only inside
+`out/workshop/app`. The build phase also checks that the teaching fault and its import are gone.
+Every live provider therefore receives a real compiler failure, while the acceptance bar remains
+the normal Vega build plus a clean tree.
 :::
 
 :::knowledge Why does this phase check before it calls the model?
 Because most of the time there is nothing to fix. Prompting first would spend a model call to be told the build is fine. Checking first means the loop only pays when something actually failed — and it makes the failure, not the schedule, the reason a model runs.
+:::
+
+:::proof
+claim: "The Vega app builds"
+gate: "The real Vega build exits successfully and produces a .vpkg"
+evidence: "vega-platform-result.json + apps/vega/build/*.vpkg"
+limit: "A package can compile and still crash immediately after launch"
 :::
 
 :::done
@@ -93,13 +98,14 @@ Live: `out/<runId>/app/apps/vega/build/` contains a `.vpkg`, and `vega-platform-
 :::
 
 :::fallback
-Without the Vega SDK, run the recorded lifecycle. It exercises the identical loop against recorded build results, and the run is labeled `evidenceMode: replay` — control flow, not proof that anything compiled:
+Without the Vega SDK, use the deterministic recorded repair in a separate run. It demonstrates
+failure context and retry control, but it does not produce a local package:
 :::
 
-:::command Fallback: recorded build results
+:::command Fallback: recorded compiler repair
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
-  --phases build --yes --run-id workshop
+  --replay ../../workshop/fixtures/build-retry/port-recording.json \
+  --platform-replay ../../workshop/fixtures/build-retry/vega-lifecycle.json \
+  --run-id build-fallback --yes
 :::

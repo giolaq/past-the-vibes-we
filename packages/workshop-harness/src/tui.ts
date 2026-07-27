@@ -15,6 +15,7 @@ export type TuiPhase = {
 export type TuiState = {
   runId: string;
   executor: string;
+  evidenceMode: "live" | "recorded";
   seed: string;
   budgetUsd: number;
   costUsd: number;
@@ -31,6 +32,7 @@ export type TuiState = {
 type TuiOptions = {
   runId: string;
   executor: string;
+  evidenceMode: "live" | "recorded";
   seed: string;
   budgetUsd: number;
   phases: string[];
@@ -46,6 +48,7 @@ const CHECK_KINDS = new Set([
   "verification_start",
   "verification_result",
   "usage",
+  "commit",
   "error",
 ]);
 
@@ -73,6 +76,7 @@ export class WorkshopTui {
     this.state = {
       runId: options.runId,
       executor: options.executor,
+      evidenceMode: options.evidenceMode,
       seed: options.seed,
       budgetUsd: options.budgetUsd,
       costUsd: 0,
@@ -267,7 +271,7 @@ export function renderWorkshopTui(state: TuiState, columns = 100, rows = 32, col
 
   const lines = [
     `${title}  |  Vega port harness`,
-    clip(`run ${state.runId}  executor ${state.executor}  seed ${state.seed}`, columns),
+    clip(`run ${state.runId}  executor ${state.executor}  evidence ${state.evidenceMode}  seed ${state.seed}`, columns),
     clip(`cost $${state.costUsd.toFixed(4)} / $${state.budgetUsd.toFixed(2)}  elapsed ${elapsed}`, columns),
     "",
     style("PHASES", "1", color),
@@ -298,6 +302,7 @@ export function summarizeTranscriptEntry(entry: TranscriptEntry): string {
     return payload?.passed === true ? "checks passed" : `checks failed - ${failures.join("; ")}`;
   }
   if (entry.kind === "usage") return `usage recorded - $${Number(payload?.costUsd ?? 0).toFixed(4)}`;
+  if (entry.kind === "commit") return `commit ${oneLine(payload?.hash)} - ${oneLine(payload?.message)}`;
   if (entry.direction === "tool") return `tool - ${toolName(entry.payload) || entry.kind}`;
   if (entry.direction === "to_model") return `model request - ${promptPreview(entry.payload)}`;
   if (entry.direction === "from_model") return `model response - ${responsePreview(entry.payload) || entry.kind}`;

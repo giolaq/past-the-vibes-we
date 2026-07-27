@@ -86,6 +86,13 @@ A gate you have never seen fail is a gate you are trusting on faith. Break each 
 A screenshot proves something rendered at the moment it was taken. It cannot prove the app survived the next second, and it cannot tell a rendered home screen from a rendered error dialog. The log covers the first gap; the next lesson covers the second.
 :::
 
+:::proof
+claim: "The app launched and stayed alive"
+gate: "Install and launch pass, the post-launch log has no crash signature, and two real frames contain rendered pixels"
+evidence: "vega-platform-result.json + vega-device.log + 01-launch.png + 02-postlaunch.png"
+limit: "Rendered frames do not prove that focus moved correctly"
+:::
+
 :::done
 Live: both frames pass the pixel gate, the package-and-launch-time-filtered log has no crash signature, and `vega-platform-result.json` says `evidenceMode: live`. Replay: the same gates and failure paths execute with recorded evidence, and the result stays labeled `evidenceMode: replay`.
 :::

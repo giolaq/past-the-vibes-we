@@ -191,6 +191,8 @@ const comp = {
     `<figure class="lesson-visual"><div class="visual-label">${inline(label)}</div><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy"><figcaption>${inline(caption)}</figcaption></figure>`,
   flow: (items) =>
     `<div class="flow">${items.map((item, index) => `${index ? "<i>→</i>" : ""}<div><b>${inline(item[0])}</b><span>${inline(item[1])}</span></div>`).join("")}</div>`,
+  proof: (spec) =>
+    `<section class="proof"><div class="proof-title"><span>Claim → proof</span><strong>${inline(spec.claim)}</strong></div><dl><dt>Independent gate</dt><dd>${inline(spec.gate)}</dd><dt>Evidence</dt><dd><code>${escapeHtml(spec.evidence)}</code></dd>${spec.limit ? `<dt>Still not proved</dt><dd>${inline(spec.limit)}</dd>` : ""}</dl></section>`,
 };
 
 function phaseCard(opts) {
@@ -346,6 +348,11 @@ function renderDirective(name, header, modifier, content) {
           .filter(Boolean)
           .map((l) => l.split("|").map((s) => s.trim()))
       );
+    case "proof": {
+      const spec = parseYaml(content);
+      if (!spec?.claim || !spec?.gate || !spec?.evidence) throw new Error(":::proof requires claim, gate, and evidence");
+      return comp.proof(spec);
+    }
     case "snippet": {
       // Content: code, then optional line starting with `>look:` for the note.
       const src = trimBlankLines(content);

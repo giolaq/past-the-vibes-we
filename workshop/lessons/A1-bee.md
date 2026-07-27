@@ -1,9 +1,9 @@
 ---
 id: bee
-number: "07"
-nav: Optional a conversation becomes code
+number: "A1"
+nav: "Appendix: Bee pipeline"
 time: 25 minutes
-title: A conversation becomes code, with a gate in the middle
+title: "Appendix: a conversation becomes code, with a gate in the middle"
 lead: "An optional second pipeline on the same engine: a conversation about the app becomes a reviewed spec, then working code, then a running app."
 objective: Turn an approved conversation into shipped change without committing a transcript or letting a model grade its own work.
 evidence: BEE_SPEC.md carries a paraphrase and a source id per request, and the applied change clears those checks plus the app's own tests on the device.

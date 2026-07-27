@@ -32,6 +32,25 @@ The model is a contractor with read-only access. The harness is the foreman: it 
 An LLM generates <em>plausible</em> text, and plausible is not the same as correct: <code>plausible &ne; verified</code>. Everything the harness does closes that gap. Every phase ends in a mechanical check, not a vibe.
 :::
 
+<h2>The board we will complete together</h2>
+
+Every lesson adds one row to the same argument. The left column is something an agent can say.
+The middle column is what can prove it without trusting the agent.
+
+| Agent claim | Independent gate | Evidence you keep |
+| --- | --- | --- |
+| “I understand the app” | Source inventory and explicit unknowns | `ANALYSIS.md`, transcript |
+| “This is the right TV plan” | Required flow/focus sections plus live ADBT provenance | `VEGA_PORT.md`, document hashes |
+| “The code is ready” | Static, schema, and executable checks | Check results, Git commit |
+| “It builds” | Vega compiler produces a package | `.vpkg`, build output |
+| “It runs” | Dwell, crash scan, and two real frames | Device log, screenshots |
+| “The remote works” | Focus transition contract | `tv-focus-result.json` |
+
+:::note Keep asking one question
+When the model says something is done, ask: <strong>what observed it independently?</strong> The
+claim-versus-proof card at the end of each lesson answers that question and names the artifact.
+:::
+
 <h2>Who is allowed to do what</h2>
       <p>This is the security model:</p>
 
