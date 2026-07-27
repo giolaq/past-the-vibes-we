@@ -36,6 +36,36 @@ Make sure that the app directory contains `package.json`.
 Make sure that the app runs before the workshop.
 Otherwise, use `apps/pocket-cinema`.
 
+## `workshop-brief.md` is missing
+
+Add `workshop-brief.md` to the source app.
+State one bounded flow, required behavior, non-goals, and verification.
+Do not replace it with generation input files.
+
+Use `apps/pocket-cinema/workshop-brief.md` as the example.
+
+## Plan approval is required
+
+Open `out/<runId>/app/port-plan.json`.
+Compare it with the source app and `workshop-brief.md`.
+Trace Select and Back.
+Check each preserved behavior has independent evidence.
+
+Then run:
+
+```sh
+yarn tsx src/index.ts approve-plan <runId> --yes
+```
+
+Do not edit the plan after approval.
+Run the plan phase again if the plan is wrong.
+
+## The source changed after the run started
+
+The plan and approval belong to one source fingerprint.
+Do not resume the old run after the source app or brief changes.
+Start a new run ID and review the new plan.
+
 ## A model call fails
 
 Check `workshop.config.json`.

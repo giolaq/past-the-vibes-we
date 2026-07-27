@@ -7,8 +7,10 @@ import type { AuditFinding } from "./contracts.js";
 import { ModelTranscriptStore } from "./model-transcript.js";
 import { PortOutputSchema, parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
+import { PORT_PLAN_APPROVAL_PATH, PORT_PLAN_PATH, PortPlanSchema, portPlanBriefFailures, renderPortPlanContract } from "./port-plan.js";
 import { FOCUS_TEST_CHECK, verifyPort, type PortCheck } from "./port-verification.js";
 import { runDeviceStages, type DeviceRun, type DeviceStage, type ScreenshotJudge } from "./platform/vega.js";
+import { WORKSHOP_BRIEF } from "./source-app.js";
 import { injectedBuildFailureChecks } from "./workshop-failure.js";
 
 /**
@@ -29,6 +31,8 @@ export type PortPhase = {
   skills: string[];
   checks: PortCheck[];
   device?: DeviceStage[];
+  /** Device work that must run after this phase changes source code. */
+  repairDevice?: DeviceStage[];
   verifyFirst?: boolean;
   maxAttempts?: number;
   mcp?: string[];
@@ -48,7 +52,7 @@ export type PortResult = {
 
 export class PortBudgetError extends Error {}
 
-export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; liveMcp?: string[]; transcripts?: ModelTranscriptStore; onPhase?: (phase: string) => void; onPhaseComplete?: (phase: PortResult["phases"][number], snapshot: PortResult) => void; onCost?: (costUsd: number) => void; onMessages?: (phase: string, messages: unknown[]) => void; onNotice?: (headline: string, failures: string[]) => void }): Promise<PortResult> {
+export async function runPortPipeline(options: { appDir: string; outDir: string; findings: AuditFinding[]; projectContext: string; briefSha256?: string; seed: string; maxCostUsd: number; maxAttempts?: number; plan?: PortPhase[]; phaseNames?: string[]; executor: PortExecutor; device?: DeviceRun; judge?: ScreenshotJudge; adbt?: AdbtContextProvider; mcpClients?: Record<string, McpClient>; liveMcp?: string[]; transcripts?: ModelTranscriptStore; beforePhase?: (phase: PortPhase) => void; onPhase?: (phase: string) => void; onPhaseComplete?: (phase: PortResult["phases"][number], snapshot: PortResult) => void; onCost?: (costUsd: number) => void; onMessages?: (phase: string, messages: unknown[]) => void; onNotice?: (headline: string, failures: string[]) => void }): Promise<PortResult> {
   // maxAttempts: Infinity means "loop until the checks pass". The loop still terminates:
   // the cost cap throws PortBudgetError, and two identical failure sets in a row stop the
   // phase — repeating a failure the model cannot fix only spends budget.
@@ -60,6 +64,7 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
   const evidencePath = join(options.outDir, "adbt-port-context.json");
   try {
     for (const phase of selectPhases(options.plan ?? portPhases(), options.phaseNames)) {
+      options.beforePhase?.(phase);
       transcripts.append(phase.name, {
         attempt: 0, executor: "harness", direction: "system", kind: "phase_start",
         payload: { goal: phase.goal, checks: phaseLabels(phase), verifyFirst: phase.verifyFirst === true },
@@ -191,6 +196,9 @@ async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeli
   // Static checks first: one of them runs the focus test that writes the evidence the device
   // stage then reads. Build and launch have no static checks, so nothing waits on them.
   const staticFailures = await verifyPort(options.appDir, phase.checks);
+  if (phase.name === "plan" && options.briefSha256) {
+    staticFailures.push(...portPlanBriefFailures(options.appDir, options.briefSha256));
+  }
   const deviceFailures: string[] = [];
   const stages = deviceStages(phase, patched);
   if (stages.length) {
@@ -217,13 +225,15 @@ function report(options: Parameters<typeof runPortPipeline>[0], headline: string
  * unchanged tree would cost another full build for nothing.
  */
 function deviceStages(phase: PortPhase, patched: boolean): DeviceStage[] {
-  const stages = phase.device ?? [];
+  const stages = patched && phase.repairDevice ? phase.repairDevice : phase.device ?? [];
   if (patched || stages.length < 2) return stages;
   return stages.filter((stage) => stage !== "build");
 }
 
 function phaseLabels(phase: PortPhase): string[] {
-  return [...(phase.device ?? []).map((stage) => `device: ${stage}`), ...phase.checks.map((check) => check.label)];
+  const device = (phase.device ?? []).map((stage) => `device: ${stage}`);
+  const repair = (phase.repairDevice ?? []).map((stage) => `device after repair: ${stage}`);
+  return [...device, ...repair, ...phase.checks.map((check) => check.label)];
 }
 
 /** The MCP server names a phase can ask for. ADBT's provenance is recorded specially. */
@@ -256,11 +266,12 @@ export function portPhases(): PortPhase[] {
     },
     {
       name: "plan",
-      goal: "Decide how this app becomes a TV app. Write VEGA_PORT.md with the preserved product behavior, the 10-foot layout and focus model, the exact remote flow, and the Vega replacements — and record ADBT sources and unsupported gaps in NextSteps.md.",
-      instruction: "Two kinds of knowledge, both required. The focus skill covers the 10-foot interface: what a remote can reach, where focus starts, and how Back restores it. The ADBT tools carry Vega's own migration workflows — read them before making Vega claims. Keep facts and assumptions separate, plan one vertical slice, and record unsupported mappings instead of inventing APIs.",
+      goal: `Decide how this app becomes a TV app. Write ${PORT_PLAN_PATH} as the machine-checked screen, navigation, behavior, and evidence contract. Write VEGA_PORT.md for the human explanation and record ADBT sources and unsupported gaps in NextSteps.md.`,
+      instruction: "Two kinds of knowledge, both required. The focus skill covers the 10-foot interface: what a remote can reach, where focus starts, and how Back restores it. The ADBT tools carry Vega's own migration workflows — read them before making Vega claims. Keep facts and assumptions separate. Define one vertical slice. A human must approve the structured plan before implementation starts.",
       skills: ["amazon-devices-vega-focus-management"],
       mcp: [ADBT_SERVER],
       checks: [
+        { type: "json_schema", path: PORT_PLAN_PATH, schema: PortPlanSchema, label: "Structured port plan" },
         { type: "contains", path: "VEGA_PORT.md", value: "## TV Flow", label: "TV flow documented" },
         { type: "contains", path: "VEGA_PORT.md", value: "## Focus", label: "Focus model documented" },
         { type: "contains", path: "NextSteps.md", value: "ADBT", label: "ADBT gaps and sources" },
@@ -268,9 +279,10 @@ export function portPhases(): PortPhase[] {
     },
     {
       name: "port",
-      goal: "Write the port the plan describes: the apps/vega package from the SDK shape, the shared focus-state module, the remote-only home-to-details flow, and the executable focus test that proves it.",
-      instruction: "Preserve portable JS/TSX, start from the Vega template shape, and use one focus-state module from both the app and the verifier. Follow VEGA_PORT.md — it is the plan you are implementing.",
+      goal: `Write the port the approved ${PORT_PLAN_PATH} describes: the apps/vega package from the SDK shape, the shared focus-state module, the remote-only vertical slice, and the executable focus test that proves it.`,
+      instruction: `Preserve portable JS/TSX, start from the Vega template shape, and use one focus-state module from both the app and the verifier. Follow ${PORT_PLAN_PATH} and VEGA_PORT.md. Do not change the approved plan.`,
       skills: ["amazon-devices-vega-build-and-run"],
+      readOnly: [PORT_PLAN_PATH, PORT_PLAN_APPROVAL_PATH],
       checks: [
         { type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" },
         { type: "contains", path: "apps/vega/manifest.toml", value: "[[components.interactive]]", label: "Interactive component" },
@@ -288,6 +300,7 @@ export function portPhases(): PortPhase[] {
       goal: "Make the Vega package build. Read the compiler output in the failure above, fix the cause, and return only the files that change.",
       instruction: "The build is the judge. Do not weaken the app to satisfy it: fix the real cause the diagnostics name. Return complete file contents for every file you touch.",
       skills: ["amazon-devices-vega-build-and-run"],
+      readOnly: [PORT_PLAN_PATH, PORT_PLAN_APPROVAL_PATH],
       device: ["build"],
       verifyFirst: true,
       maxAttempts: 5,
@@ -298,6 +311,7 @@ export function portPhases(): PortPhase[] {
       goal: "Make the app run on the device. Install it, launch it, and keep it alive — read the device log in the failure above and fix what crashed it.",
       instruction: "A launch that exits 0 is not a running app. The device log and the frames decide. Fix the cause of the crash; the harness rebuilds and relaunches to check your work.",
       skills: ["amazon-devices-vega-build-and-run"],
+      readOnly: [PORT_PLAN_PATH, PORT_PLAN_APPROVAL_PATH],
       device: ["build", "launch"],
       verifyFirst: true,
       maxAttempts: 3,
@@ -309,8 +323,10 @@ export function portPhases(): PortPhase[] {
       instruction: "A screenshot shows where focus is, never whether it moved correctly. The executable test decides the transitions; the frames prove the app was rendering while it ran.",
       skills: ["amazon-devices-vega-focus-management"],
       device: ["review", "focus"],
+      repairDevice: ["build", "launch", "review", "focus"],
       verifyFirst: true,
       maxAttempts: 3,
+      readOnly: [PORT_PLAN_PATH, PORT_PLAN_APPROVAL_PATH],
       checks: [
         FOCUS_TEST_CHECK,
         { type: "contains", path: "tv-focus-result.json", value: "\"passed\": true", label: "Focus evidence report" },
@@ -329,6 +345,7 @@ function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0]
   const checks = phase.checks.map((check) => {
     if (check.type === "command") return `- ${check.label}: ${check.command} ${check.args.join(" ")}`;
     if (check.type === "contains") return `- ${check.label}: ${check.path} contains ${check.value}`;
+    if (check.type === "json_schema") return `- ${check.label}: ${check.path} must match its JSON schema`;
     return `- ${check.label}: ${check.path} exists`;
   }).join("\n");
   // Model-driven: instruct the agent to use the ADBT MCP tools itself. In replay (no live tools)
@@ -338,7 +355,10 @@ function prompt(phase: PortPhase, options: Parameters<typeof runPortPipeline>[0]
       ? `\n\n## ADBT sources (recorded)\n${adbt.documents.map((d) => `### ${d.name}\n${d.excerpt}`).join("\n\n")}\n\nUse these ADBT sources for Vega-specific decisions. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md and name the ADBT documents consulted.`
       : `\n\nUse the adbt_list_documents and adbt_read_document tools to discover and read the Vega migration workflows you need. Do not invent Vega APIs. Write unsupported or uncertain mappings to NextSteps.md and name the ADBT documents you consulted.`
     : "";
-  return `You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875. Read existing files before proposing edits. Preserve unrelated work.\n\nPhase: ${phase.name}\nGoal: ${phase.goal}\nInstruction: ${phase.instruction}\nCreative seed: ${options.seed}\n\nApproved context:\n${options.projectContext}\n\nPortability findings:\n${JSON.stringify(options.findings, null, 2)}${adbtGuidance}\n\nRequired checks:\n${checks}\n${failures.length ? `\nPrevious attempt failed:\n${failures.map((f) => `- ${f}`).join("\n")}\nFix these exact failures.` : ""}\n\nReturn ONLY JSON: {"summary":"short commit summary","files":{"relative/path":"complete file contents"}}. Paths are relative to the app root. Do not include .git, node_modules, .env, absolute paths, or files outside the app.`;
+  const planContract = phase.name === "plan" && options.briefSha256
+    ? `\n\n## Structured plan contract\n${renderPortPlanContract(options.briefSha256)}`
+    : "";
+  return `You are porting the CURRENT guarded React Native app to Vega SDK 0.22.5875. Read existing files before proposing edits. Preserve unrelated work.\n\nPhase: ${phase.name}\nGoal: ${phase.goal}\nInstruction: ${phase.instruction}\nCreative seed: ${options.seed}\n\nProject input:\n${options.projectContext}\n\nPortability findings:\n${JSON.stringify(options.findings, null, 2)}${adbtGuidance}${planContract}\n\nRequired checks:\n${checks}\n${failures.length ? `\nPrevious attempt failed:\n${failures.map((f) => `- ${f}`).join("\n")}\nFix these exact failures.` : ""}\n\nReturn ONLY JSON: {"summary":"short commit summary","files":{"relative/path":"complete file contents"}}. Paths are relative to the app root. Do not include .git, node_modules, .env, absolute paths, or files outside the app.`;
 }
 
 
@@ -357,7 +377,12 @@ const PROTECTED_PATHS = /(^|[\\/])(?:\.git|node_modules)(?:[\\/]|$)|(^|[\\/])\.e
 // declared read-only.
 function writeOutput(appDir: string, files: Record<string, string>, readOnly: string[] = []) {
   const root = realpathSync(appDir);
-  const locked = new Set(readOnly.map((name) => resolve(root, name)));
+  const locked = new Set([
+    WORKSHOP_BRIEF,
+    ".workshop-source.json",
+    PORT_PLAN_APPROVAL_PATH,
+    ...readOnly,
+  ].map((name) => resolve(root, name)));
   for (const [name, content] of Object.entries(files)) {
     if (isAbsolute(name) || name.split(/[\\/]/).some((part) => part === "..")) throw new Error(`Unsafe model output path: ${name}`);
     const path = resolve(root, name);

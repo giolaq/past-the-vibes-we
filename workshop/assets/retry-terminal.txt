@@ -1,8 +1,8 @@
 $ yarn tsx src/index.ts run \
-    ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+    ../../apps/pocket-cinema \
     --replay ../../workshop/fixtures/port-retry/port-recording.json \
     --phases analyze,plan --yes --run-id retry-demo
 plan attempt 1 failed:
   - TV flow documented: VEGA_PORT.md must contain "## TV Flow"
   - Focus model documented: VEGA_PORT.md must contain "## Focus"
-{"schemaVersion":1,"event":"run_complete","runId":"retry-demo","state":"complete","out":"$REPO/out/retry-demo","seed":"workshop-v1","costUsd":0.011800000000000001,"budgetUsd":10,"phasesComplete":["analyze","plan"]}
+{"schemaVersion":1,"event":"run_complete","runId":"retry-demo","state":"awaiting_approval","out":"$REPO/out/retry-demo","seed":"workshop-v1","costUsd":0.011800000000000001,"budgetUsd":10,"phasesComplete":["analyze","plan"],"next":"Review port-plan.json, then run approve-plan retry-demo --yes."}

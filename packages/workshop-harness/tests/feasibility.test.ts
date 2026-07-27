@@ -33,9 +33,10 @@ class FakeExecutor implements PortExecutor {
 }
 
 test("feasibility prompt names dependencies and injects the ADBT compatibility guidance", () => {
-  const prompt = buildFeasibilityPrompt(source, [], adbt);
+  const prompt = buildFeasibilityPrompt(source, [], adbt, false, "Open details and restore focus to the originating card.");
   assert.match(prompt, /react-native/);
   assert.match(prompt, /Library Compatibility Check/);
+  assert.match(prompt, /restore focus to the originating card/);
   assert.match(prompt, /Return ONLY JSON/);
 });
 

@@ -294,6 +294,60 @@ test("a crash on the device is what the launch phase hands back to the model", a
   assert.match(executor.calls[0].prompt, /the app crashed after launch: fatal exception: FATAL EXCEPTION: main/);
 });
 
+test("a final test-phase repair rebuilds and relaunches before it can pass", async () => {
+  const app = fixtureApp();
+  mkdirSync(join(app, "tests"), { recursive: true });
+  mkdirSync(join(app, "src", "tv"), { recursive: true });
+  writeFileSync(join(app, "tests", "verify-tv-focus.ts"), "process.exit(1);\n");
+  writeFileSync(join(app, "TV_VERIFICATION.md"), "Back restores the originating card.\n");
+  const screenshot = readFileSync(join(import.meta.dirname, "../../../workshop/fixtures/vega-lifecycle/launch-frame.png"));
+  const device = startDeviceRun({
+    adapter: new VegaReplayAdapter([
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "build", result: ok("build-vega completed") },
+      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "device_status", result: ok("List of devices attached\nemulator-5554 device") },
+      { capability: "install", result: ok("installed") },
+      { capability: "launch", result: ok("launched") },
+      { capability: "capture", result: ok("saved") },
+      { capability: "pull", result: ok("pulled") },
+      { capability: "logs", result: ok("PocketCinema: running") },
+      { capability: "capture", result: ok("saved") },
+      { capability: "pull", result: ok("pulled") },
+    ], screenshot),
+    outDir: `${app}-out`,
+    evidenceMode: "replay",
+    packagePath: "build/fixture.vpkg",
+    appId: "fixture.main",
+  });
+  const focusTest = `import { writeFileSync } from "node:fs";
+writeFileSync("tv-focus-result.json", JSON.stringify({ passed: true, transitions: [
+  "launch-hero", "down-to-first-rail", "left-boundary", "right-boundary", "open-details", "back-restore"
+] }, null, 2));
+`;
+  const executor = new FakeExecutor([response({
+    "tests/verify-tv-focus.ts": focusTest,
+    "src/tv/focus-state.ts": "export const repaired = true;\n",
+  })]);
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxCostUsd: 10,
+    phaseNames: ["test"],
+    executor,
+    device,
+  });
+  assert.equal(result.phases[0].attempts, 1);
+  assert.match(executor.calls[0].prompt, /Executable focus transitions: exited 1/);
+  assert.deepEqual(
+    device.steps.map((step) => step.capability),
+    ["sdk_version", "build", "sdk_version", "device_status", "install", "launch", "capture", "pull", "logs", "capture", "pull"],
+  );
+});
+
 test("rejects model paths outside the guarded app", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([response({ "../escape.txt": "bad" })]);
@@ -304,6 +358,24 @@ test("rejects model writes to environment files", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor([response({ ".env.local": "SECRET=bad" })]);
   await assert.rejects(() => pipeline(app, executor), /Unsafe model output path/);
+});
+
+test("only the harness may write product input or plan approval", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor([response({
+    "workshop-brief.md": "Replace the approved product goal.",
+    "port-plan-approval.json": "{}",
+  })]);
+  await assert.rejects(() => runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxCostUsd: 1,
+    phaseNames: ["analyze"],
+    executor,
+  }), /Read-only in this phase/);
 });
 
 test("rejects model writes through a symlink inside the guarded app", async () => {
@@ -388,6 +460,7 @@ function successResponses(): PortModelResult[] {
     response({
       "VEGA_PORT.md": "# Port\n\n## TV Flow\nremote\n\n## Focus\nstarts on the hero",
       "NextSteps.md": "# Next Steps\n\n## ADBT sources\nport_tv_app_to_vega.md\n\nNo unsupported mappings in this fixture.",
+      "port-plan.json": portPlanText(),
     }),
     response({
       "apps/vega/manifest.toml": "schema-version = 1\n[[components.interactive]]",
@@ -409,6 +482,28 @@ function recordedTurn(phase: string) {
 
 function response(files: Record<string, string>): PortModelResult {
   return { text: JSON.stringify({ summary: "fixture phase", files }), costUsd: 0.01 };
+}
+
+function portPlanText(): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    briefSha256: `sha256:${"a".repeat(64)}`,
+    target: { platform: "firetv-vega", sdk: "0.22.5875" },
+    verticalSlice: "Browse from home to details and back.",
+    entryScreenId: "home",
+    screens: [
+      { id: "home", source: "App home", purpose: "Browse titles", initialFocusId: "featured-action", focusableIds: ["featured-action", "first-card"] },
+      { id: "details", source: "App details", purpose: "Read title details", initialFocusId: "back-action", focusableIds: ["back-action"] },
+    ],
+    navigation: [
+      { fromScreenId: "home", action: "select", toScreenId: "details", focusResult: "Back action receives focus." },
+      { fromScreenId: "details", action: "back", toScreenId: "home", focusResult: "The originating card regains focus." },
+    ],
+    preservedBehaviors: [{ id: "open-details", requirement: "Open details and return to the originating card." }],
+    deferredBehaviors: ["Playback"],
+    verification: [{ behaviorId: "open-details", evidence: "Executable focus transition test." }],
+    openQuestions: [],
+  }, null, 2);
 }
 
 function optionValues(args: string[], option: string): string[] {

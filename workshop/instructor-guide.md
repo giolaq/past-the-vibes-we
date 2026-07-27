@@ -9,19 +9,20 @@ It contains each demonstration command and its expected result.
 2. Open [the speaker deck](slides.html).
 3. Select one live executor for the main demonstration.
 4. Ask each attendee to report the selected executor status.
-5. Test the live path from a clean clone.
-6. Test each recorded fallback.
-7. Verify ADBT version `1.0.5`.
-8. Verify Vega SDK version `0.22.5875`.
-9. Verify the target VDA image.
-10. Run the pinned ADBT `init-context` command.
-11. Verify the `amazon-devices-vega-*` skills.
-12. Read [the live rehearsal record](live-rehearsal.md).
-13. Start VDA in a separate system terminal.
-14. Keep the VDA terminal open.
-15. Run `vega virtual-device status`.
-16. Run `vega exec vda devices -l`.
-17. Keep the completed TV app hidden until Lesson 6.
+5. Verify that `workshop-brief.md` states one bounded flow.
+6. Test the live path from a clean clone.
+7. Test each recorded fallback.
+8. Verify ADBT version `1.0.5`.
+9. Verify Vega SDK version `0.22.5875`.
+10. Verify the target VDA image.
+11. Run the pinned ADBT `init-context` command.
+12. Verify the `amazon-devices-vega-*` skills.
+13. Read [the live rehearsal record](live-rehearsal.md).
+14. Start VDA in a separate system terminal.
+15. Keep the VDA terminal open.
+16. Run `vega virtual-device status`.
+17. Run `vega exec vda devices -l`.
+18. Keep the completed TV app hidden until Lesson 6.
 
 ## Start with the one-call example
 
@@ -47,6 +48,10 @@ Show these files:
 ## Explain skills and MCP
 
 In Lesson 2, trace `amazon-devices-vega-focus-management`.
+Show `port-plan.json` before you show its approval file.
+Ask one attendee to trace Select and Back before approval.
+Show the source fingerprint in `run-spec.json`.
+Explain that a changed app or brief needs a new run ID and a new approval.
 
 For Claude Code:
 
@@ -80,6 +85,9 @@ Then explain these Strands constructs:
 
 State that Zod, `AbortSignal`, and `StdioClientTransport` are not Strands APIs.
 Keep [the construct reference](strands-constructs.md) open.
+
+Explain that schema validation and human approval answer different questions.
+The schema checks references and shape. The person checks product intent.
 
 ## Four-hour schedule
 

@@ -459,7 +459,7 @@ h2 {
           <div class="panel">
             <h3 style="color:var(--muted)">Session rules</h3>
             <ul>
-              <li>Lessons <strong>4–6 need the Vega SDK</strong> and a device.</li>
+              <li>Lesson <strong>4 needs the Vega SDK</strong>. Lessons 5–6 also need a device.</li>
               <li>Use <strong>one live executor</strong> for all phases.</li>
               <li>Try one repair. Then use the <strong>recorded fallback</strong>.</li>
               <li>Use the stated evidence to confirm completion.</li>
@@ -523,7 +523,7 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
             </ul>
           </div>
         </div>
-        <div class="support reveal" style="--d:320ms"><code>VEGA_PORT.md</code> contains the focus model and TV flow. Separate checks confirm both sections.</div>
+        <div class="support reveal" style="--d:320ms"><code>port-plan.json</code> defines screens, Select, Back, and evidence. Its schema checks structure. A person approves the exact plan and brief hashes before code changes.</div>
       </div>
       <div class="foot"><span>lesson 02 · 30 min</span><span>Skills supply knowledge. Checks enforce requirements.</span></div>
     </section>
@@ -635,7 +635,7 @@ down    → focus enters the first rail
 left/right → <span class="g">stops at boundaries</span>
 select  → details opens for <span class="o">that</span> card
 back    → <span class="o">the same card</span> regains focus</div>
-            <div class="support reveal" style="--d:300ms">An executable check confirms focus restoration. The two frames confirm that the app rendered. They do not confirm remote movement.</div>
+            <div class="support reveal" style="--d:300ms">An executable check confirms focus restoration. If this phase repairs source, the harness rebuilds, installs, launches, scans logs, checks frames, and repeats the focus checks.</div>
           </div>
           <div class="reveal" style="--d:240ms">
             <div class="dpad" aria-label="TV remote D-pad">

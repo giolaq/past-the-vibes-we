@@ -6,7 +6,7 @@
 // The lines must be real output. If you change what a command prints, re-run the command,
 // paste the new output into the spec, and regenerate.
 //
-// Usage: node scripts/render-terminal.mjs workshop/assets/retry-terminal.terminal.json
+// Usage: node scripts/render-terminal.mjs <spec.terminal.json>
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

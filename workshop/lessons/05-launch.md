@@ -79,7 +79,6 @@ The phase installs the package from Lesson 4.
 
 :::command Install and start the app
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases launch --yes --run-id workshop
 :::
 
@@ -161,7 +160,6 @@ If no device is attached, run the recorded device sequence:
 
 :::command Recorded device sequence
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --phases launch --yes --run-id workshop

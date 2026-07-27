@@ -30,13 +30,18 @@ The pipeline has six phases:
 
 1. `analyze` writes `ANALYSIS.md`. A dependency inventory and a model verdict
    decide if the port can continue.
-2. `plan` lets the model read ADBT through MCP. It writes `VEGA_PORT.md` and
-   `NextSteps.md`.
+2. `plan` lets the model read ADBT through MCP. It writes the typed
+   `port-plan.json`, `VEGA_PORT.md`, and `NextSteps.md`. A person approves the
+   exact plan before implementation.
 3. `port` creates the Vega package, focus adapter, and remote check.
 4. `build` runs the Vega build. It gives compiler failures to the model.
 5. `launch` installs and starts the app. It checks two frames and the device
    log.
 6. `test` runs the remote navigation and focus restoration contract.
+
+If the test phase repairs source code, it rebuilds, installs, starts, scans the
+log, checks both frames, and reruns focus checks. A late repair cannot pass only
+the host-side test.
 
 For each model phase, the pipeline:
 
@@ -57,6 +62,21 @@ continue until checks pass or another limit stops the phase. The cost limit
 always applies. Repeated failures with no progress stop early.
 
 The model has read-only project tools. It has no shell or write tool.
+
+## Product Input
+
+The existing app directory is the product input. The required
+`workshop-brief.md` states the bounded port goal, required flow, constraints,
+and verification.
+
+The harness supplies the brief to feasibility and phase prompts. It records the
+brief hash and source fingerprint in `out/<runId>/run-spec.json`.
+Keep the source app unchanged while the run ID is active. Start a new run ID
+after an app or brief change.
+
+`workshop.config.json` selects model execution. Flags set the phase, seed, cost
+limit, and run ID. ADBT supplies current Vega documents. The workshop does not
+use separate content, brand, or design input files.
 
 ## Strands Agents SDK
 
@@ -132,21 +152,32 @@ Strands also supports `openai` and `openrouter`. Configure the provider
 credential before you run `doctor`. Do not put credentials in this file.
 Command-line model options remain available as temporary overrides.
 
-## Inspect the Plan
+## Audit Feasibility
 
 ```sh
 yarn tsx src/index.ts plan ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-Read the phases and cost limit. Then run the configured live executor:
+Read the brief, dependency verdict, phases, and cost limit.
+
+## Plan and Approve the Port
+
+Run the analysis and plan phases:
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --yes --seed workshop-v1 --max-cost 3 --json
+  --phases analyze,plan --yes --seed workshop-v1 \
+  --max-cost 3 --run-id workshop --json
+yarn tsx src/index.ts approve-plan workshop --yes
 ```
+
+The plan schema checks screen references, Select and Back transitions,
+preserved behavior, and evidence mappings. Human review checks that these are
+the correct product decisions.
+
+The approval binds the exact plan bytes to the brief hash. `port`, `build`,
+`launch`, and `test` refuse a missing or stale approval.
 
 ## Inspect a Run
 
@@ -156,10 +187,13 @@ Keep the returned `runId`. Inspect these files:
 | --- | --- |
 | `out/<runId>/feasibility-report.json` | Feasibility result |
 | `out/<runId>/portability-report.json` | Portability findings |
+| `out/<runId>/run-spec.json` | Source fingerprint, brief hash, phases, seed, and cost |
 | `out/<runId>/port-result.json` | Phases, checks, retries, and cost |
 | `out/<runId>/model-logs/<phase>.jsonl` | Complete model transcript |
 | `out/<runId>/adbt-port-context.json` | ADBT document sources and hashes |
 | `out/<runId>/app/NextSteps.md` | Unsupported work |
+| `out/<runId>/app/port-plan.json` | Structured screen, navigation, behavior, and evidence contract |
+| `out/<runId>/app/port-plan-approval.json` | Human-approved plan and brief hashes |
 | `out/<runId>/01-launch.png` | First device frame |
 | `out/<runId>/02-postlaunch.png` | Second device frame |
 | `out/<runId>/app` | Generated app and phase commits |
@@ -288,10 +322,15 @@ Use this only if a model, ADBT, SDK, or device blocks the exercise:
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --replay ../../workshop/fixtures/port-recording.json \
+  --phases analyze,plan --yes --seed workshop-v1 \
+  --max-cost 3 --run-id recorded
+yarn tsx src/index.ts approve-plan recorded --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
-  --yes --seed workshop-v1 --max-cost 3 --json
+  --phases port,build,launch,test --yes --seed workshop-v1 \
+  --max-cost 3 --run-id recorded --json
 ```
 
 Recorded data tests the pipeline contract. It does not prove live model or
@@ -320,7 +359,11 @@ Lesson 7 shows the complete run in a TUI:
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --phases analyze,plan --seed workshop-v1 \
+  --max-cost 3 --yes --run-id final-dashboard
+yarn tsx src/index.ts approve-plan final-dashboard --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases port,build,launch,test \
   --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui
 ```
 

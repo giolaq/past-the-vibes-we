@@ -49,6 +49,11 @@ Every exercise must state:
 3. What proves completion.
 4. Which fixture or checkpoint to use when blocked.
 
+The source app and its `workshop-brief.md` are the product input. Do not add
+separate generation inputs. A run pins their fingerprint in `run-spec.json`.
+The `port`, `build`, `launch`, and `test` phases require a human-approved
+`port-plan.json`.
+
 Keep model authority narrow. The port agent receives read-only project tools and returns a typed patch. The harness owns writes, checks, retries, cost, commits, and reports.
 
 Four invariants hold the Bee lesson up. Do not relax them to make a run pass. A spec check may be `file_exists` or `contains` and never `command` — a model-authored command line is a different kind of authority from a model-authored assertion, and human approval does not close that gap. Spec paths must resolve inside the app. `BEE_SPEC.md` is rendered by the harness from the validated JSON, never written by the model, so the approved prose cannot disagree with what gets built. And `bee_apply` declares the spec read-only: the thing being measured does not edit the measurement. Bee provenance stores hashes and conversation ids and no transcript, which is why it differs from ADBT's excerpts.
