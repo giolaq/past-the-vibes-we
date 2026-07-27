@@ -129,6 +129,13 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../workshop/ch
 A model reporting on its own work is another generated claim. A check runs whether the model is honest, confused, or absent, and it returns the same answer every time.
 :::
 
+:::proof
+claim: "The port code is ready"
+gate: "Nine static, schema, and executable checks pass before the phase commit is created"
+evidence: "port-result.json + model-logs/port.jsonl + git log"
+limit: "These checks can still accept a plausible manifest that the Vega compiler rejects"
+:::
+
 :::done
 The guarded copy holds a Vega package and a shared focus module, committed after nine checks passed, and `tv-check` reports your added rule as a failure on the starter app and a pass on the ported one.
 :::

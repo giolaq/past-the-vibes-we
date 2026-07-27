@@ -24,6 +24,8 @@ import { copySource, discoverSource } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
 import { loadPortResult, loadRunCost, loadVegaResult, mergePortResults, mergeVegaResults } from "./run-state.js";
 import { shouldUseTui, WorkshopTui } from "./tui.js";
+import { runNaiveProbe } from "./naive-probe.js";
+import { injectBuildFailure } from "./workshop-failure.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -33,6 +35,7 @@ const root = resolve(process.env.WORKSHOP_OUT ?? join(repositoryRoot, "out"));
 async function main(): Promise<void> {
   if (!command || args.includes("--help") || command === "help") return help();
   if (command === "doctor") return doctor();
+  if (command === "naive") return naiveCommand();
   if (command === "plan") return planCommand();
   if (command === "run") return runCommand();
   if (command === "status") return statusCommand();
@@ -42,7 +45,42 @@ async function main(): Promise<void> {
   if (command === "vega-run") return vegaRunCommand();
   if (command === "tv-check") return tvCheckCommand();
   if (command === "bee-run") return beeRunCommand();
+  if (command === "inject-build-failure") return injectBuildFailureCommand();
   help();
+}
+
+async function naiveCommand(): Promise<void> {
+  const sourcePath = args[1];
+  if (!sourcePath) failure("missing_app", "App directory is required.", "Run naive <app> --yes with your executor flags.");
+  if (!args.includes("--yes")) failure("confirmation_required", "The one-shot probe spends model budget.", "Show the command and cost cap, then rerun with --yes.");
+  const runId = flag("--run-id") ?? "naive-demo";
+  const out = join(root, runId);
+  if (existsSync(out)) failure("run_exists", `Run ${runId} already exists.`, "Choose a different --run-id so the comparison starts clean.");
+  const appDir = join(out, "app");
+  mkdirSync(out, { recursive: true });
+  copySource(sourcePath, appDir);
+  const config = selectedExecutorConfig();
+  const transcripts = new ModelTranscriptStore(out);
+  const executor = createPortExecutor({ appDir, outDir: out, config, transcripts, recordingName: "naive-recording.json" });
+  const maxCostUsd = Number(flag("--max-cost") ?? 1);
+  if (!Number.isFinite(maxCostUsd) || maxCostUsd <= 0) throw new Error("--max-cost must be a positive number");
+  const result = await runNaiveProbe(executor, maxCostUsd);
+  writeFileSync(join(out, "naive-proposal.json"), JSON.stringify({ schemaVersion: 1, ...result.proposal }, null, 2));
+  const report = { schemaVersion: 1, runId, executor: executorName(config), costUsd: result.costUsd, proposedFiles: Object.keys(result.proposal.files).sort(), coverage: result.coverage, missingProof: result.missingProof };
+  writeFileSync(join(out, "naive-result.json"), JSON.stringify(report, null, 2));
+  json({ command: "naive", ...report, proposal: join(out, "naive-proposal.json"), transcript: transcripts.pathFor("one_shot_port") });
+}
+
+function injectBuildFailureCommand(): void {
+  const runId = args[1];
+  if (!runId) failure("missing_run", "Run id is required.", "Run inject-build-failure <runId> --yes after the port phase.");
+  if (!args.includes("--yes")) failure("confirmation_required", "Fault injection changes the guarded app.", "Confirm the workshop exercise, then rerun with --yes.");
+  const out = join(root, runId);
+  const appDir = join(out, "app");
+  if (!existsSync(appDir)) failure("run_not_found", `No guarded app exists for ${runId}.`, "Complete the port phase first, using the same --run-id.");
+  const injected = injectBuildFailure(appDir, out);
+  commitAll(appDir, "workshop: inject the deterministic build exercise");
+  json({ command: "inject-build-failure", runId, appDir, ...injected, next: `run --run-id ${runId} --phases build` });
 }
 
 // Runs the mechanical TV-readiness checks against any app directory. Red on the
@@ -226,6 +264,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     tui = shouldUseTui(args) ? new WorkshopTui({
       runId,
       executor: executorName(executorConfig),
+      evidenceMode: flag("--replay") ? "recorded" : "live",
       seed: flag("--seed") ?? "workshop-v1",
       budgetUsd: initialBudget,
       phases: [FEASIBILITY_PHASE, ...selected.map((phase) => phase.name)],
@@ -626,7 +665,7 @@ function selectedExecutorConfig() {
 }
 function executorName(config: ReturnType<typeof selectedExecutorConfig>): string {
   if (flag("--replay")) return "replay";
-  return config.kind === "strands" ? `strands:${config.model.provider}` : "claude-cli";
+  return config.kind === "strands" ? `strands:${config.model.provider}/${config.model.modelId}` : `claude-cli:${config.model}`;
 }
 function humanRunComplete(runId: string, out: string, costUsd: number, phasesComplete: string[], modelLogsDir: string): void {
   process.stdout.write(`Run ${runId} complete.\n`);
@@ -641,6 +680,7 @@ function help(): void {
 
 Commands:
   doctor                              Check the selected replay or live environment
+  naive <app>                         One unverified model call; saves but never applies its patch
   plan <app>                          Audit feasibility and show the six-phase plan
   run <app>                           Run all or selected port phases
   status <runId> | logs <runId>       Inspect a run
@@ -648,6 +688,7 @@ Commands:
   tv-check <dir>                      Run the mechanical TV-readiness checks
   vega-run <runId>                    Build/install/launch and retain device evidence
   bee-run <app> --propose|--apply     Optional conversation-to-code pipeline
+  inject-build-failure <runId> --yes  Add the deterministic live compiler-repair exercise
   memory show|propose|apply           Review project memory
   context adbt port | context bee     Inspect context providers
 

@@ -39,14 +39,15 @@ Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a cod
 4. Build until it compiles, with the compiler's diagnostics driving each retry.
 5. Install and launch on the device, and prove the app stayed running.
 6. Test the remote-control contract, with device frames as supporting evidence.
-7. Optionally turn an explicitly approved Bee conversation into reviewed, running code.
-8. Control the full pipeline, then sketch a harness for your own work.
+7. Control the full pipeline, complete the trust board, then defend a harness design as a team.
+
+Appendix A1 applies the same engine to an explicitly approved Bee conversation.
 
 You can use `apps/pocket-cinema` for every exercise. Bring your own app only if it already runs and contains no secrets.
 
 ## Recommended four-hour path
 
-Follow lessons 1–6 with one live executor, skip optional lesson 7 if you do not have Bee consent and access, and finish with lesson 8. The schedule includes two 10-minute breaks and a 20-minute recovery block. Use recordings only when an external dependency blocks a specific exercise or when the instructor asks everyone to inspect the same failure.
+Follow lessons 1–7 with one live executor. The schedule includes two 10-minute breaks and a recovery block. Use recordings only when an external dependency blocks a specific exercise or when the instructor asks everyone to inspect the same failure. Appendix A1 is outside the timed path and requires Bee consent and access for a live run.
 
 ## Choose how to run models
 
@@ -71,10 +72,9 @@ Handing this workshop to an automated test agent instead of an attendee? Point i
 4. [Build until it compiles](lessons/04-build.md)
 5. [Run it on the device](lessons/05-launch.md)
 6. [Test the remote](lessons/06-test.md)
-7. [Optional: a conversation becomes code](lessons/07-bee.md)
-8. [Take it home](lessons/08-finish.md)
+7. [Control the pipeline and design your own](lessons/07-finish.md)
 
-Lesson 7's optional Bee run has recordings under `fixtures/bee-run/` for an instructor-led case study: `bee-conversation.json` is synthetic and hash-verified, while `port-recording.json` holds the spec and apply turns. It reuses `fixtures/vega-lifecycle.json` for build and launch.
+Appendix: [A conversation becomes code](lessons/A1-bee.md). Its recordings under `fixtures/bee-run/` support an instructor-led synthetic case study when no private conversation may be used.
 
 Maintainer fixtures live under `fixtures/`. `port-retry/` and `build-retry/` intentionally capture one failed attempt and its repair so every attendee can inspect identical retry context. Regenerate them with `node scripts/build-port-fixtures.mjs`. A recording proves control flow and report compatibility only. A build claim requires `evidenceMode: live` and a local `.vpkg`; a device claim also requires filtered post-launch logs and two pulled frames. If live Vega setup blocks a lesson, continue from `checkpoints/vega-buildable/` or `checkpoints/complete/`.
 

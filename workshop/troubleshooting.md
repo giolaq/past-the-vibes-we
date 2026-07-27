@@ -70,7 +70,7 @@ Write down whether the failure came from SDK setup, device attachment, build, or
 
 ## Bee is unavailable
 
-Bee is optional. For lesson 7, skip the live exercise when you lack explicit consent or account access. The instructor can demonstrate the gate with `--replay workshop/fixtures/bee-run/port-recording.json`; the harness then reads the synthetic `fixtures/bee-run/bee-conversation.json` instead of calling Bee.
+Bee is appendix A1. Skip the live exercise when you lack explicit consent or account access. The instructor can demonstrate the gate with `--replay workshop/fixtures/bee-run/port-recording.json`; the harness then reads the synthetic `fixtures/bee-run/bee-conversation.json` instead of calling Bee.
 
 `bee login` and `bee mcp serve` run in your own terminal, not in the harness. If a live run reports that the Bee tools are missing, check that `bee` is on `PATH` (or set `BEE_BIN`) and that you are logged in.
 

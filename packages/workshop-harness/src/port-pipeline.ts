@@ -9,6 +9,7 @@ import { PortOutputSchema, parseJsonBlock } from "./port-contract.js";
 import type { PortExecutor } from "./port-executor.js";
 import { FOCUS_TEST_CHECK, verifyPort, type PortCheck } from "./port-verification.js";
 import { runDeviceStages, type DeviceRun, type DeviceStage, type ScreenshotJudge } from "./platform/vega.js";
+import { injectedBuildFailureChecks } from "./workshop-failure.js";
 
 /**
  * One phase of the port.
@@ -153,7 +154,12 @@ export async function runPortPipeline(options: { appDir: string; outDir: string;
         // Commit that evidence too, so every successful phase leaves the guarded tree clean.
         // commit() is a no-op when neither the model nor a check changed the tree.
         const commitSummary = summary || `Record verified ${phase.name} evidence`;
-        commit(options.appDir, `workshop(${phase.name}): ${commitSummary.slice(0, 60)}`);
+        const commitMessage = `workshop(${phase.name}): ${commitSummary.slice(0, 60)}`;
+        const commitHash = commit(options.appDir, commitMessage);
+        if (commitHash) transcripts.append(phase.name, {
+          attempt: attempts, executor: "harness", direction: "system", kind: "commit",
+          payload: { hash: commitHash, message: commitMessage },
+        });
         const phaseResult = { name: phase.name, summary: summary || "already satisfied, no model call", attempts, checks: phaseLabels(phase), failures: rejected };
         result.phases.push(phaseResult);
         transcripts.append(phase.name, {
@@ -194,7 +200,8 @@ async function verify(phase: PortPhase, options: Parameters<typeof runPortPipeli
     await runDeviceStages(options.device, stages, { appDir: join(options.appDir, "apps", "vega"), focusDir: options.appDir, judge: options.judge, phase: phase.name, attempt });
     deviceFailures.push(...options.device.blockers.slice(deviceMark));
   }
-  return [...staticFailures, ...deviceFailures];
+  const workshopFailures = phase.name === "build" ? injectedBuildFailureChecks(options.appDir, options.outDir) : [];
+  return [...staticFailures, ...deviceFailures, ...workshopFailures];
 }
 
 // A retry that happens silently is a retry nobody can audit. stdout stays JSON-only, so this
@@ -401,6 +408,7 @@ export function commitAll(appDir: string, message: string): void {
 // it did not need to change. That is a pass with nothing to record, not a failure.
 function commit(appDir: string, message: string) {
   git(appDir, ["add", "-A"]);
-  if (!git(appDir, ["status", "--porcelain"])) return;
+  if (!git(appDir, ["status", "--porcelain"])) return undefined;
   git(appDir, ["commit", "-m", message]);
+  return gitHead(appDir).slice(0, 8);
 }

@@ -23,6 +23,7 @@ function state(events: TranscriptEntry[] = []): TuiState {
   return {
     runId: "workshop",
     executor: "replay",
+    evidenceMode: "recorded",
     seed: "workshop-v1",
     budgetUsd: 3,
     costUsd: 0.0123,
@@ -53,6 +54,7 @@ test("dashboard shows phase state, attempt, cost, and controls", () => {
   assert.match(output, /\[ok\] vega_portability_audit/);
   assert.match(output, /> \[\.\.\] port\s+attempt 2/);
   assert.match(output, /\$0\.0123 \/ \$3\.00/);
+  assert.match(output, /evidence recorded/);
   assert.match(output, /up\/down select  Tab output  f follow/);
 });
 
@@ -75,6 +77,7 @@ test("q closes the completed alternate screen and restores terminal mode", async
   const tui = new WorkshopTui({
     runId: "workshop",
     executor: "replay",
+    evidenceMode: "recorded",
     seed: "workshop-v1",
     budgetUsd: 3,
     phases: ["analyze", "plan"],
@@ -105,6 +108,16 @@ test("checks mode hides model content and shows independent verification", () =>
   const output = renderWorkshopTui(state([request, checks]), 100, 30);
   assert.doesNotMatch(output, /PRIVATE FULL PROMPT/);
   assert.match(output, /checks failed - Vega manifest schema is missing/);
+});
+
+test("checks mode shows the verified commit", () => {
+  const commit = entry({
+    direction: "system",
+    kind: "commit",
+    payload: { hash: "abc12345", message: "workshop(port): add Vega focus" },
+  });
+  const output = renderWorkshopTui(state([commit]), 100, 30);
+  assert.match(output, /commit abc12345 - workshop\(port\): add Vega focus/);
 });
 
 test("model and tools modes select only their own activity", () => {

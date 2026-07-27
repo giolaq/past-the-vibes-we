@@ -12,6 +12,24 @@ The standard path uses a live model through Claude Code CLI or Strands with Bedr
 
 On a live run, both supported executors use Amazon Devices Builder Tools as MCP. Strands receives an in-process `McpClient`; Claude Code receives an explicit pinned `--mcp-config`. Both are read-only. The harness is the only component allowed to apply a validated patch, run commands, spend against the cumulative cap, or commit.
 
+## What attendees build
+
+The workshop starts with a deliberately weak one-shot port request. It may produce a convincing
+proposal, but it applies nothing and proves nothing. Attendees then replace that process one
+boundary at a time:
+
+1. inspect the app in a guarded copy;
+2. plan with live Vega knowledge from ADBT MCP;
+3. apply a typed patch and check the declared contract;
+4. inject and repair a deterministic compiler failure;
+5. build, launch, and inspect evidence from the platform;
+6. execute the TV focus contract;
+7. operate the complete run in a TUI, then design and challenge a harness for another domain.
+
+Every lesson adds one row to a claim-versus-proof board. The final team exercise asks another
+team to find a false positive in the design. This keeps the workshop about engineering evidence,
+not prompt-writing technique.
+
 ## Start here
 
 Install Node.js 20 or newer and Git — Corepack will install the repository's pinned Yarn 4.12 — then run:
@@ -87,7 +105,7 @@ so keep them in the gitignored `out/` directory and review them before sharing.
 | `workshop/workshop.data.js` | Generated from `lessons/` by `scripts/build-site.mjs` (do not edit by hand) |
 | `workshop/instructor-guide.md` | Timing, fallbacks, evidence rules, and teaching notes |
 | `workshop/strands-constructs.md` | Every Strands construct used by the workshop |
-| `workshop/fixtures` | Recorded recovery cases and deterministic failure examples |
+| `workshop/fixtures` | Recovery recordings and deterministic failure examples |
 | `workshop/checkpoints` | Known-good recovery points |
 | `packages/workshop-harness/src` | The harness the whole workshop builds |
 | `apps/pocket-cinema` | Prepared React Native target |
