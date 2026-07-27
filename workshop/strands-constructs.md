@@ -1,10 +1,12 @@
 # Strands Constructs Used in This Workshop
 
-This is a code-reading guide, not a list of everything Strands Agents SDK can do. The workshop harness pins `@strands-agents/sdk` `1.10.0` and uses a bounded agent that inspects a guarded React Native app and proposes a Vega patch.
+Use this guide when you read the workshop harness.
 
-Everything in these tables comes from the SDK. Writes, checks, retries, cost, and commits stay in workshop code.
+The harness pins `@strands-agents/sdk` `1.10.0`. Strands controls the uncertain
+model and tool loop. Workshop code controls writes, checks, retries, cost, and
+commits.
 
-Use these files while reading this guide:
+Read these files with this guide:
 
 - `packages/workshop-harness/src/port-executor.ts`
 - `packages/workshop-harness/src/model-factory.ts`
@@ -13,66 +15,80 @@ Use these files while reading this guide:
 - `packages/workshop-harness/src/context-providers/adbt.ts`
 - `packages/workshop-harness/src/skills.ts`
 
-## The live Strands path
+## Live Strands Path
 
 ```text
 phase prompt
   -> Agent
      -> provider Model
-     -> list/read/search tools
+     -> list, read, and search tools
      -> structured patch
   -> AgentResult
      -> token metrics
      -> recorder
-  -> harness validates paths, writes, checks, retries, and commits
+  -> harness validates, writes, checks, retries, and commits
 ```
 
-## Agent construction
+## Agent
 
-| Construct | Meaning in this workshop |
+| Construct | Function in this workshop |
 | --- | --- |
-| `Agent` | Runs the model-and-tool loop for one phase. It decides when to call the registered read tools and when to return the final patch. |
-| `name` | Gives the phase agent a stable identity such as `workshop-plan`. This helps logs and traces identify the run. |
-| `description` | States the agent's role in plain language. It also keeps the instance understandable if it is inspected or reused. |
-| `model` | Supplies the provider adapter created by `model-factory.ts`. The pipeline does not depend directly on Bedrock or OpenAI calls. |
-| `systemPrompt` | Sets durable operating rules for the invocation: inspect first, use evidence, and return a complete patch. Phase-specific work remains in the user prompt. |
-| `tools` | Registers the capabilities the model may call. The port agent receives only list, read, and literal search. |
-| `structuredOutputSchema` | Requires the final response to match `PortOutputSchema`: a summary and a map of complete file contents. |
-| `printer: false` | Disables Strands' automatic console output. The workshop CLI reserves stdout for its versioned JSON contract. |
+| `Agent` | Runs one bounded model and tool loop. |
+| `name` | Gives the phase agent a stable name for logs and traces. |
+| `description` | States the agent task. |
+| `model` | Receives the provider adapter from `model-factory.ts`. |
+| `systemPrompt` | Requires discovery, evidence, and a complete patch. |
+| `tools` | Gives the agent list, read, and literal search tools. |
+| `structuredOutputSchema` | Requires the final `PortOutputSchema` shape. |
+| `printer: false` | Stops SDK output from entering the CLI JSON stream. |
 
-## Model providers
+Phase instructions stay in the user prompt. Stable operating rules stay in
+`systemPrompt`.
 
-`Model` is the common Strands model interface. `model-factory.ts` creates one of these implementations:
+## Model Providers
 
-| Construct | Use |
+Strands uses one common `Model` interface.
+
+| Construct | Function |
 | --- | --- |
-| `BedrockModel` | Calls an Amazon Bedrock model with an explicit model id, region, and output-token limit. |
-| `OpenAIModel` | Calls OpenAI with an explicit model id and output-token limit. |
-| `OpenAIModel` with `clientConfig.baseURL` | Calls OpenRouter through its OpenAI-compatible endpoint. There is no separate OpenRouter class in this workshop. |
+| `BedrockModel` | Calls an Amazon Bedrock model. |
+| `OpenAIModel` | Calls an OpenAI model. |
+| `OpenAIModel` with `clientConfig.baseURL` | Calls OpenRouter through its OpenAI-compatible endpoint. |
 
-The executor chooses the model from `--provider`, `--model`, and `--region`. Verification does not change when the provider changes.
+The user selects a provider with `--provider`. The user selects a model with
+`--model`. Verification stays the same for all providers.
 
-## Typed tools
+## Typed Tools
 
-`port-tools.ts` creates each project tool with Strands `tool()`.
+`port-tools.ts` creates project tools with Strands `tool()`.
 
-| Field or type | Use |
+| Field or type | Function |
 | --- | --- |
-| `tool()` | Wraps a TypeScript callback as a model-callable tool. |
-| `name` | Provides the stable identifier the model requests, such as `read_project_file`. |
-| `description` | Tells the model when to use the tool and what boundary it has. |
-| `inputSchema` | Uses a Zod schema to validate model-supplied arguments before the callback runs. Zod also gives the callback a typed input. |
-| `callback` | Runs the deterministic list, read, or search implementation. |
-| `InvokableTool` | Type used for the list returned to `Agent`. It is a compile-time TypeScript contract. |
-| `JSONValue` | Restricts values crossing tool and MCP boundaries to JSON-compatible data. |
+| `tool()` | Makes a TypeScript callback available to the model. |
+| `name` | Gives the tool a stable identifier. |
+| `description` | States when the model must use the tool. |
+| `inputSchema` | Uses Zod to validate tool arguments. |
+| `callback` | Runs the deterministic tool operation. |
+| `InvokableTool` | Defines the TypeScript tool-list contract. |
+| `JSONValue` | Limits boundary values to JSON-compatible data. |
 
-The callbacks add boundaries beyond schema validation. They reject absolute paths, parent traversal, symlinks, `.git`, `.env`, `node_modules`, binary files, large files, and paths outside the guarded app.
+The callbacks also reject:
 
-The agent receives no write tool and no shell tool. Strands can support those capabilities, but this harness intentionally keeps irreversible actions in the pipeline.
+- Absolute paths.
+- Parent-directory traversal.
+- Symbolic links.
+- `.git`, `.env`, and `node_modules`.
+- Binary files.
+- Large files.
+- Paths outside the guarded copy.
 
-## Structured output
+The agent has no write tool. The agent has no shell tool. The pipeline owns
+irreversible actions.
 
-`PortOutputSchema` is a Zod schema passed to Strands as `structuredOutputSchema`.
+## Structured Output
+
+The executor gives `PortOutputSchema` to Strands as
+`structuredOutputSchema`.
 
 ```text
 {
@@ -81,18 +97,22 @@ The agent receives no write tool and no shell tool. Strands can support those ca
 }
 ```
 
-Strands asks the model for that shape, validates the result, and can retry with schema feedback when the response is invalid. After invocation:
+Strands validates this shape. It can give schema feedback to the model when
+the response is invalid.
 
-- `AgentResult.structuredOutput` contains the validated value.
-- `StructuredOutputError` represents failure to produce structured output.
-- The executor parses the value again at its own boundary before serializing it.
-- The harness validates every proposed path before writing any file.
+After the call:
 
-Structured output validates shape. It does not prove that a patch is correct, safe, buildable, or suitable for TV. The phase checks provide that separate evidence.
+- `AgentResult.structuredOutput` holds the validated value.
+- `StructuredOutputError` reports a shape failure.
+- The executor parses the value again at its boundary.
+- The harness validates every path before it writes a file.
 
-## Invocation controls
+Structured output proves data shape. It does not prove that the patch is safe,
+correct, buildable, or usable on TV. Phase checks provide that evidence.
 
-The workshop calls:
+## Invocation Controls
+
+The workshop uses this call:
 
 ```text
 agent.stream(prompt, {
@@ -101,75 +121,97 @@ agent.stream(prompt, {
 })
 ```
 
-| Construct | Use |
+| Construct | Function |
 | --- | --- |
-| `agent.stream()` | Starts one agent run, yields native `AgentStreamEvent` objects as work happens, and returns the final `AgentResult`. |
-| `AgentStreamEvent` | Carries model deltas, completed messages, tool calls and results, lifecycle events, and the final result. |
-| `limits.turns` | Caps model-and-tool loop iterations. The port allows eight per phase. |
-| `limits.totalTokens` | Caps total token use for that invocation. |
-| `cancelSignal` | Lets an external abort signal stop the invocation at cancellation points. The workshop supplies a ten-minute native `AbortSignal.timeout()`. |
-| `AgentResult` | Carries structured output, messages, stop information, and metrics. |
-| `metrics.accumulatedUsage` | Reports input and output tokens accumulated across the invocation. |
+| `agent.stream()` | Starts one agent run and returns streamed events. |
+| `AgentStreamEvent` | Carries messages, tool calls, tool results, and lifecycle events. |
+| `limits.turns` | Limits the model and tool loop to eight turns. |
+| `limits.totalTokens` | Limits total tokens for the call. |
+| `cancelSignal` | Stops the call after the ten-minute timeout or an external abort. |
+| `AgentResult` | Holds structured output, messages, stop data, and metrics. |
+| `metrics.accumulatedUsage` | Reports input and output token use. |
 
-Strands reports usage. The harness applies configured token prices, enforces the run budget, and records the result. Cost policy is not delegated to the model.
+Strands reports token use. The harness calculates cost. The harness applies
+the run budget.
 
-## Skill delivery
+## Skills
 
-Each phase names its skills in `phases()`; the executor decides how the model receives them:
+Each phase names its skills. The executor selects the delivery method.
 
-| Executor | Delivery |
+| Executor | Skill delivery |
 | --- | --- |
-| Claude CLI | `injectSkillText()` appends the complete skill instructions to the subprocess prompt. Claude CLI has no in-process Strands plugin. |
-| Strands | Each loaded instruction becomes a Strands `Skill`. `AgentSkills` is registered through `plugins`, injects skill metadata, and provides the `skills` activation tool for progressive disclosure. |
-| Replay | No model runs. The recorded response replaces either live delivery path. |
+| Claude CLI | `injectSkillText()` adds the complete skill text to the prompt. |
+| Strands | `AgentSkills` registers each instruction as a `Skill` plugin and supplies the `skills` activation tool. |
+| Recorded fallback | No model runs. The recorded response replaces the live call. |
 
-The base phase prompt contains no skill body, so a Strands invocation does not receive duplicate instructions. A skill that is not installed is reported and skipped rather than failing the run. See `packages/workshop-harness/src/skills.ts` and `packages/workshop-harness/tests/skills.test.ts`.
+The base phase prompt does not contain the skill body. This prevents duplicate
+instructions in the Strands path.
 
-## Why this repository uses `stream()`
+The harness reports and skips a missing skill. See
+`packages/workshop-harness/src/skills.ts` and
+`packages/workshop-harness/tests/skills.test.ts`.
 
-The workshop consumes `agent.stream()` so the phase transcript is useful before the call ends.
-Each native event is appended immediately to
-`out/<runId>/model-logs/<phase>.jsonl`: model requests and deltas, completed messages, tool
-calls and results, and the final result. `consumeStream()` preserves the generator's returned
-`AgentResult`, so structured output and metrics are handled exactly as they would be after a
-non-streaming invocation. Streaming improves observability; it does not move authority into
-the SDK. The pipeline still owns phase order, budgets, retries, checkpoints, verification, and
-reporting.
+## Streaming and Transcripts
 
-## MCP constructs
+The harness uses `agent.stream()` to record events while the phase runs.
+It appends each event to:
 
-The harness uses Strands `McpClient` in two ways. During a live Strands run it registers ADBT as an agent tool source for the feasibility audit and `plan`, so the model decides which documents to read. Outside the port run, `doctor --adbt-live` and `context adbt` call the client directly to check the server and capture replay context. The Claude executor reaches the same pinned stdio server through Claude Code's `--mcp-config`; that is a Claude CLI construct, not a Strands one.
+```text
+out/<runId>/model-logs/<phase>.jsonl
+```
 
-| Construct | Use |
+The transcript contains model messages, tool calls, tool results, and the
+final result. `consumeStream()` also keeps the returned `AgentResult`.
+
+Streaming improves observation. It does not give the SDK control of phase
+order, budgets, retries, checkpoints, verification, or reports.
+
+## MCP and ADBT
+
+The harness uses Strands `McpClient` for ADBT.
+
+In a live Strands run, the feasibility and plan agents receive ADBT tools.
+The model selects the documents that it needs.
+
+The commands `doctor --adbt-live` and `context adbt` also use `McpClient`
+directly. Claude Code uses the same pinned server through `--mcp-config`.
+
+| Construct | Function |
 | --- | --- |
-| `McpClient` | Connects to a trusted MCP server and exposes its tools as executable objects. |
-| `applicationName` and `applicationVersion` | Identify Past the Vibes Workshop to the server during initialization. |
-| `listTools()` | Connects lazily and returns the server's tool objects. The doctor and capture paths require `list_documents` and `read_document`. |
-| `callTool(tool, args, { signal })` | Calls one discovered tool with JSON arguments and a cancellation signal. |
-| `JSONValue` | Defines the JSON-compatible MCP argument and result boundary. |
-| `disconnect()` | Closes the server connection and child process. It runs in `finally`, including error paths. |
+| `McpClient` | Connects to the trusted MCP server and exposes its tools. |
+| `applicationName` and `applicationVersion` | Identify the workshop to the server. |
+| `listTools()` | Gets the available server tools. |
+| `callTool()` | Calls one tool with JSON arguments and a cancellation signal. |
+| `JSONValue` | Defines the JSON data boundary. |
+| `disconnect()` | Closes the server and its child process. |
 
-`StdioClientTransport` is not a Strands construct. It comes from the official Model Context Protocol TypeScript SDK. It starts pinned ADBT as a child process and carries MCP messages over stdin and stdout.
+`StdioClientTransport` comes from the official Model Context Protocol SDK. It
+starts the pinned ADBT process and carries MCP messages through standard input
+and output.
 
-Registering an `McpClient` directly as an agent tool source is how the live Strands path works. The harness hands ADBT to the feasibility audit and `plan`; the model calls `list_documents` and `read_document`, and afterward the harness reconstructs every read from message history and hashes it into `adbt-port-context.json` (`extractAdbtProvenance` in `packages/workshop-harness/src/context-providers/adbt.ts`). Claude stream events are normalized into the same provenance shape. Replay reruns from that recorded context with no live server.
+After the model reads a document, the harness gets the source from message
+history. It records each source and hash in `adbt-port-context.json`.
+`extractAdbtProvenance()` implements this operation. Claude events use the same
+record format.
 
-## What the harness owns
+## Harness Responsibilities
 
-These constructs are outside Strands:
-
-| Construct | Owner |
+| Responsibility | Owner |
 | --- | --- |
-| Phase order, dependencies, retry policy, and resume | Workshop harness |
-| Human plan approval and cost cap | Workshop harness |
-| Zod schema definitions | Zod plus workshop code |
-| MCP stdio transport | Model Context Protocol SDK |
-| Protected file writes and rollback | Workshop harness |
+| Phase order, dependencies, retries, and resume | Workshop harness |
+| Human approval and cost limit | Workshop harness |
+| Schemas | Zod and workshop code |
+| MCP transport | Model Context Protocol SDK |
+| Protected writes and rollback | Workshop harness |
 | Build, focus, and platform checks | Workshop harness |
-| Git commits, checkpoints, recordings, replay, and reports | Workshop harness |
+| Commits, checkpoints, recordings, and reports | Workshop harness |
 | Token price calculation | Workshop harness |
 
-## SDK features not used here
+## SDK Features Not Used
 
-This repository does not use Strands hooks, Graph, Swarm, agent-as-tool, session managers, memory managers, custom conversation managers, or SDK-provided write and shell tools.
+This workshop does not use Strands hooks, Graph, Swarm, agent-as-tool, session
+managers, memory managers, custom conversation managers, or SDK write and
+shell tools.
 
-A bounded `Agent` is enough for the uncertain part. Deterministic TypeScript handles the workflow around it.
+One bounded `Agent` is sufficient for uncertain work. Deterministic TypeScript
+controls the workflow.

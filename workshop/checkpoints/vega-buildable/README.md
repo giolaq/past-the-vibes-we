@@ -1,7 +1,12 @@
-# Vega-buildable Checkpoint
+# Vega Build Checkpoint
 
-Use this checkpoint when the recorded Pocket Cinema port does not finish. It contains the guarded, typechecked app after the TV product, Vega boundary, and TV behavior phases.
+Use this checkpoint if the recorded Pocket Cinema port does not finish.
 
-Continue with `app/TV_VERIFICATION.md`, then use this app for the Vega CLI/VDA lesson. Live device QA has not passed until the complete evidence is recorded.
+It contains a guarded copy after the product, Vega, and TV behavior phases.
 
-This checkpoint includes the dependency lock used by the successful SDK `0.22.5875` build. Run `npm ci` in `app/apps/vega` before the live build.
+1. Open `app/TV_VERIFICATION.md`.
+2. Run `npm ci` in `app/apps/vega`.
+3. Use this app for the Vega CLI and VDA lesson.
+
+The lockfile matches the successful SDK `0.22.5875` build. Live device QA is
+incomplete until the complete evidence set exists.

@@ -1,105 +1,139 @@
-# Ten-Minute Harness Challenge
+# Ten-Minute Harness Exercise
 
-Work in a team of two or three. Use short, concrete answers. Start with one workflow that can
-finish in a single session, then give this sheet to another team and ask them to break your proof.
+Work in a team of two or three people.
+Use short answers.
+Select one task that can finish in one session.
 
-## 1. Outcome
+Give the completed worksheet to another team.
+Ask that team to find a false positive.
 
-What should change?
+## 1. Define the required result
 
-```text
-Example: Update one Android app module to a new API and produce a passing debug build.
-```
-
-What is outside scope?
+What must change?
 
 ```text
-Example: Do not change server APIs, release signing, or other app modules.
+Example: Update one Android module to a new API.
+Produce a passing debug build.
 ```
 
-## 2. Phases
+What must not change?
 
-List the smallest useful sequence: three phases at most for this exercise.
+```text
+Example: Do not change server APIs.
+Do not change release signing.
+Do not change other app modules.
+```
 
-| Phase | Change made | Independent check |
+## 2. Define the phases
+
+Use no more than three phases.
+
+| Phase | Change | Independent check |
 | --- | --- | --- |
 | Example: migrate client | Update one API client | `./gradlew :app:compileDebugKotlin` |
 | | | |
 | | | |
 
-## 3. Required knowledge
+## 3. Identify required knowledge
 
-What does the model need to know? Where will each fact come from?
+What facts or rules does the model require?
 
-| Fact or rule | Source | Include in which phase? |
+| Fact or rule | Source | Phase |
 | --- | --- | --- |
 | | | |
+| | | |
 
-## 4. Failure and retry
+## 4. Define failure and retry
 
-What exact failure text should be sent into the retry for each phase?
-
-```text
-
-```
-
-If you loop until done instead of retrying once: what is the done predicate (a check, never the model's opinion), what budget stops the loop, and what counts as no progress?
+What exact failure text enters the retry?
 
 ```text
 
 ```
 
-## 5. Human control
-
-Where must a person review or approve the work?
+What independent check defines completion?
 
 ```text
 
 ```
 
-What is the time or cost cap?
+What stops the retry loop?
+
+```text
+Attempt limit:
+Cost limit:
+No-progress rule:
+```
+
+## 5. Define human control
+
+Where must a person approve the work?
 
 ```text
 
 ```
 
-## 6. Evidence
-
-What should the report contain so another developer can review the run?
-
-```text
-Example: plan, commits, commands, test output, costs, retries, and unresolved risks.
-```
-
-## 7. Attack the design
-
-Another team completes this section. Describe one false positive: all the proposed checks pass,
-but the intended outcome is still wrong.
+What is the time limit?
 
 ```text
 
 ```
 
-Which check should become stronger? Name the independent observer you would add.
+What is the cost limit?
 
 ```text
 
 ```
 
-## 8. Your domain adapter
+## 6. Define retained evidence
 
-Replace the TV parts:
+What must the report contain?
 
-| TV workshop part | Your equivalent |
+```text
+Example:
+- Plan
+- Commits
+- Commands
+- Test output
+- Cost
+- Retry failures
+- Unresolved risks
+```
+
+## 7. Find a false positive
+
+Another team completes this section.
+
+How can all checks pass while the required result is incorrect?
+
+```text
+
+```
+
+Which check must become stronger?
+
+```text
+
+```
+
+Which independent component will supply the stronger evidence?
+
+```text
+
+```
+
+## 8. Replace the TV components
+
+| TV workshop component | Your component |
 | --- | --- |
 | TV adaptation skill | |
 | Vega command adapter | |
-| D-pad behavior check | |
+| Focus behavior check | |
 
-## 9. Thirty-second report
+## 9. Prepare the 30-second report
 
-| Say this | Your answer |
+| Statement | Your answer |
 | --- | --- |
-| The harness claims… | |
-| We prove it with… | |
-| This still does not prove… | |
+| The harness claims | |
+| The independent evidence is | |
+| The evidence does not prove | |

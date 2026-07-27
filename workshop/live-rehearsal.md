@@ -2,37 +2,81 @@
 
 Date: 20 July 2026
 
-This record describes the rehearsal on that date. The current harness also supplies the same pinned ADBT stdio MCP server to Claude Code through an explicit `--mcp-config`; it no longer limits model-driven ADBT access to Strands.
+This file records the evidence from one live rehearsal. The current harness
+gives the same pinned ADBT MCP server to Strands and Claude Code.
 
-## Passed
+## Passed Checks
 
 - Vega SDK `0.22.5875` was available.
-- ADBT `1.0.5` ran as a stdio MCP server through Strands `McpClient`. The harness discovered `list_documents` and `read_document`, loaded the two React Native port workflows, saved their hashes, and disconnected without changing agent configuration.
-- The SDK-generated application structure was used as the reference.
+- ADBT `1.0.5` ran as a standard-input/output MCP server.
+- The harness found `list_documents` and `read_document`.
+- The harness loaded two React Native port workflows.
+- The harness recorded the document hashes.
+- The harness disconnected from ADBT.
+- The app used the SDK-generated structure as its reference.
 - `npm run build:debug` completed with `react-native build-vega`.
 - The manifest passed validation.
-- `.vpkg` files were produced for `aarch64`, `armv7`, and `x86_64`.
-- The JavaScript bundle included the guarded Pocket Cinema app and shared focus-state module.
+- The build produced `.vpkg` files for `aarch64`, `armv7`, and `x86_64`.
+- The JavaScript bundle included Pocket Cinema and the focus-state module.
 
-## Still blocked
+## Blocked Checks
 
-In the automation session, the installed Vega Virtual Device reports ready and then its detached process is cleaned up. Starting it through a separately opened Terminal window from the same automation session has the same result. `vega virtual-device status` returns `running: false`.
+The Vega Virtual Device did not stay attached in the automation session.
+`vega virtual-device status` returned `running: false`.
 
-The harness now handles this boundary correctly: an empty `vega exec vda devices -l` result stops the lifecycle at `device_status`, returns a failed result, and does not reuse old logs or screenshots. It does not build or claim device evidence while no target is attached.
+The harness stopped at `device_status`. It did not use old logs or
+screenshots. This is the correct result when no target is attached.
 
-Install, launch, device logs, and real screenshots remain unverified — and so do the gates that read them: the launch dwell, the crash scan, and the screenshot pixel gate are proven only against the replay fixture and unit tests. Expect the screenshot gate to be the first thing the segfaulting screenshooter blocks. For the next rehearsal, start VDA manually in a system terminal, leave it open, and verify both commands before running the lifecycle:
+These live checks remain incomplete:
+
+- Install the package.
+- Start the app.
+- Scan device logs.
+- Capture two device frames.
+- Apply the launch dwell check.
+- Apply the crash check.
+- Apply the screenshot pixel check.
+
+Unit tests and recorded data cover these checks. A live device does not yet
+cover them.
+
+For the next rehearsal:
+
+1. Start VDA in a system terminal.
+2. Keep that terminal open.
+3. Run both commands before the lifecycle.
 
 ```sh
 vega virtual-device status
 vega exec vda devices -l
 ```
 
-Do not replace the replay checkpoint with live-device evidence until VDA stays attached and all remaining lifecycle gates pass.
+Do not replace the recorded checkpoint until all live checks pass.
 
-## Dependency note
+## Dependency Limit
 
-The SDK 0.22 template depends on React Native 0.72-era packages. `npm install` reported 10 audit findings. Keep this package isolated for workshop use, use the pinned direct versions, and do not run `npm audit fix --force` because it can break SDK compatibility.
+The SDK 0.22 template uses React Native 0.72-era packages. `npm install`
+reported 10 audit findings.
 
-## Evidence boundary
+Keep this package isolated for workshop use. Use the pinned versions. Do not
+run `npm audit fix --force`. That command can break SDK compatibility.
 
-The committed replay fixture proves the ten-gate adapter, failure handling, focus check, screenshot and crash gates, and report contract. The live rehearsal proves SDK discovery, manifest validation, bundling, and package generation. Neither is a live-device certification until install, launch, logs, and screenshot capture pass against an attached VDA target.
+## Evidence Limit
+
+The recorded fixture proves:
+
+- Adapter order.
+- Failure handling.
+- Focus checks.
+- Screenshot and crash checks.
+- Report format.
+
+The live rehearsal proves:
+
+- SDK discovery.
+- Manifest validation.
+- Bundling.
+- Package generation.
+
+This is not live-device certification. Certification needs install, start,
+logs, and screenshots from an attached VDA target.

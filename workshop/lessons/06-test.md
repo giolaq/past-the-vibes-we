@@ -3,94 +3,124 @@ id: test
 number: "06"
 nav: Test the remote
 time: 25 minutes
-title: Test the flow, not one screenshot
-lead: The app runs. The last phase asks the question a running app cannot answer by itself — does the remote control actually work.
-objective: Express TV navigation as observable state transitions instead of visual impressions.
-evidence: tv-focus-result.json records launch, movement, selection, and focus restoration after Back, alongside the device frames.
+title: Verify the complete focus sequence
+lead: The app is active. Now verify movement, selection, boundaries, and Back behavior.
+objective: Express TV navigation as observable state transitions. Do not use visual impressions as the only evidence.
+evidence: tv-focus-result.json contains all focus transitions. The device frames show that the app rendered.
 ---
 
-:::welcome The bug a screenshot cannot see
-Focus landing on the wrong card looks exactly like focus landing on the right one, in a still image. So the final phase does two things that prove different claims: an executable test walks the focus contract transition by transition, and the device frames show the app was rendering while it did. Neither is sufficient alone, which is the whole point of this lesson.
+:::welcome Test behavior over time
+A screenshot shows one moment.
+It cannot show the complete focus sequence.
+
+Focus can return to the wrong card.
+The screenshot can still look correct.
+
+This phase runs an executable focus test.
+The device frames supply separate render evidence.
 :::
 
-:::concept What a screenshot cannot show
-TV quality is temporal. A screenshot can show where focus is now, but not whether focus moved correctly, respected boundaries, opened the right screen, or returned to the same card.
-:::
+## Know the focus contract
 
 :::raw
 <div class="remote" aria-label="TV remote direction pad"><button>↑</button><button>←</button><button class="ok">OK</button><button>→</button><button>↓</button></div>
 :::
 
-| Action | Expected result |
+| Action | Required result |
 | --- | --- |
-| Launch | Featured action has focus |
-| Down | Focus enters the first rail |
-| Left / right | Focus stops at list boundaries |
-| Select | Details opens for the focused card |
-| Back | The same card regains focus |
+| Start | The featured action has focus |
+| Down | Focus moves to the first rail |
+| Left or right | Focus stops at the list boundaries |
+| Select | The details screen opens for the focused card |
+| Back | Focus returns to the same card |
 
 :::flow
-Launch | Featured action focused
-Down | Enter first rail
-Select | Open focused details
+Start | Focus the featured action
+Down | Enter the first rail
+Select | Open the focused details
 Back | Restore the same card
 :::
 
 :::predict
-Which transition is most likely to pass a screenshot review but fail for a real remote user?
+Which transition can look correct in a screenshot but fail for a remote user?
 :::
 
 ## Run the test phase
 
-:::yourturn
-Run phase 6 onto the same run id. It executes the focus test the port phase wrote, and reads the frames the launch phase captured.
-:::
+Use the same run ID.
+The phase runs the focus test from the port phase.
+It also reads the frames from the launch phase.
 
-:::note Keep your executor choice
-The command shows Claude Code. If you selected Strands, replace only
-`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
-:::
-
-:::command Prove the remote contract
+:::command Run the focus test
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \
   --phases test --yes --run-id workshop
 :::
 
+:::note Use your selected executor
+If you selected Strands, replace only the executor, provider, and model flags.
+Use the values from Lesson 00.
+:::
+
+## Inspect the focus evidence
+
 :::steps
-1. Open `out/workshop/app/tv-focus-result.json` and read it as a sequence, not a score. Six transitions must be present, including `back-restore`.
-2. Open `workshop/fixtures/focus-failure/README.md` and find the failed Back transition — what a broken contract looks like.
-3. Trace the focus state and restoration code in the guarded app. One module answers both the app and the test.
-4. Run `git -C out/workshop/app status --porcelain`. It is empty: the harness committed the deterministic focus evidence even though this green phase needed no model call.
+1. Open `out/workshop/app/tv-focus-result.json`.
+2. Read the transitions in sequence.
+3. Verify that all six transitions are present.
+4. Find the `back-restore` transition.
+5. Open `workshop/fixtures/focus-failure/README.md`.
+6. Read the failed Back example.
+7. Open the focus-state module in the guarded app.
+8. Find the focus-restoration code.
+9. Run `git -C out/workshop/app status --porcelain`.
+10. Verify that the result is empty.
+11. Find the test-phase commit.
 :::
 
-:::note Where the focus props come from
-`hasTVPreferredFocus` and the `onFocus`/`onBlur` handlers are React Native's TV focus model — see [react-native-tvos](https://github.com/react-native-tvos/react-native-tvos) for the general TV story. This workshop targets Vega, not that fork, but the focus model is the same.
+:::note Know the focus API
+`hasTVPreferredFocus` defines the preferred initial focus.
+`onFocus` and `onBlur` report focus changes.
+
+The workshop uses the React Native TV focus model.
+The target platform is Vega.
 :::
 
-:::note The honest limit of this phase
-The test drives the focus module, not the device's input system. It proves the contract the app implements; it does not press a physical button. Injecting real remote input needs a device input capability this workshop does not ship — if your image supports it, a new `VegaCapability` is where it plugs in, and the frames you already capture become per-step evidence.
+:::note Know the limit
+The test calls the shared focus module.
+It does not send physical key events to the device.
+
+A device-input test requires an additional Vega device capability.
+The workshop does not supply this capability.
 :::
 
-## Optional: ask a model what the screen shows
+## Optional screenshot review
 
-The pixel gate is deterministic and cheap, and it stops at what pixels can prove. It cannot tell a rendered home screen from a rendered error dialog. If you have a multimodal model configured, add one bounded call:
+The deterministic pixel check verifies image properties.
+It cannot identify every incorrect application screen.
 
-:::command Add the model review
+If your Strands model supports image input, add one bounded model review:
+
+:::command Add the optional screenshot review
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor strands --provider bedrock \
   --evaluate-screenshot --phases test --yes --run-id workshop
 :::
 
-The verdict lands in `vega-platform-result.json` as `screenshot review`, and only a clear `not-app` blocks the run. Note where authority sits: the model reports what it sees, your harness decides what that means. The deterministic gate runs either way.
+The result appears in `vega-platform-result.json`.
+Only a clear `not-app` result blocks the run.
+The deterministic pixel check always runs.
 
-## Close the loop you opened in lesson 0
+## Compare the starting app and ported app
 
-In lesson 0 you ran `tv-check` against the starter app and got `tvReady: false` with the full failure list. Run the same command against the ported copy:
+Lesson 00 ran `tv-check` on the starting app.
+The result was `tvReady: false`.
 
-:::command The before/after: same check, ported app
+Run the same check on the ported app:
+
+:::command Run the final TV-readiness check
 yarn --cwd packages/workshop-harness tsx src/index.ts tv-check out/workshop/app
 :::
 
@@ -99,23 +129,32 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check out/workshop/app
 "failures": []
 :::
 
-Every failure from lesson 0 was produced by the six phases and is now verified mechanically. That pair of outputs is the workshop's before-and-after photo.
+The same check now passes.
+This result is the workshop before-and-after evidence.
 
-:::knowledge Why is Back part of the focus contract?
-Returning to a screen without restoring the user's prior focus loses navigation context. The UI may look correct while the remote interaction is broken.
+:::knowledge Why is Back behavior necessary?
+Back must restore the user's previous navigation position.
+Without restoration, the user loses context.
+The screen can look correct while the interaction is incorrect.
 :::
 
 :::proof
 claim: "A remote user can complete the TV flow"
-gate: "The executable focus contract observes launch, movement, selection, boundaries, and Back restoration"
-evidence: "tv-focus-result.json + tv-check tvReady:true"
-limit: "This host-side contract proves the shared focus model; only a separate device-input test can prove physical key delivery"
+gate: "The focus test observes start, movement, selection, boundaries, and Back restoration"
+evidence: "tv-focus-result.json and tv-check with tvReady:true"
+limit: "The host-side test does not prove physical key delivery"
 :::
 
 :::done
-On either path, the focus check passes the full transition sequence, `tv-focus-result.json` records it, and `tv-check` reports `tvReady: true`. Only a prior lesson 5 result marked `evidenceMode: live` lets you add that the two frames came from your device; replay frames prove the gate and report flow only.
+The focus test passes all transitions.
+`tv-focus-result.json` records the sequence.
+`tv-check` reports `tvReady: true`.
+
+Only live Lesson 5 evidence proves that the screenshots came from your device.
 :::
 
 :::fallback
-Run the same check in `checkpoints/vega-buildable/app` — no device required.
+If no device is available, run the same focus check in:
+
+`workshop/checkpoints/vega-buildable/app`
 :::

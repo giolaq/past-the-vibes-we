@@ -1,81 +1,111 @@
-# Past the Vibes
+# Past the Vibes Workshop
 
-In this workshop, you build a coding harness with AWS Strands Agents SDK and use it to port one React Native flow to Vega TV. The harness is what you take home: swap its skills, its MCP server, or its executor — run it with the CLI coding agent you already use, or directly with Strands + Bedrock — and point it at your own use case.
+Build a coding harness with AWS Strands Agents SDK.
+Use the harness to port one React Native flow to Vega TV.
 
-Use the [workshop web app](index.html) during the session. It gives you the commands, shows what to inspect, and tracks your progress. The web app is generated from the Markdown lessons in `lessons/`, which are the single source of truth for every exercise. If the hosted copy is unavailable, open `index.html` from your clone.
+The harness is the workshop result.
+You can replace its skills, MCP server, executor, or target task.
 
-## Strands Agents SDK in this workshop
+## Use the workshop website
 
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is AWS's open-source agent runtime, used here as the live remote executor, pinned at `1.10.0`. It provides the model loop, provider-agnostic model access (Bedrock, OpenAI, OpenRouter behind one interface), Zod-typed tools, schema-enforced structured output, execution limits, cancellation, and usage metrics — and it stays a library, so the harness keeps ownership of writes, checks, and commits.
+Open [the workshop website](index.html) during the session.
+The website shows commands, evidence, and progress.
 
-The workshop starts with React Native, not a website. Every lesson works on the same Pocket Cinema app and the same harness, which grows from one model call into checks, a verified loop, skills, and executors.
+The files in `lessons/` are the source for the website.
+If the hosted website is not available, open `index.html` from the clone.
 
-The workshop harness stays in control around that runtime:
+## Know the runtime boundary
+
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is the live in-process executor.
+The package version is `1.10.0`.
+
+Strands supplies:
+
+- Model provider adapters
+- Agent loop
+- Typed tools
+- Structured output
+- Execution limits
+- Cancellation
+- Usage metrics
+- MCP client
+
+The harness supplies:
+
+- Phase order
+- Protected writes
+- Independent checks
+- Retry policy
+- Cost limits
+- Git commits
+- Reports
 
 ```text
-ADBT MCP -> approved Vega context --+
-                                      +-> selected agent -> validated patch
-guarded app -> read-only tools -------+                         |
-                                                                v
-                     harness writes -> checks -> retry -> commit -> report
+ADBT MCP -> Vega documents --+
+                              +-> selected model -> typed patch
+guarded app -> read tools ----+                         |
+                                                        v
+                   harness: write -> check -> retry -> commit -> report
 ```
 
-Both live executors can list, read, and search the guarded app. Neither can write files or run shell commands. During the feasibility audit and `plan`, ADBT joins the model through MCP: Strands receives a native `McpClient`, while Claude Code receives an explicit pinned `--mcp-config`. The model decides which Vega workflows to read, and the harness reconstructs and hashes every read. The harness validates the patch, rejects path and symlink escapes, writes it, runs checks, enforces cumulative cost, and commits only passing work.
+Both live executors can list, read, and search the guarded app.
+Neither executor can write files or run shell commands.
 
-This split is why you build a harness instead of prompting a coding agent. You get control —
-writes, checks, retries, cost, and commits happen in your code — and you get observability:
-every phase appends its complete prompt, native model and tool events, checks, and outcome to
-`out/<runId>/model-logs/<phase>.jsonl`; every ADBT read is hashed; resumed phases append to one
-cost and report; and every accepted change or generated evidence has a Git commit. Lesson 3
-shows how to read and tail these files.
+Strands receives ADBT as a native `McpClient`.
+Claude Code receives the same server through `--mcp-config`.
+The harness records each ADBT document read and its hash.
 
-Read [Strands Constructs Used in This Workshop](strands-constructs.md) for a code-level explanation of every Strands API used here and the boundaries that remain outside the SDK.
+Read [Strands constructs](strands-constructs.md) for the SDK details.
 
-## What you will do
+## Complete the seven lessons
 
-1. Analyze the app with one bounded agent, and identify what its answer cannot prove.
-2. Plan the TV port with a 10-foot focus skill and Vega's own migration workflows over MCP.
-3. Write the port, and read the nine checks that decide whether it is kept.
-4. Build until it compiles, with the compiler's diagnostics driving each retry.
-5. Install and launch on the device, and prove the app stayed running.
-6. Test the remote-control contract, with device frames as supporting evidence.
-7. Control the full pipeline, complete the trust board, then defend a harness design as a team.
+1. [Analyze the app](lessons/01-analyze.md).
+2. [Plan the TV port](lessons/02-plan.md).
+3. [Write the port](lessons/03-port.md).
+4. [Build until it compiles](lessons/04-build.md).
+5. [Run it on the device](lessons/05-launch.md).
+6. [Test the remote](lessons/06-test.md).
+7. [Control the pipeline and design your own](lessons/07-finish.md).
 
-Appendix A1 applies the same engine to an explicitly approved Bee conversation.
+Use [Appendix A1](lessons/A1-bee.md) only with Bee consent and access.
 
-You can use `apps/pocket-cinema` for every exercise. Bring your own app only if it already runs and contains no secrets.
+## Select one model path
 
-## Recommended four-hour path
+- **Claude Code:** Use `--executor claude-cli --model sonnet`.
+- **Strands with Bedrock:** Use `--executor strands --provider bedrock --model <id> --region <region>`.
+- **Strands with OpenAI:** Use `--executor strands --provider openai --model <id>`.
+- **Strands with OpenRouter:** Use `--executor strands --provider openrouter --model <id>`.
+- **Recorded fallback:** Use the lesson `--replay` command after a live dependency fails.
 
-Follow lessons 1–7 with one live executor. The schedule includes two 10-minute breaks and a recovery block. Use recordings only when an external dependency blocks a specific exercise or when the instructor asks everyone to inspect the same failure. Appendix A1 is outside the timed path and requires Bee consent and access for a live run.
+Use the same executor, provider, and model in all live lessons.
+Start with [Lesson 00](lessons/00-welcome.md).
+Keep [Troubleshooting](troubleshooting.md) open.
 
-## Choose how to run models
+## Use evidence correctly
 
-- **Claude Code:** use `--executor claude-cli --model sonnet`. Claude Code must already be installed and authenticated.
-- **Strands + Bedrock:** use `--executor strands --provider bedrock --model <id> --region <region>` with AWS credentials.
-- **Strands + OpenAI:** use `--executor strands --provider openai --model <id>` with `OPENAI_API_KEY`.
-- **Strands + OpenRouter:** use `--executor strands --provider openrouter --model <id>` with `OPENROUTER_API_KEY`.
-- **Recorded fallback:** use the lesson's `--replay` command only when the live path is blocked or the exercise intentionally examines a known failure.
+A recorded fallback verifies command order, checks, retry behavior, and report shape.
+It does not verify a live model, local compiler, or device.
 
-Choose one path and keep the same executor, provider, and model flags in every live lesson command.
-The setup lesson includes exact examples, default model ids, pricing flags for other models, and a
-matching `doctor` command for each provider. Start with [Before You Arrive](lessons/00-welcome.md).
-Keep [Troubleshooting](troubleshooting.md) open during the session.
+A live build claim requires:
 
-Handing this workshop to an automated test agent instead of an attendee? Point it at the [agent runbook](AGENT_RUNBOOK.md). That runbook deliberately uses recordings for deterministic repository verification; it is not the attendee path.
+- `evidenceMode: live`
+- A local `.vpkg` file
 
-## Lessons
+A live device claim also requires:
 
-1. [Analyze the app](lessons/01-analyze.md)
-2. [Plan the TV port](lessons/02-plan.md)
-3. [Write the port](lessons/03-port.md)
-4. [Build until it compiles](lessons/04-build.md)
-5. [Run it on the device](lessons/05-launch.md)
-6. [Test the remote](lessons/06-test.md)
-7. [Control the pipeline and design your own](lessons/07-finish.md)
+- Successful install and start
+- Filtered device log
+- Two device screenshots
 
-Appendix: [A conversation becomes code](lessons/A1-bee.md). Its recordings under `fixtures/bee-run/` support an instructor-led synthetic case study when no private conversation may be used.
+Use `checkpoints/vega-buildable/` or `checkpoints/complete/` after a live failure.
+Read [the live rehearsal record](live-rehearsal.md) before you teach the Vega lessons.
 
-Maintainer fixtures live under `fixtures/`. `port-retry/` and `build-retry/` intentionally capture one failed attempt and its repair so every attendee can inspect identical retry context. Regenerate them with `node scripts/build-port-fixtures.mjs`. A recording proves control flow and report compatibility only. A build claim requires `evidenceMode: live` and a local `.vpkg`; a device claim also requires filtered post-launch logs and two pulled frames. If live Vega setup blocks a lesson, continue from `checkpoints/vega-buildable/` or `checkpoints/complete/`.
+## Automated verification
 
-Read [the live rehearsal record](live-rehearsal.md) before teaching the Vega section. The SDK build and manifest validation pass. Install, launch, logs, and screenshots still need a VDA process that remains attached outside the automation session.
+Give [the agent runbook](AGENT_RUNBOOK.md) to an automated test agent.
+The runbook uses recorded data.
+It is not the attendee path.
+
+## Writing standard
+
+All workshop instructions use the rules in [STE-STYLE.md](STE-STYLE.md).

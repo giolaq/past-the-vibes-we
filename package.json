@@ -11,10 +11,11 @@
     "typecheck": "yarn --cwd packages/workshop-harness typecheck && yarn --cwd apps/pocket-cinema typecheck",
     "test": "yarn --cwd packages/workshop-harness test && yarn --cwd apps/pocket-cinema test",
     "check:workshop": "yarn --cwd packages/workshop-harness tsx ../../scripts/check-workshop.ts",
+    "check:ste": "yarn --cwd packages/workshop-harness tsx ../../scripts/check-ste.ts",
     "build:site": "node scripts/build-site.mjs",
     "check:site": "node scripts/build-site.mjs --check",
     "package:checkpoint": "yarn --cwd packages/workshop-harness tsx ../../scripts/package-workshop-checkpoint.ts",
-    "verify": "yarn typecheck && yarn test && yarn check:workshop && yarn check:site",
+    "verify": "yarn typecheck && yarn test && yarn check:workshop && yarn check:ste && yarn check:site",
     "replay": "yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json",
     "doctor": "yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --json",
     "site": "yarn build:site && node scripts/serve-workshop.mjs"

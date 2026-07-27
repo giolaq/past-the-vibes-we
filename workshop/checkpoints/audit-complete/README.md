@@ -1,3 +1,7 @@
-# Audit-complete Checkpoint
+# Audit Checkpoint
 
-Use this checkpoint when source discovery takes more than 10 minutes. Open `portability-report.json`, review each finding, then continue with Pocket Cinema in lesson 3.
+Use this checkpoint if source discovery takes more than 10 minutes.
+
+1. Open `portability-report.json`.
+2. Review each finding.
+3. Continue with lesson 3.

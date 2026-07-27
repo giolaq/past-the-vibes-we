@@ -2,16 +2,22 @@
 
 ## Preserved Product Behavior
 
-Keep the synthetic catalog, featured story, two rails, and home-to-details flow. Playback remains a workshop preview.
+Keep the synthetic catalog, featured story, two rails, and home-to-details
+flow. Playback remains a workshop preview.
 
 ## Vega Replacements
 
-Add explicit remote focus state, the SDK template's manifest and package metadata, the React Native `build-vega` command, remote back handling, and behavioral evidence.
+Add remote focus state. Add the SDK manifest and package metadata. Add the
+React Native `build-vega` command. Add remote Back handling. Record behavioral
+evidence.
 
 ## TV Flow
 
-Launch with the featured action focused. Move into the first rail, traverse cards without escaping boundaries, open details, press BACK, and restore the originating card.
+Start with focus on the featured action. Move to the first rail. Move between
+cards without crossing a boundary. Open details. Press Back. Restore focus to
+the source card.
 
 ## Out of Scope
 
-Accounts, networking, DRM, billing, analytics, and production playback.
+Do not add accounts, networking, DRM, billing, analytics, or production
+playback.
