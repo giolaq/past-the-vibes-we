@@ -112,6 +112,10 @@ This workshop uses TypeScript SDK version `1.10.0`.
 Strands does not control the complete workflow.
 The harness controls the workflow.
 
+Lessons 1 through 6 contain a `Trace Strands` section.
+Each section shows the relevant code and separates the Strands, harness, and
+platform responsibilities.
+
 ## 1. Prepare your computer
 
 :::steps

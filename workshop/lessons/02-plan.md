@@ -65,6 +65,38 @@ The harness does not own the skill content.
 :::include skillDelivery
 :::
 
+## Trace Strands in the plan phase
+
+The plan phase adds the focus skill and the ADBT MCP client to the Strands
+agent.
+
+:::snippet packages/workshop-harness/src/port-executor.ts
+const skills = loadSkills(options.skills ?? []);
+const agent = new Agent({
+  model: createModel(this.config),
+  tools: [
+    ...createProjectReadTools(this.appDir),
+    ...(options.extraTools ?? []),
+  ],
+  plugins: skills.length ? [createSkillsPlugin(skills)] : [],
+  structuredOutputSchema: outputSchema,
+  printer: false,
+});
+>look: `extraTools` contains the native ADBT `McpClient`. `plugins` contains `AgentSkills`.
+:::
+
+| Owner | Plan action |
+| --- | --- |
+| Strands | Activates the selected skill and lets the model discover and call ADBT tools. |
+| Harness | Selects the permitted skill and MCP server, validates `port-plan.json`, records ADBT provenance, and requires approval. |
+| Evidence | `port-plan.json`, `port-plan-approval.json`, and `adbt-port-context.json` |
+
+:::note Claude CLI path
+Claude Code receives the complete skill text in the prompt.
+It receives the same pinned ADBT server through `--mcp-config`.
+The plan schema and approval gate do not change.
+:::
+
 :::predict
 Which knowledge source defines the focus behavior?
 Which knowledge source identifies the correct Vega API?

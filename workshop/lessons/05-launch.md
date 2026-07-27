@@ -67,6 +67,36 @@ The pixel check rejects these frames:
 The second frame is liveness evidence.
 An app that stopped cannot produce a valid second frame.
 
+## Trace Strands in the launch phase
+
+The Vega adapter owns the platform commands.
+The launch phase calls Strands only when this sequence finds a repairable
+failure.
+
+:::snippet packages/workshop-harness/src/platform/vega.ts (simplified)
+await run(device, "install", device.packagePath);
+device.launchStartedAt = logSince(new Date());
+await run(device, "launch", device.appId);
+await captureFrame(device, "launch screenshot renders content", launchFrame);
+const logs = await run(device, "logs", packageId, device.launchStartedAt);
+const scan = scanDeviceLog(logs.stdout || logs.stderr);
+if (scan.crashed) {
+  device.blockers.push(`the app crashed after launch: ${scan.matches.join(" | ")}`);
+}
+>look: These are harness-controlled Vega CLI operations. They are not Strands tools.
+:::
+
+| Owner | Launch action |
+| --- | --- |
+| Strands | Proposes a source repair only after the harness reports a failed platform check. |
+| Harness and Vega CLI | Build, install, start, wait, read logs, capture frames, and decide whether the app stayed active. |
+| Evidence | `vega-device.log`, two screenshots, `vega-platform-result.json`, and the launch commit |
+
+:::note No model call is a valid result
+If the package starts and stays active, the phase records evidence without
+calling Strands or Claude Code.
+:::
+
 :::predict
 The app renders one frame and fails two seconds later.
 Which evidence identifies the failure?

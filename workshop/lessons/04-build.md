@@ -44,6 +44,37 @@ It keeps the start and end of long output.
 The phase runs the build before it calls the model.
 If the build passes, the phase does not call the model.
 
+## Trace Strands in the build phase
+
+The harness runs the compiler first.
+Strands receives a prompt only when the compiler reports a failure.
+
+:::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
+if (phase.verifyFirst) {
+  failures = await verify(phase, options, deviceMark, false, 0);
+}
+if (failures.length) {
+  report(options, `${phase.name} needs a fix`, failures);
+}
+const model = await options.executor.call(
+  phase.name,
+  prompt(phase, options, failures, replayContext),
+  { skills: phase.skills, attempt },
+);
+>look: `prompt()` includes the exact compiler failure. A passing pre-check skips this model call.
+:::
+
+| Owner | Build action |
+| --- | --- |
+| Strands | Proposes a typed repair after it receives the compiler diagnostic. |
+| Harness and Vega CLI | Run the build, limit its output, decide pass or fail, apply the repair, and build again. |
+| Evidence | Compiler output, `.vpkg`, `vega-platform-result.json`, and the build commit |
+
+:::note No model call is a valid result
+If the build passes before repair, Strands does not run.
+The Claude CLI path follows the same verify-first rule.
+:::
+
 :::predict
 The compiler reports `Type 'number' is not assignable to type 'string'`.
 What text must the model receive?

@@ -91,6 +91,23 @@ Keep [the construct reference](strands-constructs.md) open.
 Explain that schema validation and human approval answer different questions.
 The schema checks references and shape. The person checks product intent.
 
+## Trace the Runtime in Each Phase
+
+Use the `Trace Strands` section in lessons 1 through 6.
+Do not explain every line in the excerpt.
+
+For each phase:
+
+1. Name the action that Strands performs.
+2. Name the action that the harness performs.
+3. Name the action that the platform CLI performs.
+4. Show the independent evidence.
+5. State whether the phase made a model call.
+
+Build, launch, and test use verification first.
+A passing check makes no Strands or Claude Code call.
+Do not describe a Vega CLI command as a Strands tool operation.
+
 ## Four-hour schedule
 
 | Time | Attendee work | Recovery |

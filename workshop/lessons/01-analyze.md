@@ -106,7 +106,7 @@ The harness retries with the exact failure text.
 The harness commits only a passing result.
 :::
 
-## Inspect the Strands agent
+## Trace Strands in the analyze phase
 
 Open `src/port-executor.ts`.
 One phase creates one bounded Strands agent.
@@ -130,6 +130,18 @@ const result = await consumeStream(
   event => transcripts.append(phase, event),
 );
 >look: Strands supplies the agent loop, providers, tools, skills, schema, limits, cancellation, and metrics. The harness controls writes, checks, Git, and costs.
+:::
+
+| Owner | Analyze action |
+| --- | --- |
+| Strands | Runs the bounded agent loop and lets the model list, read, and search the guarded copy. |
+| Harness | Validates the typed response, writes `ANALYSIS.md`, runs the check, and commits a passing result. |
+| Evidence | `ANALYSIS.md`, `model-logs/analyze.jsonl`, and the analyze commit |
+
+:::note Claude CLI path
+This code runs when `workshop.config.json` selects `strands`.
+The Claude CLI executor receives the same prompt and response schema.
+The harness keeps the same write, check, and commit boundary.
 :::
 
 :::predict
