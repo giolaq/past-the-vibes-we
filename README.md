@@ -8,7 +8,7 @@ This repository contains everything used in the workshop:
 - `apps/pocket-cinema`: the prepared React Native app used by every exercise;
 - `workshop`: the attendee guide, web app, fixtures, checkpoints, troubleshooting, and instructor notes.
 
-The standard path uses committed recordings. You do not need a model account, API key, Vega SDK, or device to complete the core workshop.
+The standard path uses a live model through Claude Code CLI or Strands with Bedrock, OpenAI, or OpenRouter. Committed recordings are recovery material for a blocked exercise and deterministic failure demonstrations; they are not the workshop's main path.
 
 On a live run, both supported executors use Amazon Devices Builder Tools as MCP. Strands receives an in-process `McpClient`; Claude Code receives an explicit pinned `--mcp-config`. Both are read-only. The harness is the only component allowed to apply a validated patch, run commands, spend against the cumulative cap, or commit.
 
@@ -46,8 +46,8 @@ The root lockfile marks this clone as an independent Yarn project, even when you
 ```sh
 yarn setup          # install the workshop packages
 yarn verify         # typecheck, test, and validate workshop links
-yarn replay         # run the first key-free exercise: one model call, no writes
-yarn doctor         # check the key-free workshop path
+yarn replay         # fallback only: check the recorded execution path
+yarn doctor         # fallback-only environment check used by yarn replay
 yarn site           # serve the workshop web app on port 4173
 ```
 
@@ -61,13 +61,15 @@ unset NODE_TLS_REJECT_UNAUTHORIZED
 
 Do not disable TLS certificate verification to work around a network or proxy problem.
 
-Live model and Vega device paths are optional. [Before You Arrive](workshop/lessons/00-welcome.md)
-shows how to use Claude Code CLI or choose Bedrock, OpenAI, or OpenRouter with an explicit model,
-credential, pricing policy, and matching `doctor` command.
+[Before You Arrive](workshop/lessons/00-welcome.md) shows how to use Claude Code CLI or choose
+Bedrock, OpenAI, or OpenRouter with an explicit model, credential, pricing policy, and matching
+`doctor` command. Choose one before lesson 1. Vega SDK and a VDA are required for live build and
+device evidence; use the supplied checkpoint only when platform setup blocks you.
 
 Every run leaves one append-only model transcript per phase under
-`out/<runId>/model-logs/`. It records the complete prompt and native events from Strands,
-Claude Code, or replay, followed by the phase checks and outcome. Read one with:
+`out/<runId>/model-logs/`. It records the complete prompt and native events from your live
+Strands or Claude Code executor, followed by the phase checks and outcome. Recorded fallback
+runs use the same format. Read one with:
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
@@ -85,7 +87,7 @@ so keep them in the gitignored `out/` directory and review them before sharing.
 | `workshop/workshop.data.js` | Generated from `lessons/` by `scripts/build-site.mjs` (do not edit by hand) |
 | `workshop/instructor-guide.md` | Timing, fallbacks, evidence rules, and teaching notes |
 | `workshop/strands-constructs.md` | Every Strands construct used by the workshop |
-| `workshop/fixtures` | Key-free recordings and context snapshots |
+| `workshop/fixtures` | Recorded recovery cases and deterministic failure examples |
 | `workshop/checkpoints` | Known-good recovery points |
 | `packages/workshop-harness/src` | The harness the whole workshop builds |
 | `apps/pocket-cinema` | Prepared React Native target |

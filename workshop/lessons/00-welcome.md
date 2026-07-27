@@ -4,9 +4,9 @@ number: "00"
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
-lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. Lesson 4 needs the Vega SDK for a live build, and lesson 5 needs a virtual device. Every lesson also runs from recordings.
-objective: Choose a reliable workshop path and explain where Strands, ADBT, the harness, and Git each fit.
-evidence: A successful replay run, one chosen execution path, and a completed readiness checklist.
+lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. Choose one live model path; recordings are the fallback when external tooling blocks you.
+objective: Prepare one live executor and explain where Strands, ADBT, the harness, and Git each fit.
+evidence: A working executor/provider/model combination and a completed readiness checklist.
 ---
 
 :::welcome Welcome to Past the Vibes
@@ -59,10 +59,10 @@ guarded app copy  <--- read-only tools (list/read/search) -----------------+--> 
 :::
 
 :::raw
-<table><thead><tr><th>Strands supplies</th><th>The harness owns</th></tr></thead><tbody><tr><td>Agent loop and model providers</td><td>Phase order and approval</td></tr><tr><td>Read-only typed tools</td><td>Protected file writes</td></tr><tr><td>Validated patch output</td><td>Checks, retry, and Git commits</td></tr><tr><td>MCP client and metrics</td><td>Cost cap, replay, and report</td></tr></tbody></table>
+<table><thead><tr><th>Strands supplies</th><th>The harness owns</th></tr></thead><tbody><tr><td>Agent loop and model providers</td><td>Phase order and approval</td></tr><tr><td>Read-only typed tools</td><td>Protected file writes</td></tr><tr><td>Validated patch output</td><td>Checks, retry, and Git commits</td></tr><tr><td>MCP client and metrics</td><td>Cost cap, transcripts, and report</td></tr></tbody></table>
 :::
 
-<p>The port agent can list, read, and search the guarded app. The feasibility audit and plan phase also receive ADBT's own tools (<code>list_documents</code>, <code>read_document</code>, <code>search_documentation</code>) through MCP. The harness does not pre-pick what the model reads. After each live call, it walks the tool history and records every ADBT read with a SHA-256 hash. A live phase fails if it claims ADBT guidance without reading a document. Replay uses recorded model turns and recorded ADBT context, so it needs no live model or MCP server.</p>
+<p>The port agent can list, read, and search the guarded app. The feasibility audit and plan phase also receive ADBT's own tools (<code>list_documents</code>, <code>read_document</code>, <code>search_documentation</code>) through MCP. The harness does not pre-pick what the model reads. After each live call, it walks the tool history and records every ADBT read with a SHA-256 hash. A live phase fails if it claims ADBT guidance without reading a document. Recorded turns are available only as a fallback and for the deliberate retry case study.</p>
 
 <h2>1. Check the basics</h2>
 
@@ -97,21 +97,16 @@ corepack enable
 yarn setup
 :::
 
-<h2>3. Run the setup check</h2>
+<h2>3. Verify the workspace</h2>
 
-:::command Check the key-free replay path
-yarn doctor
-yarn replay
+:::command Run the local checks
+yarn verify
 :::
 
-<p>You are ready when doctor reports <code>state: ready</code> and replay prints a plan. Model and Vega checks are optional in replay mode.</p>
-
-:::command Optional: check live ADBT with everything else replayed
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
-:::
+<p>This proves the repository, fixtures, app tests, harness tests, and workshop website are internally consistent. It does not prove that your model account or Vega device works; you check those next.</p>
 
 <h3>Prove the starting point is not TV-ready</h3>
-      <p>Don't take our word that Pocket Cinema is touch-only — run the TV-readiness check against it. The same command goes green on the ported copy in lesson 7. If you brought your own app, run it on that too:</p>
+      <p>Don't take our word that Pocket Cinema is touch-only — run the TV-readiness check against it. The same command goes green on the ported copy in lesson 6. If you brought your own app, run it on that too:</p>
 
 :::command Run the TV-readiness check on the starter app
 yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
@@ -130,13 +125,14 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket
 
 <p>That failure list is the workshop's to-do list: everything on it is produced by the port in lesson 3 and verified mechanically in lesson 6.</p>
 
-<h2>4. Choose one execution path</h2>
+<h2>4. Choose your live executor</h2>
 
-Replay is the room-wide default. A live model is optional. If you use one, choose the executor,
-provider, and model here and keep the same choice for every live command.
+Choose either Claude Code CLI or Strands, then keep the same provider and model through the workshop.
+The lesson commands use Claude Code as the readable default; Strands users replace only the three
+executor/provider/model flags shown below. Replay is the fallback, not the main workshop path.
 
 :::raw
-<table><thead><tr><th>Path</th><th>Executor flags</th><th>Credential</th></tr></thead><tbody><tr><td>Replay — recommended</td><td><code>--replay &lt;recording.json&gt;</code></td><td>None. No model runs.</td></tr><tr><td>Claude Code CLI</td><td><code>--executor claude-cli --model sonnet</code></td><td><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a> installed and already authenticated</td></tr><tr><td>Strands + Bedrock</td><td><code>--executor strands --provider bedrock --model &lt;Bedrock model id&gt; --region &lt;region&gt;</code></td><td><code>AWS_PROFILE</code> or <code>AWS_ACCESS_KEY_ID</code>, plus model access</td></tr><tr><td>Strands + OpenAI</td><td><code>--executor strands --provider openai --model &lt;OpenAI model id&gt;</code></td><td><code>OPENAI_API_KEY</code></td></tr><tr><td>Strands + OpenRouter</td><td><code>--executor strands --provider openrouter --model &lt;OpenRouter model id&gt;</code></td><td><code>OPENROUTER_API_KEY</code></td></tr></tbody></table>
+<table><thead><tr><th>Path</th><th>Executor flags</th><th>Credential</th></tr></thead><tbody><tr><td>Claude Code CLI</td><td><code>--executor claude-cli --model sonnet</code></td><td><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a> installed and already authenticated</td></tr><tr><td>Strands + Bedrock</td><td><code>--executor strands --provider bedrock --model &lt;Bedrock model id&gt; --region &lt;region&gt;</code></td><td><code>AWS_PROFILE</code> or <code>AWS_ACCESS_KEY_ID</code>, plus model access</td></tr><tr><td>Strands + OpenAI</td><td><code>--executor strands --provider openai --model &lt;OpenAI model id&gt;</code></td><td><code>OPENAI_API_KEY</code></td></tr><tr><td>Strands + OpenRouter</td><td><code>--executor strands --provider openrouter --model &lt;OpenRouter model id&gt;</code></td><td><code>OPENROUTER_API_KEY</code></td></tr><tr><td>Recorded fallback</td><td><code>--replay &lt;recording.json&gt;</code></td><td>None. Use only when a live dependency blocks the exercise.</td></tr></tbody></table>
 :::
 
 `--executor` selects how the harness talks to a model. `--provider` is used only by the Strands
@@ -206,23 +202,24 @@ yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
   --model anthropic/claude-sonnet-4 --json
 :::
 
-:::command Fallback: check the key-free replay path
-yarn doctor
+:::command Fallback only: verify the recorded path
+yarn replay
 :::
 
 :::note Pick one live executor
-You need one path, not every path. `doctor` checks that the command or credential exists; the first
-`analyze` call confirms that your account can use the selected model. If that call fails, save the
-error and use the replay fallback. Do not spend the workshop switching providers.
+You need one live path, not every path. `doctor` checks that the command or credential exists; the
+first `analyze` call confirms that your account can use the selected model. If one repair does not
+fix that call, save the error and use the recorded fallback for that exercise. Do not spend the
+workshop switching providers.
 :::
 
-<h2>5. Vega SDK and VDA — optional live evidence</h2>
-      <p>Lesson 4 needs Vega SDK <code>0.22.5875</code> to produce a real <code>.vpkg</code>. Lesson 5 needs an attached Vega Virtual Device to install, launch, filter the app's logs from the launch time, and pull two frames. Lesson 6 runs the host-side focus contract and reuses those frames; it does not press a device button. Every lesson has a recorded fallback labeled <code>evidenceMode: replay</code>. Replay proves the harness control flow, not a build or device result.</p>
+<h2>5. Prepare Vega SDK and VDA for real evidence</h2>
+      <p>Lesson 4 needs Vega SDK <code>0.22.5875</code> to produce a real <code>.vpkg</code>. Lesson 5 needs an attached Vega Virtual Device to install, launch, filter the app's logs from the launch time, and pull two frames. Lesson 6 runs the host-side focus contract and reuses those frames; it does not press a device button. A recorded fallback can keep you moving, but it demonstrates control flow only. It cannot prove a build or device result.</p>
       <p>How ADBT reaches the model depends on your executor:</p>
       <ul>
-        <li><strong>Replay (default)</strong>: recorded context, no <code>init-context</code>, no install.</li>
         <li><strong>Strands</strong>: the harness creates an ADBT <code>McpClient</code> and hands it to the agent.</li>
         <li><strong>Claude Code CLI</strong>: the harness passes the same pinned server in <code>--mcp-config</code> with <code>--strict-mcp-config</code>. It does not rely on a user's global MCP settings.</li>
+        <li><strong>Recorded fallback</strong>: stored ADBT context, so no live MCP call is made.</li>
       </ul>
 
 <p>The harness starts MCP itself for both live executor paths. Run <code>init-context</code> once only to install the <code>amazon-devices-vega-*</code> skills:</p>
@@ -263,13 +260,13 @@ The SDK prints 0.22.5875, virtual-device status reports running: true, and devic
 :::
 
 :::fallback
-Try one repair for no more than 10 minutes. Then use replay. Do not spend workshop time repairing a model account or device.
+Try one repair for no more than 10 minutes. Then use the recorded fallback for the blocked exercise. Do not spend workshop time repairing a model account or device.
 :::
 
 <h2>Setup complete</h2>
 
 :::raw
-<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed</label><label><input type="checkbox">The replay plan completed</label><label><input type="checkbox">I chose replay or wrote down one executor/provider/model combination and its doctor check passed</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">For live evidence: Vega SDK is ready for lesson 4 and VDA is ready for lesson 5</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
+<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed and <code>yarn verify</code> passes</label><label><input type="checkbox">I wrote down one executor/provider/model combination and its doctor check passed</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">For real platform evidence: Vega SDK is ready for lesson 4 and VDA is ready for lesson 5</label><label><input type="checkbox">I know replay is a fallback, not evidence from my model or device</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
 :::
 
 :::knowledge What is the most important boundary in this workshop?
@@ -277,5 +274,5 @@ The model can inspect and propose, but the harness controls approval, protected 
 :::
 
 :::done
-The workspace is installed, the replay plan succeeds, one execution path is chosen, and you know which app you will use. If you chose live evidence, the SDK and VDA checks also pass.
+The workspace passes verification, one live executor is ready, and you know which app you will use. For real platform evidence, the SDK and VDA checks also pass.
 :::

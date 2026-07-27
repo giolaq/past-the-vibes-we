@@ -1,6 +1,6 @@
 ---
 id: finish
-number: "09"
+number: "08"
 nav: Build your own
 time: 20 minutes
 title: Control the whole pipeline, then design your own
@@ -25,17 +25,21 @@ pipeline and it does not replace the logs. It renders the same phase callbacks, 
 append-only transcripts you already inspected.
 
 :::yourturn
-Run the complete key-free pipeline. When it finishes, keep the dashboard open and inspect at
+Run the complete pipeline with the live executor you used in the earlier lessons. When it finishes, keep the dashboard open and inspect at
 least one model phase and one device phase before you close it.
 :::
 
 :::command Run all phases in the final dashboard
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --executor claude-cli --model sonnet \
   --seed workshop-v1 --max-cost 3 --yes \
   --run-id final-dashboard --tui
+:::
+
+:::note Using Strands
+Replace `--executor claude-cli --model sonnet` with the provider and model flags you selected in
+lesson 0. Do not change the run id, seed, budget, or phase controls.
 :::
 
 :::raw
@@ -45,7 +49,7 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
 :::steps
 1. Start in `checks`. Watch acceptance stay separate from model output.
 2. Select `plan`, press `Tab` until `model` appears, and find its request and response.
-3. Select `plan` and switch to `tools`. Replay says `No matching activity yet` because it injects recorded ADBT context instead of calling MCP. A live run would show the model's ADBT tool traffic here.
+3. Select `plan` and switch to `tools`. Find the ADBT document list/read calls made through MCP. This is the context the model chose at runtime, not text hidden in the prompt.
 4. Select `build`, `launch`, or `test`. These phases are decided by the platform adapter and checks, not by a model saying the app works.
 5. Press `q` or `Enter`. Open `out/final-dashboard/model-logs/` if you need a complete payload; the dashboard only controls what is visible on screen.
 :::
@@ -61,6 +65,15 @@ record needed for debugging or audit.
 An overview is useful after you know what each signal means. Earlier it would hide the checks,
 retry context, and device evidence behind a convenient screen. Here it helps you control a system
 you already understand.
+:::
+
+:::fallback
+If a live model, SDK, or VDA blocks this final run, use the command below to learn the dashboard.
+It shows the same phases and checks, but its model and platform evidence is recorded:
+
+`yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
+
+In that fallback, the `plan` tools view is empty because recorded ADBT context replaces live MCP calls. Say that explicitly when you report what you inspected.
 :::
 
 ## Draft your harness
