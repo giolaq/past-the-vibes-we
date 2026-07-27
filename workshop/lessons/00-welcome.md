@@ -4,130 +4,185 @@ number: "00"
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
-lead: Welcome — get this done before we start, and you'll spend the session building instead of installing. Choose one live model path; recordings are the fallback when external tooling blocks you.
-objective: Prepare one live executor and explain where Strands, ADBT, the harness, and Git each fit.
-evidence: A working executor/provider/model combination and a completed readiness checklist.
+lead: Complete this setup before the workshop. Select one live model path. Use recorded data only if a live tool fails.
+objective: Prepare one live executor. Explain the functions of Strands, ADBT, the harness, and Git.
+evidence: A working executor, a selected provider and model, and a completed readiness list.
 ---
 
 :::welcome Welcome to Past the Vibes
-Over the next four hours we build a harness that ports a React Native app to Vega TV, one phase per lesson: analyze the app, plan the TV port, write it, build it, run it on a device, and prove the remote works. You'll leave with the harness itself, pointed at your own codebase. This page is the setup — work through it before we begin, then meet us at lesson 1.
+This workshop is four hours.
+You will build a harness that ports a React Native app to Vega TV.
+You will add one phase in each lesson.
+Complete this setup before Lesson 1.
 :::
 
-:::concept Read this first if you have never built an agent harness
-You are a React Native developer. You may have never touched an "agent," an "LLM tool," or "MCP." That's fine — nothing here assumes you have. We will port a small RN app to Vega (Amazon's TV OS) without doing it by hand and without just asking an AI to "please port my app." Instead we build a <strong>harness</strong> with AWS Strands Agents SDK: a plain TypeScript program that runs a fixed pipeline, lets an AI model <em>propose</em> code inside tight walls, and keeps every dangerous action — writing files, running checks, committing to Git, spending money, talking to the device — for itself. That structure is why you're here rather than just prompting a coding agent: the harness gives you control (your code owns every write, check, and dollar) and observability (every model turn, document read, cost, and commit is recorded). And it's reusable — swap the skills, the MCP server, or the executor, and the same pipeline works on your own project, driven by the CLI coding agent you already use or directly by Strands + Bedrock.
+:::concept Know the system
+A harness is a TypeScript program.
+It runs a fixed sequence of phases.
+The model can inspect the app and propose files.
+The model cannot write files or run shell commands.
+
+The harness controls file writes, checks, retries, costs, commits, and reports.
+The model makes a proposal.
+The harness accepts or rejects the proposal.
 :::
 
-:::note The one sentence to remember
-The model is a contractor with read-only access. The harness is the foreman: it checks the work and decides what gets in.
+:::note Important rule
+A plausible result is not necessarily a correct result.
+Each phase must use an independent check.
 :::
 
-<h2>Vocabulary, translated for a React Native dev</h2>
-      <p>You already know these ideas under other names. Here's the dictionary; the rest of the workshop uses these words.</p>
+## Know the main terms
 
-:::raw
-<table><thead><tr><th>Term</th><th>What it actually is</th><th>Your mental model</th></tr></thead><tbody><tr><td><strong>LLM / model</strong></td><td>A program that turns text in into text out. Given a prompt, it returns a guess. Claude is one.</td><td>A well-read intern who writes plausible code but never runs it.</td></tr><tr><td><strong>Prompt</strong></td><td>The text you send the model.</td><td>The Jira ticket plus all the context you paste in.</td></tr><tr><td><strong>Agent</strong></td><td>A model wired to a loop where it can call functions ("tools"), see the result, and decide what to do next.</td><td>An intern who can grep your repo before answering, several times.</td></tr><tr><td><strong>Tool</strong></td><td>A named function you expose to the model, with a typed signature. The model <em>requests</em> a call; your code runs it and returns the result.</td><td>A locked-down CLI you hand the intern: <code>read_file</code>, <code>list_files</code>, nothing else.</td></tr><tr><td><strong>Structured output</strong></td><td>Forcing the model to answer as JSON matching a schema, not free prose.</td><td>A required PR template the intern cannot deviate from.</td></tr><tr><td><strong>MCP</strong></td><td><a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a> — a standard so one program can start another as a "server" and call its tools.</td><td>Starting a language server (LSP) and querying it, but for arbitrary tools.</td></tr><tr><td><strong>ADBT</strong></td><td><a href="https://www.npmjs.com/package/@amazon-devices/amazon-devices-buildertools-mcp" target="_blank" rel="noopener">Amazon Devices Builder Tools</a>, exposed here as an MCP server serving Vega migration docs.</td><td>An internal wiki you can query programmatically.</td></tr><tr><td><strong>Skill</strong></td><td>A block of domain instructions ("how to do TV focus") kept separate from code.</td><td>A runbook you paste into the ticket for one task.</td></tr><tr><td><strong>Harness</strong></td><td>The deterministic TypeScript program orchestrating all of the above.</td><td>Your CI pipeline, if CI could also call an intern mid-step.</td></tr><tr><td><strong>Replay</strong></td><td>Running the pipeline against <em>recorded</em> model answers instead of a live model.</td><td>Fixtures / VCR cassettes for network calls.</td></tr><tr><td><strong>VDA</strong></td><td>Vega Virtual Device — an emulator for the TV OS.</td><td>Android emulator, but for Vega.</td></tr></tbody></table>
-:::
+| Term | Meaning |
+| --- | --- |
+| Model | Software that produces a response from a prompt |
+| Prompt | Instructions and context for the model |
+| Agent | A model that can request tool operations |
+| Tool | A function that the agent can request |
+| Structured output | JSON data that must agree with a schema |
+| MCP | A protocol that connects a model to external tools |
+| ADBT | Amazon tools and documents for Vega development |
+| Skill | Instructions for one technical task |
+| Harness | The program that controls phases, checks, and writes |
+| Executor | The component that sends prompts to a model |
+| VDA | The Vega Virtual Device |
+| Recorded fallback | Stored model and platform data for use after a live failure |
 
-:::note The single most important idea
-An LLM generates <em>plausible</em> text, and plausible is not the same as correct: <code>plausible &ne; verified</code>. Everything the harness does closes that gap. Every phase ends in a mechanical check, not a vibe.
-:::
+## Use the claim and evidence table
 
-<h2>The board we will complete together</h2>
+Use this table during the workshop.
 
-Every lesson adds one row to the same argument. The left column is something an agent can say.
-The middle column is what can prove it without trusting the agent.
-
-| Agent claim | Independent gate | Evidence you keep |
+| Model claim | Independent check | Evidence |
 | --- | --- | --- |
-| “I understand the app” | Source inventory and explicit unknowns | `ANALYSIS.md`, transcript |
-| “This is the right TV plan” | Required flow/focus sections plus live ADBT provenance | `VEGA_PORT.md`, document hashes |
-| “The code is ready” | Static, schema, and executable checks | Check results, Git commit |
-| “It builds” | Vega compiler produces a package | `.vpkg`, build output |
-| “It runs” | Dwell, crash scan, and two real frames | Device log, screenshots |
-| “The remote works” | Focus transition contract | `tv-focus-result.json` |
+| The model understands the app | Source inventory and recorded unknowns | `ANALYSIS.md` |
+| The plan is correct | Required sections and ADBT document records | `VEGA_PORT.md` |
+| The code is ready | Schema, file, and executable checks | Check results and Git commit |
+| The app builds | Vega compiler | `.vpkg` file and build output |
+| The app runs | Device log and two screenshots | Log file and image files |
+| The remote works | Focus-transition test | `tv-focus-result.json` |
 
-:::note Keep asking one question
-When the model says something is done, ask: <strong>what observed it independently?</strong> The
-claim-versus-proof card at the end of each lesson answers that question and names the artifact.
+:::note Ask this question
+When the model reports success, ask: **What independent component verified the result?**
 :::
 
-<h2>Who is allowed to do what</h2>
-      <p>This is the security model:</p>
+## Know the security boundary
 
 :::flow
-ADBT MCP | Approved Vega context
-Strands or Claude | Read and propose
-Harness | Write and check
-Git | Commit evidence
+ADBT MCP | Supply Vega documents and tools
+Model | Read the guarded copy and propose changes
+Harness | Write files and run checks
+Git | Record accepted changes
 :::
 
-:::snippet The boundary, in one diagram
-ADBT (MCP server) <--- model calls list_documents / read_document itself ---+
-                                                                            |
-guarded app copy  <--- read-only tools (list/read/search) -----------------+--> selected agent --> typed patch {summary, files}
-                                                                            |
-                                                                            v
-     HARNESS: reconstruct + hash ADBT reads -> validate paths -> write files -> run checks -> retry -> git commit -> report
->look: Both live executors receive the same pinned ADBT stdio MCP server. Strands gets a native <code>McpClient</code>; Claude Code gets an explicit <code>--mcp-config</code>. Both can read and search the guarded app and call ADBT, but neither gets a shell or write tool. The harness reconstructs and hashes the ADBT reads, then applies only the validated patch. Everything with consequences stays in <code>packages/workshop-harness/src/port-pipeline.ts</code>.
+The harness creates a guarded copy of the app.
+The model receives read-only access to this copy.
+The model does not receive a shell tool.
+The model does not receive a file-write tool.
+
+The harness validates all proposed file paths.
+The harness writes only a valid structured patch.
+If a check fails, the harness rejects the change.
+
+:::snippet The system boundary
+ADBT MCP ---> selected model ---> typed patch
+    ^              |
+    |              v
+Vega documents   guarded app copy (read-only)
+                       |
+                       v
+HARNESS: validate paths -> write files -> run checks -> retry -> commit -> report
+>look: Strands receives a native McpClient. Claude Code receives an explicit --mcp-config. The harness controls all operations that change files or devices.
 :::
 
-<p>The strictness has a reason: a model with a write tool or a shell can corrupt your repo on one confident wrong guess. Keep irreversible actions in deterministic code, and the worst a bad answer can do is <em>fail a check and get rejected</em>. From lesson 4 on, those checks stop being file assertions and become a compiler and a device.</p>
+## Know how Strands is used
 
-:::note What is Strands Agents SDK?
-<a href="https://github.com/strands-agents/harness-sdk" target="_blank" rel="noopener">Strands</a> is AWS's open-source agent runtime (TypeScript and Python), used here as the live remote path, pinned at 1.10.0. It fits this workshop for two reasons: the plumbing (provider adapters, typed tools, structured output, limits, cancellation, usage metrics) is built in, and it's a library, not a framework — it doesn't try to own writes or orchestration, so the harness boundary stays where we put it.
-:::
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk) is an agent runtime.
+This workshop uses TypeScript SDK version `1.10.0`.
 
-:::raw
-<table><thead><tr><th>Strands supplies</th><th>The harness owns</th></tr></thead><tbody><tr><td>Agent loop and model providers</td><td>Phase order and approval</td></tr><tr><td>Read-only typed tools</td><td>Protected file writes</td></tr><tr><td>Validated patch output</td><td>Checks, retry, and Git commits</td></tr><tr><td>MCP client and metrics</td><td>Cost cap, transcripts, and report</td></tr></tbody></table>
-:::
+| Strands supplies | The harness supplies |
+| --- | --- |
+| Model provider adapters | Phase order |
+| Agent loop | Protected file writes |
+| Typed tools | Independent checks |
+| Structured output | Retry control |
+| MCP support | Cost limits |
+| Token limits and cancellation | Git commits and reports |
 
-<p>The port agent can list, read, and search the guarded app. The feasibility audit and plan phase also receive ADBT's own tools (<code>list_documents</code>, <code>read_document</code>, <code>search_documentation</code>) through MCP. The harness does not pre-pick what the model reads. After each live call, it walks the tool history and records every ADBT read with a SHA-256 hash. A live phase fails if it claims ADBT guidance without reading a document. Recorded turns are available only as a fallback and for the deliberate retry case study.</p>
+Strands does not control the complete workflow.
+The harness controls the workflow.
 
-<h2>1. Check the basics</h2>
+## 1. Prepare your computer
 
 :::steps
-1. Install Node.js 20 or newer and Git. [Corepack](https://nodejs.org/api/corepack.html) supplies Yarn 4.12.
-2. Clone this repository, run `cd past-the-vibes-we`, and keep the terminal at that root.
-3. Choose Pocket Cinema unless your own React Native app already runs.
+1. Install Node.js 20 or newer.
+2. Install Git.
+3. Make sure that Corepack is available.
+4. Clone the repository.
+5. Open a terminal in the repository root.
 :::
 
+:::command Clone the repository
+git clone https://github.com/giolaq/past-the-vibes-we.git
+cd past-the-vibes-we
+:::
+
+Select Pocket Cinema for the workshop:
+
+```text
+apps/pocket-cinema
+```
+
+Use your app only if it already runs.
+Your app must have one working flow:
+
+```text
+launch -> screen -> action -> back
+```
+
 :::raw
-<div class="grid"><article><h3>Pocket Cinema</h3><p>Recommended. Every exercise, recording, and checkpoint supports this app.</p><code>apps/pocket-cinema</code></article><article><h3>Your app</h3><p>Use one working flow: launch → screen → action → back. Switch to Pocket Cinema if discovery takes more than 10 minutes.</p><code>launch → screen → action → back</code></article></div>
+<div class="grid"><article><h3>Pocket Cinema</h3><p>Use this app for the recommended path. All exercises and recovery files support it.</p><code>apps/pocket-cinema</code></article><article><h3>Your app</h3><p>Use one working flow. Use Pocket Cinema if source discovery takes more than 10 minutes.</p><code>launch -&gt; screen -&gt; action -&gt; back</code></article></div>
 :::
 
 :::visual
 src: assets/pocket-cinema-android-tv.png
-alt: Pocket Cinema home screen running on an Android TV emulator, with a featured title and a horizontal content rail
+alt: Pocket Cinema home screen on an Android TV emulator
 label: Actual Android TV capture
-caption: "Pocket Cinema is the shared starting app. This is the unported React Native baseline running on the workshop's Android TV AVD; later lessons add explicit focus behavior and a separate Vega package."
+caption: "This image shows the React Native app before the Vega port. The app has no explicit TV focus behavior."
 :::
 
-<h3>Bring-your-own-app safety check</h3>
+### Do a safety check of your app
 
 :::raw
-<div class="checklist"><label><input type="checkbox">The app runs before the workshop</label><label><input type="checkbox">Git status is clean</label><label><input type="checkbox">It contains no production secrets or private data</label><label><input type="checkbox">It contains no protected media</label><label><input type="checkbox">It can be shared with the chosen model provider</label></div>
+<div class="checklist"><label><input type="checkbox">The app runs before the workshop</label><label><input type="checkbox">The Git working tree is clean</label><label><input type="checkbox">The app contains no production secrets</label><label><input type="checkbox">The app contains no private data</label><label><input type="checkbox">The app contains no protected media</label><label><input type="checkbox">The selected model provider can receive the app content</label></div>
 :::
 
-<h2>2. Install the workshop workspace</h2>
+## 2. Install the workspace
 
-:::command Install all workshop packages
+Run these commands from the repository root:
+
+:::command Install the workshop packages
 unset NODE_TLS_REJECT_UNAUTHORIZED
 corepack enable
 yarn setup
 :::
 
-<h2>3. Verify the workspace</h2>
+Stop if the installation fails.
+Do not disable TLS certificate verification.
 
-:::command Run the local checks
+## 3. Verify the workspace
+
+:::command Run the local verification
 yarn verify
 :::
 
-<p>This proves the repository, fixtures, app tests, harness tests, and workshop website are internally consistent. It does not prove that your model account or Vega device works; you check those next.</p>
+This command verifies the harness, tests, documents, and website data.
+It does not verify your model account.
+It does not verify the Vega SDK or VDA.
 
-<h3>Prove the starting point is not TV-ready</h3>
-      <p>Don't take our word that Pocket Cinema is touch-only — run the TV-readiness check against it. The same command goes green on the ported copy in lesson 6. If you brought your own app, run it on that too:</p>
+### Verify the starting app
 
-:::command Run the TV-readiness check on the starter app
+:::command Run the TV-readiness check
 yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
 :::
 
@@ -142,156 +197,151 @@ yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket
 ]
 :::
 
-<p>That failure list is the workshop's to-do list: everything on it is produced by the port in lesson 3 and verified mechanically in lesson 6.</p>
+The failure list identifies the work for the workshop.
+Lesson 6 runs the same check on the ported app.
 
-<h2>4. Choose your live executor</h2>
+## 4. Select one live executor
 
-Choose either Claude Code CLI or Strands, then keep the same provider and model through the workshop.
-The lesson commands use Claude Code as the readable default; Strands users replace only the three
-executor/provider/model flags shown below. Replay is the fallback, not the main workshop path.
+Use the same executor, provider, and model in all lessons.
+Do not change providers during the workshop.
 
-:::raw
-<table><thead><tr><th>Path</th><th>Executor flags</th><th>Credential</th></tr></thead><tbody><tr><td>Claude Code CLI</td><td><code>--executor claude-cli --model sonnet</code></td><td><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code</a> installed and already authenticated</td></tr><tr><td>Strands + Bedrock</td><td><code>--executor strands --provider bedrock --model &lt;Bedrock model id&gt; --region &lt;region&gt;</code></td><td><code>AWS_PROFILE</code> or <code>AWS_ACCESS_KEY_ID</code>, plus model access</td></tr><tr><td>Strands + OpenAI</td><td><code>--executor strands --provider openai --model &lt;OpenAI model id&gt;</code></td><td><code>OPENAI_API_KEY</code></td></tr><tr><td>Strands + OpenRouter</td><td><code>--executor strands --provider openrouter --model &lt;OpenRouter model id&gt;</code></td><td><code>OPENROUTER_API_KEY</code></td></tr><tr><td>Recorded fallback</td><td><code>--replay &lt;recording.json&gt;</code></td><td>None. Use only when a live dependency blocks the exercise.</td></tr></tbody></table>
-:::
+| Path | Executor flags | Credential |
+| --- | --- | --- |
+| Claude Code CLI | `--executor claude-cli --model sonnet` | Authenticated Claude Code |
+| Strands with Bedrock | `--executor strands --provider bedrock --model <model-id> --region <region>` | AWS credentials and model access |
+| Strands with OpenAI | `--executor strands --provider openai --model <model-id>` | `OPENAI_API_KEY` |
+| Strands with OpenRouter | `--executor strands --provider openrouter --model <model-id>` | `OPENROUTER_API_KEY` |
+| Recorded fallback | `--replay <recording.json>` | No credential |
 
-`--executor` selects how the harness talks to a model. `--provider` is used only by the Strands
-executor. `--model` is the exact model id understood by Claude Code or that provider. ADBT is
-still supplied by the harness through MCP in both live executor paths.
+With Claude Code, the harness starts the `claude` command.
+The harness sends the prompt through standard input.
+Claude Code returns stream JSON.
 
-With Claude Code, authenticate once and then run the harness command — do not open a separate
-interactive Claude session. The harness starts `claude`, sends the phase prompt through stdin, and
-reads stream JSON back. With Strands, no model CLI is involved; the SDK calls the selected provider
-inside the harness process.
+With Strands, the SDK calls the selected provider.
+No model CLI is necessary.
 
-### Use the same choice in every lesson
+### Verify Claude Code
 
-Live commands in the lessons show the Claude Code flags
-`--executor claude-cli --model sonnet`.
-
-If you chose Strands, replace only that line with one of these. Keep the app path, inputs,
-phase, run id, seed, confirmation, and budget unchanged:
-
-:::snippet Strands executor replacements
-# Bedrock
---executor strands --provider bedrock \
---model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2
-
-# OpenAI
---executor strands --provider openai --model gpt-4.1
-
-# OpenRouter
---executor strands --provider openrouter --model anthropic/claude-sonnet-4
->look: Choose one pair of provider and model flags. Do not combine them.
-:::
-
-Those are the defaults currently encoded in `src/model-factory.ts`; you can replace the model
-id with another tool-capable model available to your account. The optional screenshot review also
-needs image input. For a model absent from the harness pricing table, add both `--input-rate` and
-`--output-rate` in USD per million tokens. Read the rates from your provider. Do not guess them.
-
-:::note Keep credentials out of the repository
-Configure the required credential in your terminal or normal credential manager. Never put an
-API key in the app, an input fixture, a lesson command, or a committed `.env` file.
-:::
-
-### Check the exact selection
-
-Run `doctor` with the same flags you will use for the lessons:
-
-:::command Claude Code: check the local executor
+:::command Claude Code environment
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
   --executor claude-cli --model sonnet --json
 :::
 
-:::command Strands + Bedrock
+### Verify Strands with Bedrock
+
+:::command Bedrock environment
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
   --executor strands --provider bedrock \
   --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
   --region us-west-2 --json
 :::
 
-:::command Strands + OpenAI
+### Verify Strands with OpenAI
+
+:::command OpenAI environment
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
   --executor strands --provider openai --model gpt-4.1 --json
 :::
 
-:::command Strands + OpenRouter
+### Verify Strands with OpenRouter
+
+:::command OpenRouter environment
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
   --executor strands --provider openrouter \
   --model anthropic/claude-sonnet-4 --json
 :::
 
-:::command Fallback only: verify the recorded path
-yarn replay
+:::note Protect credentials
+Keep credentials in your terminal or credential manager.
+Do not put credentials in the repository.
+Do not commit credentials in an `.env` file.
 :::
 
-:::note Pick one live executor
-You need one live path, not every path. `doctor` checks that the command or credential exists; the
-first `analyze` call confirms that your account can use the selected model. If one repair does not
-fix that call, save the error and use the recorded fallback for that exercise. Do not spend the
-workshop switching providers.
+:::note Select one live path
+You do not need all providers.
+Run the `doctor` command for your selected path.
+If one repair fails, use the recorded fallback for that exercise.
 :::
 
-<h2>5. Prepare Vega SDK and VDA for real evidence</h2>
-      <p>Lesson 4 needs Vega SDK <code>0.22.5875</code> to produce a real <code>.vpkg</code>. Lesson 5 needs an attached Vega Virtual Device to install, launch, filter the app's logs from the launch time, and pull two frames. Lesson 6 runs the host-side focus contract and reuses those frames; it does not press a device button. A recorded fallback can keep you moving, but it demonstrates control flow only. It cannot prove a build or device result.</p>
-      <p>How ADBT reaches the model depends on your executor:</p>
-      <ul>
-        <li><strong>Strands</strong>: the harness creates an ADBT <code>McpClient</code> and hands it to the agent.</li>
-        <li><strong>Claude Code CLI</strong>: the harness passes the same pinned server in <code>--mcp-config</code> with <code>--strict-mcp-config</code>. It does not rely on a user's global MCP settings.</li>
-        <li><strong>Recorded fallback</strong>: stored ADBT context, so no live MCP call is made.</li>
-      </ul>
+## 5. Prepare ADBT
 
-<p>The harness starts MCP itself for both live executor paths. Run <code>init-context</code> once only to install the <code>amazon-devices-vega-*</code> skills:</p>
+Both live executors use ADBT through MCP.
+Strands receives an ADBT `McpClient`.
+Claude Code receives an explicit MCP configuration.
 
-:::command Install the pinned ADBT skills (one time)
-# Run in a system terminal (not inside the agent).
-# --force skips the confirmation prompts.
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force
+The harness starts the pinned ADBT server.
+Install the ADBT skills one time:
+
+:::command Install the pinned ADBT skills
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 \
+  init-context --agent claude-code-cli --force
 :::
 
-:::command Verify the ADBT MCP setup
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 check-status --agent claude-code-cli
+:::command Verify the ADBT skill installation
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 \
+  check-status --agent claude-code-cli
 :::
 
-:::note Where these come from
-Amazon Devices Builder Tools ships the ADBT MCP server, skills, and steering docs as one pinned npm package: over 400 current Vega documents — migration workflows, knowledge-base pages, prompts — plus ten agent skills, served from a local process. In this workshop the harness starts that process itself, so live runs do not depend on your agent's global MCP config. <code>init-context</code> installs the skills used for phase guidance; <code>check-status</code> confirms them. With ADBT MCP, the model reads the vendor's current guidance instead of guessing Vega APIs from memory. See the <a href="https://developer.amazon.com/docs/vega/0.22/mcp-server.html" target="_blank" rel="noopener">Vega ADBT setup docs</a>.
-:::
+During a live phase, the model selects the ADBT documents that it needs.
+The harness records the document names and SHA-256 hashes.
+The phase fails if it requires ADBT but reads no ADBT document.
 
-<p>The Claude executor uses <code>--tools Read,Grep,Glob</code>, explicitly denies shell and write tools, and permits only the named ADBT MCP tools. It fingerprints the guarded copy before and after the subprocess call; any direct change fails and is rolled back. The only accepted write is the typed patch that passes the harness path checks.</p>
+## 6. Prepare Vega
 
-:::command Check ADBT and start VDA in a system terminal
+Lesson 4 requires Vega SDK version `0.22.5875`.
+Lesson 5 requires an attached VDA.
+Lesson 6 uses the focus test and device images.
+
+In a system terminal, run:
+
+:::command Start the Vega environment
 yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
 vega --version
 vega virtual-device start --gui
 :::
 
-<p>Keep that terminal open. In a second system terminal, run:</p>
+Keep this terminal open.
 
-:::command Confirm the SDK and attached device
-# Run this in a second system terminal.
+In a second terminal, run:
+
+:::command Verify the SDK and device
 vega --version
 vega virtual-device status
 vega exec vda devices -l
 :::
 
-:::note Live Vega is ready only when {success}
-The SDK prints 0.22.5875, virtual-device status reports running: true, and devices -l lists an attached device.
-:::
+The environment is ready when all these conditions are true:
+
+- The SDK reports version `0.22.5875`.
+- The virtual-device status reports `running: true`.
+- The device list contains a device.
+
+A successful command with an empty device list is not sufficient.
 
 :::fallback
-Try one repair for no more than 10 minutes. Then use the recorded fallback for the blocked exercise. Do not spend workshop time repairing a model account or device.
+Try one repair if a live service fails.
+Do not use more than 10 minutes for the repair.
+Then use the recorded fallback for the blocked exercise.
+
+A recorded fallback verifies the harness control flow.
+It does not verify your model, compiler, or device.
 :::
 
-<h2>Setup complete</h2>
+## Setup checklist
 
 :::raw
-<div class="checklist"><label><input type="checkbox">Node 20+, Git, and Corepack are available</label><label><input type="checkbox">The workspace packages are installed and <code>yarn verify</code> passes</label><label><input type="checkbox">I wrote down one executor/provider/model combination and its doctor check passed</label><label><input type="checkbox">I chose Pocket Cinema or checked my own app</label><label><input type="checkbox">For real platform evidence: Vega SDK is ready for lesson 4 and VDA is ready for lesson 5</label><label><input type="checkbox">I know replay is a fallback, not evidence from my model or device</label><label><input type="checkbox">I can explain what Strands supplies and what the harness owns</label></div>
+<div class="checklist"><label><input type="checkbox">Node.js 20 or newer is available</label><label><input type="checkbox">Git and Corepack are available</label><label><input type="checkbox"><code>yarn setup</code> is complete</label><label><input type="checkbox"><code>yarn verify</code> passes</label><label><input type="checkbox">I selected one executor, provider, and model</label><label><input type="checkbox">The matching <code>doctor</code> command passes</label><label><input type="checkbox">I selected Pocket Cinema or verified my app</label><label><input type="checkbox">The Vega SDK is ready for Lesson 4</label><label><input type="checkbox">The VDA is ready for Lesson 5</label><label><input type="checkbox">I know that recorded data is only a fallback</label><label><input type="checkbox">I can explain what Strands supplies</label><label><input type="checkbox">I can explain what the harness controls</label></div>
 :::
 
-:::knowledge What is the most important boundary in this workshop?
-The model can inspect and propose, but the harness controls approval, protected writes, verification, retries, cost, commits, and reports. ADBT supplies selected platform knowledge; it does not take over the run.
+:::knowledge What is the most important boundary?
+The model can inspect the app and propose changes.
+The harness controls writes, checks, retries, costs, commits, and reports.
+ADBT supplies Vega knowledge through MCP.
 :::
 
 :::done
-The workspace passes verification, one live executor is ready, and you know which app you will use. For real platform evidence, the SDK and VDA checks also pass.
+The workspace passes all local checks.
+One live executor is ready.
+You know which app you will use.
+For live platform evidence, the Vega SDK and VDA are also ready.
 :::

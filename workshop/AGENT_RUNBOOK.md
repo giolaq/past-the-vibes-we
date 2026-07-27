@@ -1,16 +1,30 @@
-# Agent Runbook: Taking This Workshop Autonomously
+# Agent Runbook
 
-This file is for an automated test agent asked to verify the workshop repository without human credentials or hardware. It intentionally uses recordings and is not the attendee learning path. Human attendees follow the live executor flow in `lessons/00-welcome.md`. If you are an agent asked to maintain or modify this repository instead, follow `AGENTS.md` at the repository root and ignore this file.
+Use this file to test the workshop without credentials or hardware.
+
+This runbook uses recorded data. It is not the attendee learning path. Attendees
+use the live path in `lessons/00-welcome.md`.
+
+If you maintain this repository, use the root `AGENTS.md` instead.
 
 ## Rules
 
-1. Take the replay lane. Every lesson has a `--replay` fallback that needs no model account, API key, ADBT install, Vega SDK, or device. Do not attempt live-model, `init-context`, Bedrock, or VDA steps: they need human terminals, credentials, or hardware.
-2. Follow the lessons in order. The Markdown files in `workshop/lessons/` are the source of truth for both commands and website content. `workshop/workshop.js` contains navigation only.
-3. Produce a completion report. Create `out/agent-report.md` at the repository root (the `out/` directory is gitignored — do not commit the report). For each lesson, record: the command you ran, the evidence you verified, your answer to the lesson's "You are done when" statement, and your answer to that lesson's knowledge check. The report is the workshop's learning outcome; the artifacts alone are not.
+1. Use the recorded fallback.
+2. Follow the lessons in order.
+3. Do not start a live model, ADBT, Vega, or Bee command.
+4. Create `out/agent-report.md`.
+5. Do not commit the report.
+
+For each lesson, record:
+
+- The command that you ran.
+- The evidence that you inspected.
+- The result of the completion check.
+- Your answer to the knowledge check.
 
 ## Setup
 
-From the repository root:
+Run these commands from the repository root:
 
 ```sh
 corepack enable
@@ -19,23 +33,100 @@ yarn verify
 yarn doctor
 ```
 
-Proceed when `yarn verify` passes and `yarn doctor` reports `state: ready`. Model, ADBT, Vega, and Bee checks marked `optional` are expected in replay mode. Also run `yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema` and record `tvReady: false` with its failure list — the workshop's "before" evidence.
+Continue when `yarn verify` passes. Continue when `yarn doctor` reports
+`state: ready`. Optional model, ADBT, Vega, and Bee checks can remain
+unavailable.
 
-## Lesson sequence and evidence
+Record the initial TV check:
 
-Run each lesson's replay command from its "If blocked" or fallback section, then verify the evidence below before moving on.
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
+```
 
-| Lesson | File | Evidence to verify and record |
-| --- | --- | --- |
-| 1 | `workshop/lessons/01-analyze.md` | The replay `--phases analyze` run reports `phasesComplete: ["analyze"]` and `out/<runId>/app/ANALYSIS.md` exists. Confirm `apps/pocket-cinema` is unchanged (`git status`). Report three claims in the analysis that nothing in the run has checked. |
-| 2 | `workshop/lessons/02-plan.md` | `--phases plan` produces `VEGA_PORT.md` containing both `## TV Flow` and `## Focus`, and `adbt-port-context.json` names hashed ADBT documents. Report which knowledge each check came from: the focus skill or the ADBT workflows. |
-| 3 | `workshop/lessons/03-port.md` | `--phases port` produces `apps/vega/` and `src/tv/focus-state.ts`, committed after nine checks. Confirm `model-logs/port.jsonl` contains the complete request, response, verification result, and phase outcome. Then run the retry replay (`workshop/fixtures/port-retry/port-recording.json`, `--phases analyze,plan`): it must print `plan attempt 1 failed:` naming the missing `## TV Flow` and `## Focus`, `port-result.json` must record `attempts: 2`, and attempt 2's transcript request must contain those exact failures. |
-| 4 | `workshop/lessons/04-build.md` | The build-retry replay (`workshop/fixtures/build-retry/`) prints `build needs a fix:` carrying the compiler's `TS2551` line, then completes. Report that the model was called once, and that `launch` and `test` then passed with `attempts: 0` — a green check costs no model call. |
-| 5 | `workshop/lessons/05-launch.md` | The recorded lifecycle passes install, launch, dwell, log scan, and both frames. Then run the lesson's break-it steps: a copy of the fixture with `FATAL EXCEPTION: main` in the `logs` turn must fail naming that line, and a copy without its `screenshot` line must fail on `frame is 1x1`. Both exit 2. State that this proves control flow, not device behavior. |
-| 6 | `workshop/lessons/06-test.md` | `tv-focus-result.json` shows `"passed": true` with all six transitions, and `tv-check` on the ported app reports `tvReady: true` — the "after" to setup's "before". |
-| 7 | `workshop/lessons/07-finish.md` | Run the complete recorded fallback without `--tui`, then inspect `out/final-dashboard/model-logs/` directly. Complete `workshop/worksheet.md` for a domain of your choice, including the false-positive attack and strengthened check. |
-| A1 | `workshop/lessons/A1-bee.md` | Optional. Use the synthetic recording because an automated test agent cannot provide consent. `bee-run --propose` must write `BEE_SPEC.md` and `bee-spec.json` and change no source. Then `--apply --yes` must finish with `phasesComplete: ["bee_spec","bee_apply","build","launch"]`. |
+Expect `tvReady: false`. Record the failure list. This is the initial evidence.
 
-## You are done when
+## Lesson Evidence
 
-`out/agent-report.md` covers setup plus lessons 1–7, every core evidence row above is verified, and every knowledge-check answer is written in your own words. Appendix A1 is optional.
+### Lesson 1: Analyze
+
+- Run the recorded `analyze` command.
+- Confirm `phasesComplete: ["analyze"]`.
+- Confirm `out/<runId>/app/ANALYSIS.md` exists.
+- Confirm `apps/pocket-cinema` did not change.
+- Record three analysis claims that no check has proved.
+
+### Lesson 2: Plan
+
+- Run the recorded `plan` command.
+- Confirm `VEGA_PORT.md` contains `## TV Flow`.
+- Confirm `VEGA_PORT.md` contains `## Focus`.
+- Confirm `adbt-port-context.json` names hashed ADBT documents.
+- State which knowledge came from the focus skill.
+- State which knowledge came from ADBT.
+
+### Lesson 3: Port
+
+- Run the recorded `port` command.
+- Confirm `apps/vega/` exists.
+- Confirm `src/tv/focus-state.ts` exists.
+- Confirm the phase created a commit after nine checks.
+- Inspect `model-logs/port.jsonl`.
+- Find the request, response, check result, and phase result.
+
+Run the retry example:
+
+- Use `workshop/fixtures/port-retry/port-recording.json`.
+- Run phases `analyze,plan`.
+- Confirm attempt 1 names the missing `## TV Flow` and `## Focus` sections.
+- Confirm `port-result.json` records two attempts.
+- Confirm attempt 2 receives the two failures.
+
+### Lesson 4: Build
+
+- Run the `build-retry` recorded fallback.
+- Find compiler error `TS2551` in the retry request.
+- Confirm the model runs once.
+- Confirm `launch` and `test` pass with `attempts: 0`.
+- State why a green check does not need a model call.
+
+### Lesson 5: Launch
+
+- Run the recorded platform lifecycle.
+- Confirm install, launch, dwell, log scan, and both frames pass.
+- Add `FATAL EXCEPTION: main` to a copy of the recording.
+- Confirm the command fails with exit code 2 and names that line.
+- Remove the screenshot line from another copy.
+- Confirm the command fails with exit code 2 and reports `frame is 1x1`.
+- State that these tests prove control flow. They do not prove device behavior.
+
+### Lesson 6: Test
+
+- Confirm `tv-focus-result.json` contains `"passed": true`.
+- Confirm all six transitions are present.
+- Run `tv-check` on the ported app.
+- Confirm `tvReady: true`.
+- Compare this result with the initial `tvReady: false` result.
+
+### Lesson 7: Control
+
+- Run the complete recorded fallback without `--tui`.
+- Inspect `out/final-dashboard/model-logs/`.
+- Complete `workshop/worksheet.md`.
+- Add one false-positive attack.
+- Strengthen the weak check.
+
+### Appendix A1: Bee
+
+This lesson is optional. Use synthetic data. An automated test agent cannot
+give user consent.
+
+- Run `bee-run --propose`.
+- Confirm `BEE_SPEC.md` and `bee-spec.json` exist.
+- Confirm no source file changed.
+- Run `bee-run --apply --yes`.
+- Confirm `bee_spec`, `bee_apply`, `build`, and `launch` complete.
+
+## Completion
+
+Finish when `out/agent-report.md` covers setup and lessons 1 through 7. Include
+all evidence and all knowledge-check answers. Appendix A1 is optional.
