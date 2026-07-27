@@ -178,6 +178,7 @@ new run ID so one approval never covers two product inputs.
 | `workshop/STE-STYLE.md` | Workshop writing standard |
 | `workshop/instructor-guide.md` | Schedule and teaching rules |
 | `workshop/dry-run.md` | Instructor rehearsal |
+| `workshop/editing-guide.md` | Safe manual editing procedure |
 | `workshop/troubleshooting.md` | Recovery procedures |
 | `workshop/strands-constructs.md` | Strands code-reading guide |
 | `workshop/lessons/*.md` | Source for the workshop website |

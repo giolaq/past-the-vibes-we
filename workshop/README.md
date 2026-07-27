@@ -114,6 +114,12 @@ Keep the workshop terminal in that directory for lessons 1 through 7.
 Start with [Lesson 00](lessons/00-welcome.md).
 Keep [Troubleshooting](troubleshooting.md) open.
 
+## Change the Workshop
+
+Use [the workshop editing guide](editing-guide.md).
+Edit lesson source files instead of generated website data.
+Run the complete verification command before you commit a change.
+
 ## Use evidence correctly
 
 A recorded fallback verifies command order, checks, retry behavior, and report shape.

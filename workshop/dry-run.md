@@ -1,8 +1,20 @@
 # Instructor Rehearsal
 
-Use this procedure on the day before the workshop.
+Use this guide to test the workshop and practice the teaching.
 
-Allow three hours for parts A through E. Allow 15 minutes for part F.
+## Select a Rehearsal
+
+| Rehearsal | When to use it | Time | Work |
+| --- | --- | --- | --- |
+| Technical check | After a code or lesson change | 60 minutes | Do steps 1, 2, 4 through 8, 16, and 19 through 23. |
+| Teaching rehearsal | Before the final week | 3 hours | Do parts A through E. Speak each explanation. |
+| Dress rehearsal | On the day before the workshop | 4 hours | Teach the full schedule. Use the live model and selected device procedure. |
+
+Do the technical check first.
+Do the teaching rehearsal after the technical check passes.
+Do one dress rehearsal from a clean clone.
+
+Allow 15 minutes for the session-day check in part F.
 
 Each step has three parts:
 
@@ -11,6 +23,22 @@ Each step has three parts:
 - **Pass:** Confirm the result before you continue.
 
 Do the steps in order. A later step can depend on an earlier step.
+
+Record these values before you start:
+
+| Item | Value |
+| --- | --- |
+| Date | |
+| Git commit | |
+| Machine | |
+| Executor and model | |
+| Device procedure | Live, mixed, or recorded |
+| Start time | |
+| End time | |
+| Failed step and action | |
+
+Use [the workshop editing guide](editing-guide.md) when you change a lesson,
+the website, a fixture, or harness code.
 
 ## Part A: Check the Machine
 
@@ -84,6 +112,8 @@ skipped because its file does not exist.
 **Pass:** Check the evidence slide, operator view, and both appendix A1 slides.
 
 ### Step 6: Check the Website
+
+Use a second terminal from the repository root.
 
 **Run**
 
@@ -202,12 +232,39 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 **Expect:** The first result lists five missing proofs and changes no source.
 The second result completes `analyze` and writes `ANALYSIS.md`.
 
-**Pass:** Run `git status apps/pocket-cinema` from the repository root. The
-source must be unchanged. Select three unchecked claims in `ANALYSIS.md`.
+**Pass:** Run:
+
+```sh
+git -C ../.. status --short apps/pocket-cinema
+```
+
+The command must print no source changes.
+Select three unchecked claims in `../../out/rehearsal/app/ANALYSIS.md`.
 
 ### Step 14: Test Lesson 2
 
-Run the lesson command with `--phases plan`. Review `port-plan.json`. Then run:
+**Run**
+
+```sh
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases plan --yes --run-id rehearsal
+```
+
+Open `../../out/rehearsal/app/port-plan.json`.
+Review the screens, Select actions, Back actions, preserved behavior, deferred
+behavior, and evidence.
+
+Test the approval boundary:
+
+```sh
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases port --yes --run-id rehearsal
+```
+
+**Expect:** The command reports `plan_approval_required` and exits with code 1.
+The command does not start the `port` phase.
+
+Approve the reviewed plan:
 
 ```sh
 yarn tsx src/index.ts approve-plan rehearsal --yes
@@ -229,7 +286,12 @@ behavior, and evidence. `VEGA_PORT.md` contains `## TV Flow` and `## Focus`.
 
 ### Step 15: Test Lesson 3
 
-Run the lesson command with `--phases port`.
+**Run**
+
+```sh
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases port --yes --run-id rehearsal
+```
 
 **Expect:** Nine checks pass. The guarded copy gets `apps/vega/` and
 `src/tv/focus-state.ts`. Git gets a `workshop(port)` commit.
@@ -247,17 +309,25 @@ Confirm the phase commit.
 **Run**
 
 ```sh
+rm -rf ../../out/retry-rehearsal
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-retry/port-recording.json \
-  --phases analyze,plan --yes
+  --phases analyze,plan --yes --run-id retry-rehearsal
 ```
 
 **Expect:** Attempt 1 reports missing `## TV Flow` and `## Focus`. Attempt 2
 passes. `port-result.json` records two attempts.
 
-**Pass:** Confirm that attempt 2 receives both failure messages.
+**Pass:** Open `../../out/retry-rehearsal/port-result.json`.
+Confirm that attempt 2 receives both failure messages.
 
 ### Step 17: Test the New Check Exercise
+
+Save the original file:
+
+```sh
+cp src/port-verification.ts /tmp/port-verification.ts.before
+```
 
 Add the lesson check to `tvReadyChecks()` in `src/port-verification.ts`. Add a
 `contains` check for `originating card` in `TV_VERIFICATION.md`.
@@ -271,10 +341,13 @@ yarn tsx src/index.ts tv-check ../../workshop/checkpoints/vega-buildable/app
 
 **Expect:** The first command fails. The second command passes.
 
-**Pass:** Restore the source file after the test:
+**Pass:** Review and restore only this rehearsal change:
 
 ```sh
-git checkout -- src/port-verification.ts
+git diff -- src/port-verification.ts
+cp /tmp/port-verification.ts.before src/port-verification.ts
+rm /tmp/port-verification.ts.before
+yarn typecheck
 ```
 
 ### Step 18: Test the Live Compiler Repair
@@ -304,6 +377,17 @@ This command is a recovery test. It is not the main demonstration.
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \
   --phases analyze,plan --run-id build-recovery --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --replay ../../workshop/fixtures/build-retry/port-recording.json \
+  --phases port --run-id build-recovery --yes
+```
+
+**Expect:** The second command reports `plan_approval_required` and exits with
+code 1.
+
+**Run**
+
+```sh
 yarn tsx src/index.ts approve-plan build-recovery --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \
@@ -328,16 +412,30 @@ Explain three facts:
 **Run**
 
 ```sh
-cp ../../workshop/fixtures/vega-lifecycle.json /tmp/past-the-vibes-crash-demo.json
+rm -rf /tmp/past-the-vibes-crash-demo
+mkdir -p /tmp/past-the-vibes-crash-demo
+cp ../../workshop/fixtures/vega-lifecycle.json \
+  /tmp/past-the-vibes-crash-demo/vega-lifecycle.json
+cp -R ../../workshop/fixtures/vega-lifecycle \
+  /tmp/past-the-vibes-crash-demo/vega-lifecycle
 ```
 
 Add `FATAL EXCEPTION: main` to the `logs` result in
-`/tmp/past-the-vibes-crash-demo.json`.
+`/tmp/past-the-vibes-crash-demo/vega-lifecycle.json`.
+
+Confirm that the edited file contains valid JSON:
+
+```sh
+node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); console.log("valid JSON")' \
+  /tmp/past-the-vibes-crash-demo/vega-lifecycle.json
+```
+
+**Run**
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay /tmp/past-the-vibes-crash-demo.json \
+  --platform-replay /tmp/past-the-vibes-crash-demo/vega-lifecycle.json \
   --phases launch --yes --run-id build-recovery
 ```
 
@@ -347,9 +445,33 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 
 ### Step 21: Test the Pixel Check
 
-Copy the lifecycle file to `/tmp/past-the-vibes-noshot-demo.json`.
-Remove its `screenshot` line.
-Run the same command with the new file.
+**Run**
+
+```sh
+rm -rf /tmp/past-the-vibes-noshot-demo
+mkdir -p /tmp/past-the-vibes-noshot-demo
+cp ../../workshop/fixtures/vega-lifecycle.json \
+  /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json
+cp -R ../../workshop/fixtures/vega-lifecycle \
+  /tmp/past-the-vibes-noshot-demo/vega-lifecycle
+```
+
+Remove the complete `screenshot` property and its comma.
+Confirm that the edited file contains valid JSON:
+
+```sh
+node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); console.log("valid JSON")' \
+  /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json
+```
+
+**Run**
+
+```sh
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --replay ../../workshop/fixtures/port-recording.json \
+  --platform-replay /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json \
+  --phases launch --yes --run-id build-recovery
+```
 
 **Expect:** The command reports that the frame is 1x1, flat, and black. It
 exits with code 2.
@@ -357,7 +479,7 @@ exits with code 2.
 **Pass:** Remove both temporary files:
 
 ```sh
-rm /tmp/past-the-vibes-crash-demo.json /tmp/past-the-vibes-noshot-demo.json
+rm -rf /tmp/past-the-vibes-crash-demo /tmp/past-the-vibes-noshot-demo
 ```
 
 ### Step 22: Compare Before and After
@@ -377,11 +499,18 @@ six transitions.
 
 ### Step 23: Test Appendix A1
 
+Remove the output from an earlier rehearsal:
+
+```sh
+rm -rf ../../out/bee ../../out/bee-neg
+```
+
 **Run the proposal**
 
 ```sh
 yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --replay ../../workshop/fixtures/bee-run/port-recording.json --propose
+  --replay ../../workshop/fixtures/bee-run/port-recording.json \
+  --propose --run-id bee
 ```
 
 **Expect:** The command writes `BEE_SPEC.md` and changes no source. The context
@@ -392,7 +521,8 @@ file contains a hash and conversation ID. It contains no transcript.
 ```sh
 yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/bee-run/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json --apply --yes
+  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
+  --apply --yes --run-id bee
 ```
 
 **Expect:** The first `bee_apply` check fails. The retry repairs the change.
@@ -410,6 +540,10 @@ yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
 
 **Pass:** Remove `out/bee-neg`. State that source changes require an approved
 specification.
+
+```sh
+rm -rf ../../out/bee-neg
+```
 
 ## Part D: Rehearse the Teaching
 
@@ -551,3 +685,13 @@ Confirm the selected device procedure with both co-hosts.
 
 **Pass:** Tests pass. Doctor reports ready. `out/` is empty. The site is open.
 The initial and final TV results are ready for comparison.
+
+## Finish the Rehearsal
+
+Record the actual duration for each lesson.
+Record each failed step and the action that fixed it.
+Record the selected fallback for each live dependency.
+
+Do not change workshop files during the live session.
+Make the change after the session on a separate branch.
+Use [the workshop editing guide](editing-guide.md).
