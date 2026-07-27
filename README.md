@@ -1,38 +1,40 @@
 # Past the Vibes
 
-Build a small coding harness with [AWS Strands Agents SDK](https://github.com/strands-agents/harness-sdk), then use it to port a React Native flow to Vega TV. The harness is the deliverable: swap its skills, its MCP server, or its executor — run it with the CLI coding agent you already use, or directly with Strands + Bedrock — and reuse it for your own work. Owning the harness — instead of driving a coding agent by prompt — gives you control over every write, check, and dollar, and observability over every model turn, document read, and commit.
+Build and test a coding harness with
+[Strands Agents SDK](https://github.com/strands-agents/harness-sdk). Use the
+harness to port a React Native flow to Vega TV.
 
-This repository contains everything used in the workshop:
+The model can inspect a guarded copy and propose files. The harness controls
+writes, checks, retries, cost, and commits.
 
-- `packages/workshop-harness`: the guarded porting pipeline built with Strands Agents SDK — six phases, one lesson each;
-- `apps/pocket-cinema`: the prepared React Native app used by every exercise;
-- `workshop`: the attendee guide, web app, fixtures, checkpoints, troubleshooting, and instructor notes.
+## Repository Contents
 
-The standard path uses a live model through Claude Code CLI or Strands with Bedrock, OpenAI, or OpenRouter. Committed recordings are recovery material for a blocked exercise and deterministic failure demonstrations; they are not the workshop's main path.
+| Path | Contents |
+| --- | --- |
+| `packages/workshop-harness` | Six-phase porting harness |
+| `apps/pocket-cinema` | React Native app for the exercises |
+| `workshop` | Lessons, website, slides, fixtures, and instructor guides |
 
-On a live run, both supported executors use Amazon Devices Builder Tools as MCP. Strands receives an in-process `McpClient`; Claude Code receives an explicit pinned `--mcp-config`. Both are read-only. The harness is the only component allowed to apply a validated patch, run commands, spend against the cumulative cap, or commit.
+## What You Build
 
-## What attendees build
+The workshop starts with one model call. The model returns a plausible port
+proposal. The command does not apply or test the proposal.
 
-The workshop starts with a deliberately weak one-shot port request. It may produce a convincing
-proposal, but it applies nothing and proves nothing. Attendees then replace that process one
-boundary at a time:
+You then add these controls:
 
-1. inspect the app in a guarded copy;
-2. plan with live Vega knowledge from ADBT MCP;
-3. apply a typed patch and check the declared contract;
-4. inject and repair a deterministic compiler failure;
-5. build, launch, and inspect evidence from the platform;
-6. execute the TV focus contract;
-7. operate the complete run in a TUI, then design and challenge a harness for another domain.
+1. Inspect the app in a guarded copy.
+2. Plan with current Vega documents from ADBT MCP.
+3. Validate and write a typed patch.
+4. Send compiler failures back to the model.
+5. Build, install, start, and inspect the app.
+6. Run the focus transition contract.
+7. Control the complete run in a TUI.
 
-Every lesson adds one row to a claim-versus-proof board. The final team exercise asks another
-team to find a false positive in the design. This keeps the workshop about engineering evidence,
-not prompt-writing technique.
+Each lesson records a claim, independent evidence, and the remaining limit.
 
-## Start here
+## Start
 
-Install Node.js 20 or newer and Git — Corepack will install the repository's pinned Yarn 4.12 — then run:
+Install Node.js 20 or later and Git.
 
 ```sh
 git clone https://github.com/giolaq/past-the-vibes-we.git
@@ -43,77 +45,104 @@ yarn verify
 yarn site
 ```
 
-Open `http://localhost:4173`. Follow **Start here** in the web app before lesson 1.
+Open `http://localhost:4173`. Start with **Before You Arrive**.
 
-If you do not want to start a server, open `workshop/index.html` directly.
+You can also open `workshop/index.html` directly.
 
-Push `main` to GitHub and enable Pages with **GitHub Actions** as its source to publish the same site. The included workflow deploys only `workshop/`.
+## Select a Model
 
-### Yarn reports that this directory is not part of another project
+The live path supports:
 
-Run commands from the `past-the-vibes-we` directory, which contains this README and the root `yarn.lock`:
+- Claude Code CLI.
+- Strands with Amazon Bedrock.
+- Strands with OpenAI.
+- Strands with OpenRouter.
+
+Select one path before lesson 1. Use the same path for all model phases.
+`workshop/lessons/00-welcome.md` gives the exact setup and doctor commands.
+
+Both live executors use ADBT as an MCP server:
+
+- Strands receives an in-process `McpClient`.
+- Claude Code receives a pinned `--mcp-config`.
+
+Both ADBT connections are read-only. The model has no shell or write tool.
+
+## Commands
 
 ```sh
-yarn verify
+yarn setup          # Install all workshop packages.
+yarn verify         # Run code, document, and site checks.
+yarn replay         # Test the recorded recovery path.
+yarn doctor         # Check the recorded recovery environment.
+yarn site           # Start the workshop site on port 4173.
 ```
 
-The root lockfile marks this clone as an independent Yarn project, even when you clone it inside another directory that also contains a `package.json` or `yarn.lock`.
+Run these commands from the repository root.
 
-## Useful commands
+If Yarn reports that this directory belongs to another project, confirm that
+you are in the directory that contains this README and the root `yarn.lock`.
 
-```sh
-yarn setup          # install the workshop packages
-yarn verify         # typecheck, test, and validate workshop links
-yarn replay         # fallback only: check the recorded execution path
-yarn doctor         # fallback-only environment check used by yarn replay
-yarn site           # serve the workshop web app on port 4173
-```
+If `npx` asks to download `tsx`, stop. Run `yarn setup` first.
 
-Run `yarn setup` before any lesson command. If `npx` asks to download `tsx`, stop: the workshop uses its pinned local copy and the package dependencies are not ready yet.
-
-If Node warns that `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove that unsafe override before installing anything:
+If Node reports `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove the unsafe setting:
 
 ```sh
 unset NODE_TLS_REJECT_UNAUTHORIZED
 ```
 
-Do not disable TLS certificate verification to work around a network or proxy problem.
+Do not disable TLS certificate checks.
 
-[Before You Arrive](workshop/lessons/00-welcome.md) shows how to use Claude Code CLI or choose
-Bedrock, OpenAI, or OpenRouter with an explicit model, credential, pricing policy, and matching
-`doctor` command. Choose one before lesson 1. Vega SDK and a VDA are required for live build and
-device evidence; use the supplied checkpoint only when platform setup blocks you.
+## Live and Recorded Evidence
 
-Every run leaves one append-only model transcript per phase under
-`out/<runId>/model-logs/`. It records the complete prompt and native events from your live
-Strands or Claude Code executor, followed by the phase checks and outcome. Recorded fallback
-runs use the same format. Read one with:
+Use a live model as the normal workshop path.
+
+Use recorded data if an external service blocks an exercise. Recorded data
+proves command order, retry behavior, and report format. It does not prove
+what a live model or device did.
+
+Lessons 4 through 6 need the Vega SDK. Device checks also need an attached
+Vega Virtual Device. Use the supplied checkpoints when platform setup blocks
+the lesson.
+
+## Model Transcripts
+
+Each model phase writes an append-only transcript:
+
+```text
+out/<runId>/model-logs/<phase>.jsonl
+```
+
+Read one transcript:
 
 ```sh
 yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
 ```
 
-Add `--follow` to watch a live phase. The files can contain source excerpts and tool results,
-so keep them in the gitignored `out/` directory and review them before sharing.
+Add `--follow` during a live phase.
 
-## Repository map
+Transcripts can contain prompts, source excerpts, and tool results. They are
+inside the ignored `out/` directory. Review them before you share them.
 
-| Path | Purpose |
+## Important Documents
+
+| Path | Use |
 | --- | --- |
-| `workshop/index.html` | Interactive attendee guide and progress tracker |
-| `workshop/lessons/*.md` | Lesson source of truth; the web app is generated from these |
-| `workshop/workshop.data.js` | Generated from `lessons/` by `scripts/build-site.mjs` (do not edit by hand) |
-| `workshop/instructor-guide.md` | Timing, fallbacks, evidence rules, and teaching notes |
-| `workshop/strands-constructs.md` | Every Strands construct used by the workshop |
-| `workshop/fixtures` | Recovery recordings and deterministic failure examples |
-| `workshop/checkpoints` | Known-good recovery points |
-| `packages/workshop-harness/src` | The harness the whole workshop builds |
-| `apps/pocket-cinema` | Prepared React Native target |
+| `workshop/README.md` | Attendee overview |
+| `workshop/STE-STYLE.md` | Workshop writing standard |
+| `workshop/instructor-guide.md` | Schedule and teaching rules |
+| `workshop/dry-run.md` | Instructor rehearsal |
+| `workshop/troubleshooting.md` | Recovery procedures |
+| `workshop/strands-constructs.md` | Strands code-reading guide |
+| `workshop/lessons/*.md` | Source for the workshop website |
+| `workshop/checkpoints` | Known recovery states |
+| `workshop/fixtures` | Deterministic failures and recorded data |
 
-## What is intentionally absent
+## Scope
 
-This is the workshop repository, not the full TV Build product repository. It excludes release tooling, statistical verification packages, unrelated examples, production CLI commands, and historical implementation plans. The included code is the code attendees inspect and run.
+This repository contains workshop material. It does not contain the complete
+TV Build product, release system, or historical plans.
 
 ## License
 
-MIT No Attribution. See [LICENSE](LICENSE).
+MIT No Attribution. Read [LICENSE](LICENSE).

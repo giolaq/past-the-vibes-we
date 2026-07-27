@@ -1,29 +1,33 @@
 # Workshop Brief
 
-## App purpose
+## App Purpose
 
-Pocket Cinema helps someone browse a small, curated catalog of invented films.
+Pocket Cinema lets a person browse a small catalog of invented films.
 
-## Target user
+## User
 
-A viewer using a television and directional remote from across the room.
+The user watches a television from across the room. The user has a directional
+remote control.
 
-## Screen to adapt
+## Flow
 
-Adapt the home-to-details flow, including returning to the originating card.
+Adapt the home-to-details flow. Restore the source card after Back.
 
-## Essential behavior
+## Required Behavior
 
-The viewer can discover a title, open details, go back, and understand where focus is at every step.
+The user can find a title. The user can open details. The user can go back.
+Visible focus shows the current control.
 
-## Replaceable behavior
+## Replaceable Behavior
 
-Artwork, playback, storage, and backend behavior may remain local workshop substitutes.
+Artwork, playback, storage, and backend behavior can use local workshop data.
 
-## Known constraints
+## Known Limits
 
-The starter is intentionally touch-first. It lacks focus styling, directional rules, focus restoration, Vega metadata, and device verification.
+The starter app uses touch input. It has no focus style, directional rules,
+focus restoration, Vega metadata, or device evidence.
 
 ## Verification
 
-Launch with initial focus, enter a rail, move through boundaries, open details, press back, and restore focus to the originating card.
+Start with visible focus. Enter a rail. Test both rail boundaries. Open
+details. Press Back. Confirm that focus returns to the source card.

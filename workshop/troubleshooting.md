@@ -1,8 +1,15 @@
 # Troubleshooting
 
-## `npx` asks to install `tsx`, or `@strands-agents/sdk` is missing
+Use no more than 10 minutes for one live dependency failure.
+Try one repair.
+Then use the recorded fallback or a checkpoint.
 
-The workshop dependencies are not installed in the package's `node_modules`, or Yarn used Plug'n'Play. Do not accept the `npx` download. From the repository root, run:
+## `npx` requests a `tsx` installation
+
+Do not accept the download.
+The workspace dependencies are not ready.
+
+From the repository root, run:
 
 ```sh
 unset NODE_TLS_REJECT_UNAUTHORIZED
@@ -11,50 +18,82 @@ yarn setup
 yarn doctor
 ```
 
-The repository sets `nodeLinker: node-modules`, and lesson commands use `yarn tsx` so they always select the package-local executable.
+The repository uses the `node-modules` Yarn linker.
+Lesson commands use the package-local `tsx`.
 
-If Node warned about `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove that setting from your shell profile. It disables HTTPS certificate verification and is not a valid dependency-installation fix.
+If Node reports `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove it from your shell profile.
+This setting disables HTTPS certificate verification.
 
-Spend no more than 10 minutes on a live dependency. Try the listed repair once, then use replay or a checkpoint and continue.
+## Setup or type verification fails
 
-## Setup or typecheck fails
+1. Run `yarn setup` from the repository root.
+2. Run the lesson command again.
+3. Use the recorded fallback if the command fails again.
 
-From the repository root, run `yarn setup`, then repeat the lesson command. If it still fails, use replay.
+## The app directory does not exist
 
-## The app is not found
-
-Check that the app directory contains `package.json` and runs before the workshop. Otherwise use `apps/pocket-cinema`.
+Make sure that the app directory contains `package.json`.
+Make sure that the app runs before the workshop.
+Otherwise, use `apps/pocket-cinema`.
 
 ## A model call fails
 
-Run `doctor` once with the exact executor, provider, and model flags from the failed command.
+Run `doctor` with the same executor, provider, and model flags.
 
-- Claude Code: confirm the `claude` command is installed and authenticated.
-- Bedrock: confirm `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`, the region, and model access.
-- OpenAI: confirm `OPENAI_API_KEY` and the exact model id.
-- OpenRouter: confirm `OPENROUTER_API_KEY` and the exact `provider/model` id.
-- Custom model: if pricing is unknown, pass both `--input-rate` and `--output-rate` using the
-  provider's USD-per-million-token rates.
+- For Claude Code, verify installation and authentication.
+- For Bedrock, verify AWS credentials, region, and model access.
+- For OpenAI, verify `OPENAI_API_KEY` and the model ID.
+- For OpenRouter, verify `OPENROUTER_API_KEY` and the `provider/model` ID.
+- For a custom model, supply both pricing flags.
 
-`doctor` checks local setup and credential presence; the model request is the final access check.
-Try one correction. If it still fails, save the error and `out/<runId>/model-logs/`, then use the
-lesson recording. Do not switch providers repeatedly during the workshop.
+Use provider prices in USD per million tokens.
+Do not estimate the prices.
 
-## The cost cap is reached
+Try one correction.
+If it fails, save the error and `model-logs`.
+Then use the lesson recording.
+Do not change providers repeatedly.
 
-Stop. Do not raise the cap without the participant's approval. Continue from the checkpoint.
+## The cost limit is reached
 
-## ADBT is unavailable
+Stop the run.
+Do not increase the cost limit without participant approval.
+Continue from a checkpoint.
 
-The live port stops with exit `3` during `analyze`, before the `plan` phase; it does not continue without platform context. From the repository root, run `yarn --cwd packages/workshop-harness tsx src/index.ts doctor --replay --adbt-live --json` once. The harness starts pinned ADBT through Strands `McpClient`, requires the two documentation tools, and closes the connection after capture. It does not require or modify agent configuration.
+## ADBT is not available
 
-If ADBT still fails, remove `--adbt-live` and use the recorded context beside `port-recording.json`. Inspect `adbt-port-context.json` in the run output to confirm the fallback was used.
+A live port stops with exit code 3.
+It does not continue without required platform context.
 
-If a lesson 4 live run prints `skill "amazon-devices-vega-..." not found`, the ADBT skills are not installed: run `npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force` (or point `WORKSHOP_SKILLS_DIR` at your agent's skills directory). The run continues without the skill, replay runs are unaffected, and `workshop/fixtures/adbt-skills.json` records the skill names, hashes, and excerpts for inspection. The live ADBT MCP connection is separate: the harness starts the same pinned server explicitly for both Claude Code and Strands.
+Run this command one time:
 
-## Vega CLI build or VDA fails
+```sh
+yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
+  --replay --adbt-live --json
+```
 
-Check each boundary separately:
+The harness starts the pinned ADBT server.
+It requires `list_documents` and `read_document`.
+It closes the MCP connection after the operation.
+
+If ADBT still fails, remove `--adbt-live`.
+Use the recorded ADBT context.
+Open `adbt-port-context.json` to verify the evidence mode.
+
+If an ADBT skill is missing, run:
+
+```sh
+npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 \
+  init-context --agent claude-code-cli --force
+```
+
+You can also set `WORKSHOP_SKILLS_DIR`.
+A missing skill does not stop the run.
+The live ADBT MCP connection is separate from skill installation.
+
+## Vega build or VDA fails
+
+Run each command separately:
 
 ```sh
 vega --version
@@ -62,22 +101,68 @@ vega virtual-device status
 vega exec vda devices -l
 ```
 
-The expected SDK is `0.22.5875`. Start VDA with `vega virtual-device start --gui` in a system terminal and keep that terminal open. An empty device list is a failure even when the command exits `0`.
+The required SDK version is `0.22.5875`.
+Start VDA in a system terminal:
 
-If the device is attached but the build fails, use `checkpoints/vega-buildable/app`, run `npm ci` in `app/apps/vega`, and run `npm run build:debug`. Do not run `npm audit fix --force`; the SDK template uses pinned React Native 0.72-era dependencies.
+```sh
+vega virtual-device start --gui
+```
 
-Write down whether the failure came from SDK setup, device attachment, build, or app behavior. Try one repair, then use `checkpoints/complete/`.
+Keep the terminal open.
+An empty device list is a failure.
 
-## Bee is unavailable
+If the build fails with an attached device:
 
-Bee is appendix A1. Skip the live exercise when you lack explicit consent or account access. The instructor can demonstrate the gate with `--replay workshop/fixtures/bee-run/port-recording.json`; the harness then reads the synthetic `fixtures/bee-run/bee-conversation.json` instead of calling Bee.
+1. Open `checkpoints/vega-buildable/app`.
+2. Run `npm ci` in `app/apps/vega`.
+3. Run `npm run build:debug`.
 
-`bee login` and `bee mcp serve` run in your own terminal, not in the harness. If a live run reports that the Bee tools are missing, check that `bee` is on `PATH` (or set `BEE_BIN`) and that you are logged in.
+Do not run `npm audit fix --force`.
+The SDK template uses pinned React Native 0.72 dependencies.
 
-If a run stops with `does not match its hash`, the recorded conversation has been edited. Restore it with `git checkout workshop/fixtures/bee-run/bee-conversation.json`.
+Record the failed boundary.
+Use one of these names:
 
-If `--apply` refuses with `bee_spec_missing`, the propose half has not run in that run directory. Run `bee-run <app> --propose` first, read `out/bee/app/BEE_SPEC.md`, then apply.
+- SDK setup
+- Device attachment
+- Build
+- App behavior
 
-## A detached run appears stuck
+After one repair, use `checkpoints/complete/`.
 
-Run `status <runId> --json`, then `logs <runId>`. Do not edit files under `out/`.
+## Bee is not available
+
+Bee is optional Appendix A1.
+Do not run it without consent.
+Do not run it without account access.
+
+The instructor can use the synthetic recording:
+
+```sh
+--replay workshop/fixtures/bee-run/port-recording.json
+```
+
+Run `bee login` and `bee mcp serve` in your terminal.
+If the Bee tools are missing, verify that `bee` is on `PATH`.
+You can also set `BEE_BIN`.
+
+If the hash does not match, restore the fixture:
+
+```sh
+git checkout workshop/fixtures/bee-run/bee-conversation.json
+```
+
+If `--apply` reports `bee_spec_missing`, run `--propose` first.
+Read `out/bee/app/BEE_SPEC.md`.
+Then run `--apply`.
+
+## A detached run does not progress
+
+Run:
+
+```sh
+status <runId> --json
+logs <runId>
+```
+
+Do not edit files in `out/`.

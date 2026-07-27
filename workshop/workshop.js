@@ -71,7 +71,7 @@ function fallbackCopy(value) {
 document.querySelectorAll(".module-link").forEach(link => link.addEventListener("click", () => showModule(link.dataset.module)));
 showModule(location.hash.slice(1) || "welcome", false);
 
-function lessonBrief(module) { return `<section class="lesson-brief" aria-label="Lesson goals"><div><span>By the end, you can</span><p>${module.objective}</p></div><div><span>Evidence you will produce</span><p>${module.evidence}</p></div></section>`; }
+function lessonBrief(module) { return `<section class="lesson-brief" aria-label="Lesson goals"><div><span>Goal</span><p>${module.objective}</p></div><div><span>Evidence</span><p>${module.evidence}</p></div></section>`; }
 function lessonNavigation(module) {
   const index = modules.indexOf(module);
   const previous = modules[index - 1];

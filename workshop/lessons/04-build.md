@@ -3,50 +3,59 @@ id: build
 number: "04"
 nav: Build until it compiles
 time: 30 minutes
-title: Let the compiler be the judge
-lead: Now the check stops being a grep and becomes a real build — and the failure the model gets back is the compiler's own diagnostics.
-objective: Run a loop whose pass condition is a produced artifact, and trace real build output into the next prompt.
-evidence: A .vpkg exists, and port-result.json records the build failures that were repaired to get it.
+title: Use the compiler as an independent check
+lead: Run a real Vega build. Send the exact compiler diagnostics to the next model attempt.
+objective: Use a produced package as the pass condition. Trace compiler output into the repair request.
+evidence: A .vpkg file and a phase result that records the repaired compiler failure.
 ---
 
-:::welcome The first check that can't be talked around
-Everything up to here could be satisfied by a file containing the right words. A build cannot. It either produces a `.vpkg` or it does not, and when it does not it says exactly why, in a language the model can act on. This lesson is the same loop you already know — propose, verify, retry with the exact failure — with the strongest possible verifier plugged into it.
+:::welcome Use an executable check
+The earlier phases can pass when files contain the required text.
+A compiler uses stronger evidence.
+
+The build either produces a `.vpkg` file or it does not.
+If the build fails, the compiler identifies the cause.
+The harness sends this exact diagnostic to the model.
 :::
 
-:::note This lesson needs the Vega SDK {warning}
-Phases 4, 5, and 6 run real Vega tooling: SDK `0.22.5875` for this one, and an attached virtual device for the next two. If your setup is incomplete, the recorded fallback at the bottom of this page runs the identical control flow with recorded device results — and says so.
+:::note Vega SDK is necessary {warning}
+This lesson requires Vega SDK version `0.22.5875`.
+Lessons 5 and 6 also require an attached VDA.
+
+If the SDK is not available, use the recorded fallback.
+The fallback verifies control flow only.
+It does not produce a local package.
 :::
 
-:::concept What changes when the check executes
-Three things the earlier phases didn't need. The check runs a process with a 15-minute ceiling instead of reading a file. Its output is bounded before it reaches a prompt — a failing build can print megabytes, and the agent has a 40,000-token budget, so `runProcess` keeps the head and the tail and elides the middle. And the phase checks **before** it prompts: a build that already passes never reaches the model, so a green phase costs nothing.
-:::
+## Know the build loop
 
 :::flow
 Verify | Run the build first
-Fail | Keep the compiler's output
-Prompt | Send that exact text
-Patch | Write, rebuild, judge again
+Fail | Keep compiler output
+Prompt | Add exact diagnostics
+Patch | Apply a typed repair
+Verify | Build again
 :::
+
+The build process has a 15-minute time limit.
+The harness limits the amount of build output in the prompt.
+It keeps the start and end of long output.
+
+The phase runs the build before it calls the model.
+If the build passes, the phase does not call the model.
 
 :::predict
-The build fails with `Type 'number' is not assignable to type 'string'`. What exact information
-should reach the model, and why is “the build failed, try again” not enough?
+The compiler reports `Type 'number' is not assignable to type 'string'`.
+What text must the model receive?
+Why is `The build failed` insufficient?
 :::
 
-## Create the failure, then repair it live
+## Add the known build failure
 
-:::yourturn
-Inject one known TypeScript fault into the guarded copy, then run the normal build phase. The fault
-command refuses to touch your source app. The compiler, not a recording or a lucky model mistake,
-starts the retry loop.
-:::
+The injector changes only `out/workshop/app`.
+It does not change `apps/pocket-cinema`.
 
-:::note Keep your executor choice
-The command shows Claude Code. If you selected Strands, replace only
-`--executor claude-cli --model sonnet` with your provider and model flags from lesson 0.
-:::
-
-:::command Inject the workshop fault into the guarded app
+:::command Add the workshop build failure
 yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure workshop --yes
 :::
 
@@ -54,11 +63,20 @@ yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure works
 "expectedDiagnostic":"Type 'number' is not assignable to type 'string'"
 :::
 
-:::command Run the live compiler-repair loop
+## Run the live repair
+
+Use the same executor that you used in the earlier lessons.
+
+:::command Run the build phase
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \
   --phases build --yes --run-id workshop
+:::
+
+:::note Use your selected executor
+If you selected Strands, replace only the executor, provider, and model flags.
+Use the values from Lesson 00.
 :::
 
 :::expected
@@ -67,42 +85,59 @@ build needs a fix:
 src/workshop-build-break.ts(2,14): error TS2322: Type 'number' is not assignable to type 'string'.
 :::
 
+## Inspect the repair evidence
+
 :::steps
-1. Watch the build fail before the first model call. The phase verifies first, so the error is the reason the model runs.
-2. Open `out/workshop/model-logs/build.jsonl`. Find the failed `verification_result`, then the model request containing the same compiler text.
-3. Open `out/workshop/port-result.json`. The rejected failure remains beside the passing attempt and its cost.
-4. Run `git -C out/workshop/app status --porcelain`: empty. The phase removed the injected file and import, built successfully, and committed the verified repair.
-5. Find the `.vpkg` under `out/workshop/app/apps/vega/build/`. That artifact, not the model response, is the pass condition.
+1. Find the first build failure in the terminal.
+2. Open `out/workshop/model-logs/build.jsonl`.
+3. Find the failed `verification_result`.
+4. Find the next model request.
+5. Verify that the request contains the compiler diagnostic.
+6. Open `out/workshop/port-result.json`.
+7. Find the rejected failure.
+8. Find the passing attempt and its cost.
+9. Run `git -C out/workshop/app status --porcelain`.
+10. Verify that the result is empty.
+11. Find the `.vpkg` file in `out/workshop/app/apps/vega/build/`.
+12. Find the build-phase commit.
 :::
 
-:::note Why this demo is deterministic
-`inject-build-failure` adds a tiny invalid TypeScript module and commits it only inside
-`out/workshop/app`. The build phase also checks that the teaching fault and its import are gone.
-Every live provider therefore receives a real compiler failure, while the acceptance bar remains
-the normal Vega build plus a clean tree.
+:::note The failure is deterministic
+`inject-build-failure` adds one invalid TypeScript file.
+It also adds one import to `src/App.tsx`.
+The command commits these changes only in the guarded copy.
+
+The build phase requires the file and import to be absent.
+The normal Vega build must also pass.
+Each live provider receives the same compiler failure.
 :::
 
-:::knowledge Why does this phase check before it calls the model?
-Because most of the time there is nothing to fix. Prompting first would spend a model call to be told the build is fine. Checking first means the loop only pays when something actually failed — and it makes the failure, not the schedule, the reason a model runs.
+:::knowledge Why does the phase verify before the model call?
+Most passing builds do not require a repair.
+A model call before the build would spend money without a failure.
+The compiler diagnostic gives the model a specific repair target.
 :::
 
 :::proof
 claim: "The Vega app builds"
-gate: "The real Vega build exits successfully and produces a .vpkg"
-evidence: "vega-platform-result.json + apps/vega/build/*.vpkg"
-limit: "A package can compile and still crash immediately after launch"
+gate: "The Vega build exits successfully and produces a .vpkg file"
+evidence: "vega-platform-result.json and apps/vega/build/*.vpkg"
+limit: "A package can compile and fail after start"
 :::
 
 :::done
-Live: `out/<runId>/app/apps/vega/build/` contains a `.vpkg`, and `vega-platform-result.json` says `evidenceMode: live`. Replay: the recorded build gate completes and preserves any failure text, but no local `.vpkg` is expected and you make no compile claim.
+For a live run, the build directory contains a `.vpkg` file.
+`vega-platform-result.json` contains `evidenceMode: live`.
+The Git working tree is clean.
+
+For a recorded fallback, do not make a local-build claim.
 :::
 
 :::fallback
-Without the Vega SDK, use the deterministic recorded repair in a separate run. It demonstrates
-failure context and retry control, but it does not produce a local package:
+If the Vega SDK is not available, run the recorded repair in a new run:
 :::
 
-:::command Fallback: recorded compiler repair
+:::command Recorded compiler repair
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \

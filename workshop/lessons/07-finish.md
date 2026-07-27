@@ -3,33 +3,34 @@ id: finish
 number: "07"
 nav: Build your own
 time: 30 minutes
-title: Control the whole pipeline, then design one as a team
-lead: "You learned each signal separately. Now operate the full live pipeline from one dashboard, complete the trust board, and defend a harness design for another domain."
-objective: Read one complete run as a system, then design and challenge the smallest useful harness for one task in your own engineering domain.
-evidence: A reviewed six-phase live run and a team worksheet naming phases, independent checks, approval, budget, and retained evidence.
+title: Control the complete pipeline and design a new harness
+lead: Use the TUI to inspect one complete run. Then design and test a small harness for another engineering task.
+objective: Read a complete run as one system. Design a harness with phases, independent checks, limits, and evidence.
+evidence: A reviewed six-phase run and a team worksheet with an improved check.
 ---
 
 :::raw
-<div class="takeaway"><code>plan → context → run → check → retry → checkpoint → report</code></div>
+<div class="takeaway"><code>plan -> context -> run -> check -> retry -> checkpoint -> report</code></div>
 :::
 
-:::welcome Now take it home
-You've built the loop and inspected each part separately. This final lesson changes scale: first use one dashboard to see the preflight and all six phases as a single controlled run, then point the same design at work you actually care about. The reusable idea is a bounded workflow that gives a model strong context, limits its authority, checks each result, and leaves evidence another developer can inspect. TV and Vega are the example, not the point.
+:::welcome Use the complete system
+The earlier lessons presented one control at a time.
+This lesson presents the complete pipeline.
+
+First, use the TUI to inspect all six phases.
+Then design a harness for another engineering task.
+
+TV and Vega are the example.
+The controlled pipeline is the reusable result.
 :::
 
-## See the complete harness
+## Run the complete pipeline
 
-The earlier lessons use plain output on purpose. You were learning one check, retry, or device
-gate at a time. Now add `--tui` to open the operator view. The TUI does not run a second
-pipeline and it does not replace the logs. It renders the same phase callbacks, cost tally, and
-append-only transcripts you already inspected.
+The TUI displays the existing pipeline state.
+It does not run a second pipeline.
+It does not replace the JSONL transcripts.
 
-:::yourturn
-Run the complete pipeline with the live executor you used in the earlier lessons. When it finishes, keep the dashboard open and inspect at
-least one model phase and one device phase before you close it.
-:::
-
-:::command Run all phases in the final dashboard
+:::command Run all phases with the TUI
 yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --executor claude-cli --model sonnet \
@@ -37,94 +38,124 @@ yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cine
   --run-id final-dashboard --tui
 :::
 
-:::note Using Strands
-Replace `--executor claude-cli --model sonnet` with the provider and model flags you selected in
-lesson 0. Do not change the run id, seed, budget, or phase controls.
+:::note Use your selected executor
+If you selected Strands, replace only the executor, provider, and model flags.
+Do not change the run ID, seed, cost limit, or phase controls.
 :::
 
-:::raw
-<table><thead><tr><th>Key</th><th>What it changes</th></tr></thead><tbody><tr><td><code>↑</code> / <code>↓</code></td><td>Select a phase. The run keeps going.</td></tr><tr><td><code>Tab</code></td><td>Cycle the visible activity: checks, model, tools, or all.</td></tr><tr><td><code>f</code></td><td>Return to the phase that is currently running.</td></tr><tr><td><code>q</code> or <code>Enter</code></td><td>Close the dashboard after the run completes.</td></tr></tbody></table>
-:::
+| Key | Function |
+| --- | --- |
+| Up or Down | Select a phase |
+| `Tab` | Select checks, model events, tools, or all events |
+| `f` | Select the active phase |
+| `q` or `Enter` | Close the completed TUI |
+
+## Inspect the TUI
 
 :::steps
-1. Read the header: exact executor/provider/model, `evidence live`, seed, elapsed time, and cost against the cap.
-2. Start in `checks`. Watch acceptance stay separate from model output and find the commit event created only after a phase passes.
-3. Select `plan`, press `Tab` until `model` appears, and find its request and response.
-4. Select `plan` and switch to `tools`. Find the ADBT document list/read calls made through MCP. This is context the model chose at runtime, not text hidden in the prompt.
-5. Select `build`, `launch`, or `test`. These phases are decided by the platform adapter and checks, not by a model saying the app works.
-6. Press `q` or `Enter`. Open `out/final-dashboard/model-logs/` if you need the complete payload; the dashboard controls visibility, not evidence retention.
+1. Read the executor, provider, and model in the header.
+2. Verify that the header reports `evidence live`.
+3. Read the seed and cost limit.
+4. Select the `checks` view.
+5. Find one independent check.
+6. Find one commit event.
+7. Select the `plan` phase.
+8. Select the `model` view.
+9. Find the model request and response.
+10. Select the `tools` view.
+11. Find the ADBT document operations.
+12. Select the `build` phase.
+13. Find the compiler evidence.
+14. Select the `launch` phase.
+15. Find the device evidence.
+16. Close the TUI.
+17. Open `out/final-dashboard/model-logs/`.
 :::
 
-:::concept Control the view, not the evidence
-`src/tui.ts` is a small adapter over existing run state. It keeps at most a short activity preview
-on screen and filters that preview by concern. The canonical JSONL files remain complete. This
-is the safe observability pattern: a human gets a calm operator view without losing the detailed
-record needed for debugging or audit.
+:::concept The TUI controls the view
+`src/tui.ts` reads the existing run state.
+It shows a short activity list.
+The JSONL files keep the complete event data.
+
+The operator can reduce visible detail.
+The harness does not delete evidence.
 :::
 
-:::knowledge Why introduce the TUI only after the phase lessons?
-An overview is useful after you know what each signal means. Earlier it would hide the checks,
-retry context, and device evidence behind a convenient screen. Here it helps you control a system
-you already understand.
+:::knowledge Why does the workshop add the TUI at the end?
+You must first know the meaning of each signal.
+The TUI is useful after you understand checks, retries, costs, tools, and device evidence.
 :::
 
 :::fallback
-If a live model, SDK, or VDA blocks this final run, use the command below to learn the dashboard.
-It shows the same phases and checks, but its model and platform evidence is recorded:
+If a live dependency fails, run:
 
 `yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
 
-In that fallback, the `plan` tools view is empty because recorded ADBT context replaces live MCP calls. Say that explicitly when you report what you inspected.
+The recorded TUI has no live ADBT tool events.
+Report `evidence recorded`.
 :::
 
-## Complete the trust board
+## Complete the evidence table
 
-| Claim | Strongest proof you used |
+| Claim | Strongest evidence |
 | --- | --- |
-| The model understood the app | Source inventory plus explicit unknowns |
-| The plan used current Vega knowledge | Live ADBT tool calls and document hashes |
-| The code met the declared contract | Independent checks and a phase commit |
-| The package compiled | Vega build and the `.vpkg` artifact |
-| The app stayed alive | Dwell, filtered device log, and two frames |
+| The model inspected the app | Source inventory and explicit unknowns |
+| The plan used Vega knowledge | Live ADBT operations and document hashes |
+| The code met the requirements | Independent checks and a phase commit |
+| The package compiled | Vega build and `.vpkg` file |
+| The app stayed active | Wait period, device log, and two frames |
 | The TV flow worked | Executable focus-transition result |
 
-The strength increases down the table because the observer gets closer to user behavior. The final
-row is still honest about its boundary: it tests the shared focus model, not physical key delivery.
+The evidence becomes stronger near the user behavior.
+The last row still has a limit.
+It does not prove physical key delivery.
 
-## Ten-minute team challenge
+## Complete the team exercise
 
-:::yourturn
-Form a team of two or three. Design the smallest useful harness for one task, then give the design
-to another team to attack. You are not pitching features; you are defending the proof.
-:::
+Form a team of two or three people.
+Select one task:
 
 :::raw
-<div class="grid"><article><h3>Gradle upgrade</h3><p>Upgrade one Android module and retain a passing debug build.</p></article><article><h3>Accessibility repair</h3><p>Find and fix one screen's labeled controls and focus order.</p></article><article><h3>API migration</h3><p>Replace one deprecated client API without changing server behavior.</p></article><article><h3>Flaky test repair</h3><p>Diagnose one test, change the smallest cause, and prove repeatability.</p></article></div>
+<div class="grid"><article><h3>Gradle upgrade</h3><p>Upgrade one Android module. Keep a passing debug build.</p></article><article><h3>Accessibility repair</h3><p>Repair labels and focus order on one screen.</p></article><article><h3>API migration</h3><p>Replace one deprecated client API. Do not change server behavior.</p></article><article><h3>Flaky test repair</h3><p>Repair one test. Prove that repeated runs pass.</p></article></div>
 :::
 
 :::steps
-1. **Minute 0–2:** choose one domain card or one real task. Write one outcome and three explicit non-goals.
-2. **Minute 2–5:** choose at most three phases. Give each phase one observer that is not the model.
-3. **Minute 5–7:** name the knowledge source, approval point, retry limit, no-progress rule, and cost cap.
-4. **Minute 7–9:** swap worksheets. The other team finds one false positive: how could all checks pass while the outcome is still wrong?
-5. **Minute 9–10:** strengthen one check, then prepare a 30-second explanation: claim, proof, remaining limit.
-6. Two teams share. The room votes only on whether the proof matches the claim.
+1. During minutes 0 to 2, write one required result.
+2. Write three non-goals.
+3. During minutes 2 to 5, define no more than three phases.
+4. Give each phase one independent check.
+5. During minutes 5 to 7, identify the knowledge source.
+6. Identify the human approval point.
+7. Set the retry limit.
+8. Set the no-progress rule.
+9. Set the cost limit.
+10. During minutes 7 to 9, exchange worksheets with another team.
+11. Find one false positive in the other design.
+12. During minutes 9 to 10, improve one check.
+13. Prepare a 30-second report.
+14. State the claim, evidence, and remaining limit.
 :::
 
 :::proof
-claim: "This harness pattern transfers beyond TV"
-gate: "Another team can identify the phases, attack a false positive, and strengthen the evidence without changing the model"
+claim: "The harness pattern applies to a task outside TV development"
+gate: "Another team can find a false positive and improve the evidence without changing the model"
 evidence: "workshop/worksheet.md"
-limit: "A paper design is ready for a prototype, not a production claim"
+limit: "The worksheet defines a prototype. It does not prove production readiness."
 :::
 
-:::knowledge What is the smallest useful first version of your harness?
-One repeatable task, a short phase sequence, one strong prior, one independent check per phase, a bounded retry, and a report. Add tools only when a proven gap needs them.
+:::knowledge What is the minimum useful harness?
+Select one repeatable task.
+Use a short phase sequence.
+Supply one necessary knowledge source.
+Add one independent check to each phase.
+Set a retry limit and cost limit.
+Write a report.
 :::
 
 :::done
-You can explain the complete TV port from the dashboard, and another team can read your worksheet,
-challenge its checks, and tell exactly when your harness passes, retries, or stops.
+You can explain the complete run from the TUI.
+Another team can read your worksheet.
+The team can identify the pass, retry, and stop conditions.
 :::
 
 :::raw

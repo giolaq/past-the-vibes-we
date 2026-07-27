@@ -1,7 +1,24 @@
 # Vega Lifecycle Fixture
 
-Use `../vega-lifecycle.json` when Vega SDK or VDA is unavailable. It replays successful results for all ten gates — SDK, device, build, install, launch, capture, pull, logs, capture, pull — through the same lifecycle runner as a live command.
+Use `../vega-lifecycle.json` if the Vega SDK or VDA is unavailable.
 
-`launch-frame.png` is the frame the recorded `pull` writes, referenced by the fixture's `screenshot` field. The harness judges every pulled frame as pixels, so a placeholder cannot stand in: this is a real 1280x720 render of the ported home screen, produced by `scripts/render-tv-frame.mjs`. Re-run that script if the app's layout or catalog changes.
+The fixture supplies recorded results for ten checks:
 
-The fixture is synthetic. It proves the workshop control flow and report contract, not that your app passed on a real device. The same frame is written for both captures, which is why the replay says `no dwell` — there is no process to wait for.
+1. SDK.
+2. Device.
+3. Build.
+4. Install.
+5. Start.
+6. Capture.
+7. Pull.
+8. Logs.
+9. Second capture.
+10. Second pull.
+
+`launch-frame.png` is the recorded frame. The pixel check reads the real
+1280x720 image data. `scripts/render-tv-frame.mjs` creates this repository-owned
+image.
+
+The fixture proves lifecycle control and report format. It does not prove that
+an app passed on a live device. Both captures use the same frame because no
+live process exists.

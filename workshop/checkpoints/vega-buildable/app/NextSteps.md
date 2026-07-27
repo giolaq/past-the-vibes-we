@@ -1,10 +1,13 @@
 # Next Steps
 
-## ADBT sources
+## ADBT Sources
 
 - `port_tv_app_to_vega.md`
 - `port_tv_app_to_vega_fos_rn_app.md`
 
-## Unsupported mappings
+## Unsupported Features
 
-Production playback, DRM, billing, authentication, analytics, and unsupported native modules remain outside this workshop port. Check current ADBT library guidance before adding any native dependency.
+The workshop does not implement production playback, DRM, billing,
+authentication, analytics, or unsupported native modules.
+
+Read current ADBT library guidance before you add a native dependency.

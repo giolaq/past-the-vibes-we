@@ -67,16 +67,32 @@ function markdown(src) {
   // Block starters. Used both to dispatch below and to terminate a paragraph, so the two
   // can never drift apart.
   const isHeading = (line) => /^(#{1,4})\s+/.test(line);
+  const isFence = (line) => /^```[\w-]*\s*$/.test(line);
   const isOrdered = (line) => /^\s*\d+\.\s+/.test(line);
   const isUnordered = (line) => /^\s*[-*]\s+/.test(line);
   const isRawBlock = (line) => /^\s*<(div|section|figure|aside|table|ul|ol|nav|p|h[1-6]|pre|blockquote)\b/.test(line);
-  const startsBlock = (line) => isHeading(line) || isOrdered(line) || isUnordered(line) || isRawBlock(line) || isTableRow(line);
+  const startsBlock = (line) => isFence(line) || isHeading(line) || isOrdered(line) || isUnordered(line) || isRawBlock(line) || isTableRow(line);
 
   while (i < lines.length) {
     let line = lines[i];
 
     // Blank line: skip.
     if (!line.trim()) { i++; continue; }
+
+    // Fenced code block.
+    const fence = /^```([\w-]*)\s*$/.exec(line);
+    if (fence) {
+      i++;
+      const code = [];
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        code.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      const language = fence[1] ? ` class="language-${escapeHtml(fence[1])}"` : "";
+      parts.push(`<pre><code${language}>${escapeHtml(code.join("\n"))}</code></pre>`);
+      continue;
+    }
 
     // Headings.
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
@@ -167,18 +183,18 @@ const comp = {
     `<section class="concept"><p class="eyebrow">Concept</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
   // The lesson opener: what we build here and why it matters.
   welcome: (title, text) =>
-    `<section class="welcome"><p class="eyebrow">Welcome</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
+    `<section class="welcome"><p class="eyebrow">Lesson goal</p><h2>${inline(title)}</h2><p>${inline(text)}</p></section>`,
   // Marks the moment the attendee stops reading and starts running things.
   yourturn: (text) =>
-    `<aside class="yourturn"><p class="eyebrow">Over to you</p><strong>Now it's your turn</strong><p>${inline(text)}</p></aside>`,
+    `<aside class="yourturn"><p class="eyebrow">Exercise</p><strong>Do this task</strong><p>${inline(text)}</p></aside>`,
   note: (title, text, type = "") =>
     `<aside class="note ${type}"><strong>${inline(title)}</strong><br>${inline(text)}</aside>`,
   predict: (text) =>
-    `<aside class="predict"><p class="eyebrow">Pause before running</p><strong>Make a prediction</strong><p>${inline(text)}</p></aside>`,
+    `<aside class="predict"><p class="eyebrow">Before you run the command</p><strong>Predict the result</strong><p>${inline(text)}</p></aside>`,
   knowledge: (question, answer) =>
     `<section class="knowledge"><p class="eyebrow">Check your understanding</p><details><summary>${inline(question)}</summary><p>${inline(answer)}</p></details></section>`,
-  done: (text) => comp.note("You are done when", text, "success"),
-  fallback: (text) => comp.note("If blocked", text, "warning"),
+  done: (text) => comp.note("Completion check", text, "success"),
+  fallback: (text) => comp.note("If the live path is blocked", text, "warning"),
   expected: (text) =>
     `<div class="expected"><strong>Find this evidence</strong><pre><code>${escapeHtml(text)}</code></pre></div>`,
   command: (title, code) =>
@@ -192,7 +208,7 @@ const comp = {
   flow: (items) =>
     `<div class="flow">${items.map((item, index) => `${index ? "<i>→</i>" : ""}<div><b>${inline(item[0])}</b><span>${inline(item[1])}</span></div>`).join("")}</div>`,
   proof: (spec) =>
-    `<section class="proof"><div class="proof-title"><span>Claim → proof</span><strong>${inline(spec.claim)}</strong></div><dl><dt>Independent gate</dt><dd>${inline(spec.gate)}</dd><dt>Evidence</dt><dd><code>${escapeHtml(spec.evidence)}</code></dd>${spec.limit ? `<dt>Still not proved</dt><dd>${inline(spec.limit)}</dd>` : ""}</dl></section>`,
+    `<section class="proof"><div class="proof-title"><span>Claim → evidence</span><strong>${inline(spec.claim)}</strong></div><dl><dt>Independent check</dt><dd>${inline(spec.gate)}</dd><dt>Evidence</dt><dd><code>${escapeHtml(spec.evidence)}</code></dd>${spec.limit ? `<dt>Limit</dt><dd>${inline(spec.limit)}</dd>` : ""}</dl></section>`,
 };
 
 function phaseCard(opts) {
@@ -211,51 +227,51 @@ function phaseCard(opts) {
 
 const partials = {
   skillDelivery: () =>
-    `<h2>One skill, two delivery paths</h2>
-    ${rawTable(["Executor", "How the selected skill arrives"], [
-      ["Claude CLI", "<code>injectSkillText()</code> appends the complete skill body to the subprocess prompt."],
-      ["Strands", "<code>Skill</code> objects enter an <code>AgentSkills</code> plugin. Metadata appears first; the agent activates instructions with the <code>skills</code> tool."],
-      ["Replay", "No model runs. A recorded response replaces the live executor while the same phase plan remains visible."],
+    `<h2>Skill delivery</h2>
+    ${rawTable(["Executor", "Method"], [
+      ["Claude CLI", "<code>injectSkillText()</code> adds the complete skill body to the process prompt."],
+      ["Strands", "<code>AgentSkills</code> registers each <code>Skill</code> as a plugin. The agent activates instructions with the <code>skills</code> tool."],
+      ["Recorded fallback", "No model runs. A recorded response replaces the live call."],
     ])}
-    ${comp.note("A missing skill never blocks a run", "<code>loadSkills()</code> reports a skill it cannot find and continues. An uninstalled ADBT skill costs the model that knowledge, not the run.")}`,
+    ${comp.note("Missing skill", "<code>loadSkills()</code> reports and skips a missing skill. The run continues without that knowledge.")}`,
   strandsConstructs: () =>
     `<h2>Strands constructs used here</h2>
-    <p>Read this table from setup to result. These are the Strands APIs the workshop uses — and everything in it is SDK-supplied: one dependency provides the loop, providers, validated tools, enforced schemas, limits, and metrics, while writes, checks, retries, cost, and commits stay in workshop code.</p>
+    <p>Read the table from setup to result. Strands supplies the model and tool loop. Workshop code supplies writes, checks, retries, cost control, and commits.</p>
     ${rawTable(["Construct", "What it does here", "Where to find it"], [
-      ["<code>Agent</code>", "Runs the model-and-tool loop for one phase. <code>name</code> and <code>description</code> identify its job.", "<code>port-executor.ts</code>"],
-      ["<code>Model</code>, <code>BedrockModel</code>, <code>OpenAIModel</code>", "Hide provider-specific model calls. OpenRouter uses <code>OpenAIModel</code> with an OpenAI-compatible base URL.", "<code>model-factory.ts</code>"],
-      ["<code>systemPrompt</code>", "Sets durable operating rules: inspect first, use read-only evidence, and return a complete patch.", "<code>port-executor.ts</code>"],
-      ["<code>tool()</code>", "Turns a named callback into a model-callable capability. The description tells the model when to use it.", "<code>port-tools.ts</code>"],
-      ["<code>inputSchema</code>", "Uses Zod to validate tool arguments and type the callback input before project code runs.", "<code>port-tools.ts</code>"],
-      ["<code>tools</code>", "Registers only list, read, and literal search. No write or shell capability enters the agent loop.", "<code>port-executor.ts</code>"],
-      ["<code>Skill</code>", "Represents one selected phase skill with a name, description, and full body.", "<code>skills.ts</code>"],
-      ["<code>AgentSkills</code>", "Adds progressive skill disclosure and the model-callable <code>skills</code> activation tool.", "<code>skills.ts</code>"],
-      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent. Claude CLI does not use this field.", "<code>port-executor.ts</code>"],
-      ["<code>structuredOutputSchema</code>", "Requires the final answer to match <code>{ summary, files }</code>. Strands validates it and can feed schema failures back to the model.", "<code>port-contract.ts</code>"],
-      ["<code>printer: false</code>", "Disables Strands' automatic console renderer so the CLI keeps stdout reserved for versioned JSON events.", "<code>port-executor.ts</code>"],
-      ["<code>agent.invoke()</code>", "Starts one bounded run with the assembled phase prompt.", "<code>port-executor.ts</code>"],
-      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Bound the loop at 8 turns and 40,000 tokens per phase.", "<code>port-executor.ts</code>"],
-      ["<code>cancelSignal</code>", "Lets a native ten-minute <code>AbortSignal</code> cancel the invocation at Strands cancellation points.", "<code>port-executor.ts</code>"],
-      ["<code>AgentResult</code>", "Carries validated <code>structuredOutput</code>, messages, stop state, and metrics after invocation.", "returned by <code>invoke()</code>"],
-      ["<code>StructuredOutputError</code>", "Makes a missing structured patch an explicit executor failure.", "<code>port-executor.ts</code>"],
+      ["<code>Agent</code>", "Runs one model and tool loop. <code>name</code> and <code>description</code> identify the phase.", "<code>port-executor.ts</code>"],
+      ["<code>Model</code>, <code>BedrockModel</code>, <code>OpenAIModel</code>", "Provide one interface for supported model providers. OpenRouter uses the OpenAI-compatible interface.", "<code>model-factory.ts</code>"],
+      ["<code>systemPrompt</code>", "Requires discovery, read-only evidence, and a complete patch.", "<code>port-executor.ts</code>"],
+      ["<code>tool()</code>", "Makes a named callback available to the model.", "<code>port-tools.ts</code>"],
+      ["<code>inputSchema</code>", "Uses Zod to validate tool arguments.", "<code>port-tools.ts</code>"],
+      ["<code>tools</code>", "Registers list, read, and literal search. It does not register write or shell.", "<code>port-executor.ts</code>"],
+      ["<code>Skill</code>", "Contains one selected phase instruction.", "<code>skills.ts</code>"],
+      ["<code>AgentSkills</code>", "Supplies progressive skill activation through the <code>skills</code> tool.", "<code>skills.ts</code>"],
+      ["<code>plugins</code>", "Registers <code>AgentSkills</code> on the Strands agent.", "<code>port-executor.ts</code>"],
+      ["<code>structuredOutputSchema</code>", "Requires <code>{ summary, files }</code> and reports schema failures.", "<code>port-contract.ts</code>"],
+      ["<code>printer: false</code>", "Keeps SDK text out of the CLI JSON stream.", "<code>port-executor.ts</code>"],
+      ["<code>agent.stream()</code>", "Starts one bounded run and returns native stream events.", "<code>port-executor.ts</code>"],
+      ["<code>limits.turns</code> / <code>limits.totalTokens</code>", "Limit one phase to 8 turns and 40,000 tokens.", "<code>port-executor.ts</code>"],
+      ["<code>cancelSignal</code>", "Stops the call after ten minutes or an external abort.", "<code>port-executor.ts</code>"],
+      ["<code>AgentResult</code>", "Contains structured output, messages, stop data, and metrics.", "returned by <code>stream()</code>"],
+      ["<code>StructuredOutputError</code>", "Reports a missing structured patch.", "<code>port-executor.ts</code>"],
       ["<code>metrics.accumulatedUsage</code>", "Reports input and output tokens. The harness records them and applies its own cost rates.", "<code>port-executor.ts</code>"],
     ])}
-    ${comp.note("Keep the boundary visible", "Zod supplies schemas, native <code>AbortSignal</code> supplies cancellation, and the harness supplies cost policy and verification. Strands consumes those inputs and runs the bounded agent loop.")}`,
+    ${comp.note("Control boundary", "Strands runs the bounded agent loop. The harness controls cost and verification.")}`,
   fullHarnessStrandsConstructs: () =>
-    `<h2>Why the workshop uses invoke</h2>
-    <p>The workshop uses <code>agent.invoke()</code> so one phase has one visible request, one typed result, and one metrics object. A larger CLI can use <code>agent.stream()</code> and <code>AgentStreamEvent</code> for progress without changing the pipeline boundary.</p>
-    ${comp.note("Features still outside the design", "The repository does not use Strands hooks, Graph, Swarm, agent-as-tool, SDK session or memory managers, custom conversation managers, or SDK-provided write and shell tools.")}`,
+    `<h2>Why the workshop uses stream</h2>
+    <p>The workshop uses <code>agent.stream()</code> to record model and tool events during a phase. <code>consumeStream()</code> keeps the final <code>AgentResult</code>. The harness boundary does not change.</p>
+    ${comp.note("Features outside the design", "The repository does not use Strands hooks, Graph, Swarm, agent-as-tool, SDK session or memory managers, custom conversation managers, or SDK write and shell tools.")}`,
   mcpConstructs: () =>
     `<h2>Strands MCP constructs used here</h2>
-    ${rawTable(["Construct", "Role in the ADBT path"], [
-      ["<code>McpClient</code>", "Strands client wrapper that connects lazily, exposes MCP tools, calls them, and cleans up the connection."],
-      ["<code>applicationName</code> / <code>applicationVersion</code>", "Identify Past the Vibes Workshop to the MCP server during connection setup."],
-      ["<code>listTools()</code>", "Strands calls this for the passed <code>McpClient</code> to discover ADBT's tools dynamically, then exposes them to the model. The harness does not require or pre-pick tool names."],
-      ["<code>Agent({ tools: [...projectTools, adbtClient] })</code>", "The <code>McpClient</code> is passed into the agent's tools. Strands invokes ADBT's tools for the model during the agent loop; the harness does not call them."],
-      ["<code>agent.messages</code>", "After the phase, the harness walks the tool-use and tool-result blocks to reconstruct which ADBT docs the model read, then hashes them into <code>adbt-port-context.json</code>."],
-      ["<code>disconnect()</code>", "Closes the child server and transport in <code>finally</code>, including failure paths."],
+    ${rawTable(["Construct", "Function in the ADBT path"], [
+      ["<code>McpClient</code>", "Connects to ADBT and exposes its tools."],
+      ["<code>applicationName</code> / <code>applicationVersion</code>", "Identify the workshop to ADBT."],
+      ["<code>listTools()</code>", "Discovers ADBT tools. The harness does not preselect document tools."],
+      ["<code>Agent({ tools: [...projectTools, adbtClient] })</code>", "Registers ADBT as an agent tool source."],
+      ["<code>agent.messages</code>", "Records which ADBT documents the model read. The harness hashes these sources."],
+      ["<code>disconnect()</code>", "Closes the server and child process on success or failure."],
     ])}
-    ${comp.note("The transport is a separate layer", "<code>StdioClientTransport</code> comes from the official Model Context Protocol SDK, not Strands. It starts pinned ADBT as a child process. The harness passes the <code>McpClient</code> into the agent's tools so the model can call ADBT itself; provenance is reconstructed from the message history afterward.")}`,
+    ${comp.note("MCP transport", "<code>StdioClientTransport</code> comes from the Model Context Protocol SDK. It starts pinned ADBT as a child process. The harness gets source evidence from agent message history.")}`,
 };
 
 // Table builder used by partials (headers/rows are pre-formatted HTML, so no

@@ -1,8 +1,13 @@
 # Focus Failure Fixture
 
-Expected failure: after opening details from `Paper City`, pressing back returns home but initial focus replaces the originating-card focus.
+Expected failure:
 
-Repair context:
+1. Open details from `Paper City`.
+2. Press Back.
+3. Home opens.
+4. Focus incorrectly moves to the featured action.
+
+Retry context:
 
 ```text
 focus_restore failed: expected card "paper" after BACK, observed featured action "signal".
