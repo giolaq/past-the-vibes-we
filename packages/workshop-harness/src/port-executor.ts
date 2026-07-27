@@ -32,12 +32,13 @@ export interface PortExecutor { call(phase: string, prompt: string, options?: Po
 export type ExecutorConfig =
   | { kind: "claude-cli"; command: string; model: string; pricing: ModelPricing }
   | { kind: "strands"; model: ModelConfig; pricing: ModelPricing };
+export type ExecutorInput = { executor?: string; provider?: string; model?: string; region?: string; command?: string; inputRate?: string; outputRate?: string };
 
 export const READ_ONLY_TOOLS = "Read,Grep,Glob";
 const READ_ONLY_TOOL_RULES = ["Read", "Grep", "Glob"];
 const BLOCKED_CLAUDE_TOOLS = ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"];
 
-export function resolveExecutorConfig(input: { executor?: string; provider?: string; model?: string; region?: string; command?: string; inputRate?: string; outputRate?: string } = {}): ExecutorConfig {
+export function resolveExecutorConfig(input: ExecutorInput = {}): ExecutorConfig {
   const kind = input.executor ?? process.env.WORKSHOP_EXECUTOR ?? "claude-cli";
   if (kind === "claude-cli") {
     const model = input.model ?? process.env.CLAUDE_MODEL ?? "sonnet";

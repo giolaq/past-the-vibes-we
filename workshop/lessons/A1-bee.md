@@ -71,10 +71,11 @@ Where must this information go?
 
 ## Create the proposed specification
 
+The live Bee path requires Strands. Set `"executor": "strands"` and the
+provider settings in `../../workshop.config.json` before you continue.
+
 :::command Create the Bee specification
-yarn --cwd packages/workshop-harness tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
+yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
   --propose
 :::
 
@@ -96,7 +97,7 @@ The live Bee path does not.
 6. Read the `Deliberately excluded` section.
 7. Verify that travel and family information is excluded.
 8. Verify that the unapproved search idea is excluded.
-9. Run `git -C out/bee/app diff --name-only HEAD~2 HEAD`.
+9. Run `git -C ../../out/bee/app diff --name-only HEAD~2 HEAD`.
 10. Verify that only the specification files changed.
 11. Open `out/bee/bee-context.json`.
 12. Verify that it contains IDs and hashes only.
@@ -125,9 +126,7 @@ Do not run the apply command until you approve the specification.
 ## Apply the approved specification
 
 :::command Apply, build, and start
-yarn --cwd packages/workshop-harness tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
+yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
   --apply --yes
 :::
 
@@ -166,7 +165,7 @@ The excluded list contains private and unapproved content.
 
 :::fallback
 If you do not have consent or Bee access, use the synthetic recording.
-Replace the live executor flags with:
+Add this recorded model option:
 
 `--replay ../../workshop/fixtures/bee-run/port-recording.json`
 

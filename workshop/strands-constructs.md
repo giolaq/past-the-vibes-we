@@ -55,8 +55,9 @@ Strands uses one common `Model` interface.
 | `OpenAIModel` | Calls an OpenAI model. |
 | `OpenAIModel` with `clientConfig.baseURL` | Calls OpenRouter through its OpenAI-compatible endpoint. |
 
-The user selects a provider with `--provider`. The user selects a model with
-`--model`. Verification stays the same for all providers.
+The user selects a provider and model in `workshop.config.json`.
+Command-line options can override the file for one run.
+Verification stays the same for all providers.
 
 ## Typed Tools
 

@@ -5,7 +5,15 @@ This package is the coding harness for the **Past the Vibes** workshop.
 It copies a React Native app into a guarded run directory. It plans and applies
 a Vega port. It checks every phase. It does not edit the source app.
 
-Run the commands in this file from the repository root.
+Complete setup from the repository root. Then change directory once:
+
+```sh
+yarn setup
+yarn verify
+cd packages/workshop-harness
+```
+
+Run the remaining commands in this file from `packages/workshop-harness`.
 
 ## Port Sequence
 
@@ -85,12 +93,10 @@ The harness supplies:
 
 Read `workshop/strands-constructs.md` for each SDK construct.
 
-## Install and Test
+## Check the Environment
 
 ```sh
-yarn setup
-yarn verify
-yarn doctor
+yarn tsx src/index.ts doctor --json
 ```
 
 Set `WORKSHOP_OUT` to use a different output directory.
@@ -98,53 +104,47 @@ Set `WORKSHOP_OUT` to use a different output directory.
 The package lists `openai` and `@opentelemetry/api` because Strands declares
 them as peer dependencies. Workshop code does not import them directly.
 
-## Select an Executor
+## Configure the Model
 
-### Claude Code CLI
+Edit `../../workshop.config.json`. The harness loads this file automatically.
 
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run <app> \
-  --executor claude-cli --model sonnet --yes --json
+For Claude Code CLI:
+
+```json
+{
+  "executor": "claude-cli",
+  "model": "sonnet"
+}
 ```
 
-### Strands with Bedrock
+For Strands with Amazon Bedrock:
 
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run <app> \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
-  --region us-west-2 --yes --json
+```json
+{
+  "executor": "strands",
+  "provider": "bedrock",
+  "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "region": "us-west-2"
+}
 ```
 
 Strands also supports `openai` and `openrouter`. Configure the provider
-credential before you run `doctor`.
+credential before you run `doctor`. Do not put credentials in this file.
+Command-line model options remain available as temporary overrides.
 
 ## Inspect the Plan
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema \
+yarn tsx src/index.ts plan ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --seed workshop-v1 --max-cost 3 --json
 ```
 
-Read the phases and cost limit. Then run the selected live executor.
-
-### Claude Code
+Read the phases and cost limit. Then run the configured live executor:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
-  --yes --seed workshop-v1 --max-cost 3 --json
-```
-
-### Strands with Bedrock
-
-```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
   --yes --seed workshop-v1 --max-cost 3 --json
 ```
 
@@ -167,13 +167,13 @@ Keep the returned `runId`. Inspect these files:
 Read one transcript:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
+yarn tsx src/index.ts logs <runId> --phase plan
 ```
 
 Follow a live transcript:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan --follow
+yarn tsx src/index.ts logs <runId> --phase plan --follow
 ```
 
 Each JSONL record includes its schema version, time, sequence, phase, attempt,
@@ -231,7 +231,7 @@ npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 check-status --agen
 Use the run ID from the port:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --plan --json
+yarn tsx src/index.ts vega-run <runId> --plan --json
 ```
 
 Read the plan before you continue.
@@ -270,8 +270,8 @@ Require `running: true` and a non-empty device list.
 Install the pinned app dependencies. Then run the lifecycle:
 
 ```sh
-npm --prefix out/<runId>/app/apps/vega install
-yarn --cwd packages/workshop-harness tsx src/index.ts vega-run <runId> --yes --json
+npm --prefix ../../out/<runId>/app/apps/vega install
+yarn tsx src/index.ts vega-run <runId> --yes --json
 ```
 
 A live claim requires:
@@ -287,7 +287,7 @@ A live claim requires:
 Use this only if a model, ADBT, SDK, or device blocks the exercise:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
@@ -302,8 +302,7 @@ device behavior.
 Lesson 1 uses one model call without the normal control loop:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts naive ../../apps/pocket-cinema \
-  --executor claude-cli --model sonnet \
+yarn tsx src/index.ts naive ../../apps/pocket-cinema \
   --max-cost 1 --run-id naive-demo --yes
 ```
 
@@ -312,7 +311,7 @@ This command saves a proposal. It does not apply, build, start, or test it.
 Lesson 4 injects a compiler error only in the guarded copy:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts inject-build-failure workshop --yes
+yarn tsx src/index.ts inject-build-failure workshop --yes
 ```
 
 The normal `build` phase must remove the fault and pass the Vega build.
@@ -320,9 +319,8 @@ The normal `build` phase must remove the fault and pass the Vega build.
 Lesson 7 shows the complete run in a TUI:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui
 ```
 

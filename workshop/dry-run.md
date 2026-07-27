@@ -45,14 +45,15 @@ yarn verify
 
 ### Step 3: Check the Live Executor
 
-**Run this command for Claude Code**
+**Run**
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor claude-cli --model sonnet --json
+cd packages/workshop-harness
+yarn tsx src/index.ts doctor --json
+cd ../..
 ```
 
-For Strands, use your selected provider and model.
+The command reads `workshop.config.json`.
 
 **Expect:** The selected executor and credential report `state: ready`.
 
@@ -64,7 +65,9 @@ until their lessons.
 **Run**
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
+cd packages/workshop-harness
+yarn tsx src/index.ts tv-check ../../apps/pocket-cinema
+cd ../..
 ```
 
 **Expect:** `tvReady: false` with six failures. The executable focus check is
@@ -101,7 +104,9 @@ Do this step only if you will show the live MCP call.
 **Run**
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
+cd packages/workshop-harness
+yarn tsx src/index.ts doctor --adbt-live --json
+cd ../..
 ```
 
 **Expect:** ADBT reports two Vega port workflows.
@@ -188,12 +193,10 @@ Use one live executor for all live model commands.
 
 ```sh
 yarn tsx src/index.ts naive ../../apps/pocket-cinema \
-  --executor claude-cli --model sonnet \
   --max-cost 1 --run-id naive-rehearsal --yes
 
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases analyze --yes --run-id rehearsal
 ```
 
@@ -227,7 +230,7 @@ Run the lesson command with `--phases port`.
 **Pass:** Run:
 
 ```sh
-git -C out/rehearsal/app log --oneline
+git -C ../../out/rehearsal/app log --oneline
 ```
 
 Confirm the phase commit.
@@ -276,7 +279,6 @@ git checkout -- src/port-verification.ts
 yarn tsx src/index.ts inject-build-failure rehearsal --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases build --yes --run-id rehearsal
 ```
 
@@ -318,16 +320,17 @@ Explain three facts:
 **Run**
 
 ```sh
-cp ../../workshop/fixtures/vega-lifecycle.json ../../workshop/fixtures/crash-demo.json
+cp ../../workshop/fixtures/vega-lifecycle.json /tmp/past-the-vibes-crash-demo.json
 ```
 
-Add `FATAL EXCEPTION: main` to the `logs` result in `crash-demo.json`.
+Add `FATAL EXCEPTION: main` to the `logs` result in
+`/tmp/past-the-vibes-crash-demo.json`.
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay ../../workshop/fixtures/crash-demo.json \
+  --platform-replay /tmp/past-the-vibes-crash-demo.json \
   --phases launch --yes --run-id crashdemo
 ```
 
@@ -337,7 +340,8 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 
 ### Step 21: Test the Pixel Check
 
-Copy the lifecycle file to `noshot-demo.json`. Remove its `screenshot` line.
+Copy the lifecycle file to `/tmp/past-the-vibes-noshot-demo.json`.
+Remove its `screenshot` line.
 Run the same command with the new file.
 
 **Expect:** The command reports that the frame is 1x1, flat, and black. It
@@ -346,7 +350,7 @@ exits with code 2.
 **Pass:** Remove both temporary files:
 
 ```sh
-rm ../../workshop/fixtures/crash-demo.json ../../workshop/fixtures/noshot-demo.json
+rm /tmp/past-the-vibes-crash-demo.json /tmp/past-the-vibes-noshot-demo.json
 ```
 
 ### Step 22: Compare Before and After
@@ -356,7 +360,7 @@ Use the completed run from step 19.
 **Run**
 
 ```sh
-yarn tsx src/index.ts tv-check out/<step-19-runId>/app
+yarn tsx src/index.ts tv-check ../../out/<step-19-runId>/app
 ```
 
 **Expect:** `tvReady: true` and `failures: []`. The focus result contains all
@@ -526,13 +530,14 @@ the retry limit.
 cd /tmp/ptv-rehearsal
 git pull
 yarn verify
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor claude-cli --model sonnet --json
+cd packages/workshop-harness
+yarn tsx src/index.ts doctor --json
+cd ../..
 rm -rf out/*
 yarn site
 ```
 
-Use the Strands provider and model flags if you teach that path.
+Confirm that `workshop.config.json` selects the path that you will teach.
 
 Start VDA in its dedicated terminal. Check status and device attachment.
 Confirm the selected device procedure with both co-hosts.

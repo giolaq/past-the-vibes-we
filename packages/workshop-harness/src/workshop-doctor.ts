@@ -2,6 +2,7 @@ import { runProcess } from "./process.js";
 import { AdbtMcpContextProvider } from "./context-providers/adbt.js";
 import { resolveExecutorConfig } from "./port-executor.js";
 import { ADBT_PACKAGE, VEGA_SDK_VERSION } from "./platform/vega.js";
+import { loadExecutorInput } from "./workshop-config.js";
 
 export type DoctorCheck = { name: string; status: "pass" | "repair" | "optional"; detail: string; hint?: string };
 
@@ -36,18 +37,12 @@ async function adbtCheck(): Promise<DoctorCheck> {
 async function executorCheck(): Promise<DoctorCheck> {
   if (process.argv.includes("--replay")) return { name: "model-executor", status: "pass", detail: "replay (no model required)" };
   // Same resolution the port uses, so doctor can never green-light a different executor.
-  const config = resolveExecutorConfig({
-    executor: argValue("--executor"),
-    provider: argValue("--provider"),
-    model: argValue("--model"),
-    inputRate: argValue("--input-rate"),
-    outputRate: argValue("--output-rate"),
-  });
-  if (config.kind === "claude-cli") return commandCheck("model-executor", config.command, ["--version"], "Install Claude Code or select --executor strands.");
+  const config = resolveExecutorConfig(loadExecutorInput(process.argv.slice(2)));
+  if (config.kind === "claude-cli") return commandCheck("model-executor", config.command, ["--version"], "Install Claude Code or select Strands in workshop.config.json.");
   const provider = config.model.provider;
   const key = provider === "openai" ? "OPENAI_API_KEY" : provider === "openrouter" ? "OPENROUTER_API_KEY" : "AWS_PROFILE";
   const ready = Boolean(process.env[key] || (provider === "bedrock" && process.env.AWS_ACCESS_KEY_ID));
-  return { name: "model-executor", status: ready ? "pass" : "repair", detail: `Strands ${provider}`, hint: ready ? undefined : `Configure ${key}, or use --executor claude-cli / --replay.` };
+  return { name: "model-executor", status: ready ? "pass" : "repair", detail: `Strands ${provider}: ${config.model.modelId}`, hint: ready ? undefined : `Configure ${key}, select Claude Code in workshop.config.json, or use --replay.` };
 }
 
 async function commandCheck(name: string, command: string, args: string[], hint: string, optional = false, timeoutMs = 2_000): Promise<DoctorCheck> {
@@ -59,5 +54,3 @@ async function commandCheck(name: string, command: string, args: string[], hint:
     return { name, status: optional ? "optional" : "repair", detail: "not found", hint };
   }
 }
-
-function argValue(name: string): string | undefined { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : undefined; }

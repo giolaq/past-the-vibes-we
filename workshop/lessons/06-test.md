@@ -52,15 +52,13 @@ The phase runs the focus test from the port phase.
 It also reads the frames from the launch phase.
 
 :::command Run the focus test
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases test --yes --run-id workshop
 :::
 
-:::note Use your selected executor
-If you selected Strands, replace only the executor, provider, and model flags.
-Use the values from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 :::
 
 ## Inspect the focus evidence
@@ -74,7 +72,7 @@ Use the values from Lesson 00.
 6. Read the failed Back example.
 7. Open the focus-state module in the guarded app.
 8. Find the focus-restoration code.
-9. Run `git -C out/workshop/app status --porcelain`.
+9. Run `git -C ../../out/workshop/app status --porcelain`.
 10. Verify that the result is empty.
 11. Find the test-phase commit.
 :::
@@ -100,12 +98,12 @@ The workshop does not supply this capability.
 The deterministic pixel check verifies image properties.
 It cannot identify every incorrect application screen.
 
-If your Strands model supports image input, add one bounded model review:
+If your configured Strands model supports image input, add one bounded model
+review:
 
 :::command Add the optional screenshot review
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor strands --provider bedrock \
   --evaluate-screenshot --phases test --yes --run-id workshop
 :::
 
@@ -121,7 +119,7 @@ The result was `tvReady: false`.
 Run the same check on the ported app:
 
 :::command Run the final TV-readiness check
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check out/workshop/app
+yarn tsx src/index.ts tv-check ../../out/workshop/app
 :::
 
 :::expected

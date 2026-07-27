@@ -31,6 +31,7 @@ corepack enable
 yarn setup
 yarn verify
 yarn doctor
+cd packages/workshop-harness
 ```
 
 Continue when `yarn verify` passes. Continue when `yarn doctor` reports
@@ -40,7 +41,7 @@ unavailable.
 Record the initial TV check:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
+yarn tsx src/index.ts tv-check ../../apps/pocket-cinema
 ```
 
 Expect `tvReady: false`. Record the failure list. This is the initial evidence.
