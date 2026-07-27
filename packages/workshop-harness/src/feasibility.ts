@@ -27,7 +27,7 @@ export type FeasibilityOutput = z.infer<typeof FeasibilityOutputSchema>;
 
 export type FeasibilityResult = FeasibilityOutput & { costUsd: number; adbt?: AdbtPortContext };
 
-export function buildFeasibilityPrompt(source: SourceDiscovery, findings: AuditFinding[], adbt: AdbtPortContext, liveMcp = false): string {
+export function buildFeasibilityPrompt(source: SourceDiscovery, findings: AuditFinding[], adbt: AdbtPortContext, liveMcp = false, workshopBrief = ""): string {
   const guidance = liveMcp
     ? "Use the ADBT MCP tools to list and read the Vega React Native porting and library-compatibility guidance before deciding. Do not rely on model memory."
     : renderAdbtPrompt(adbt);
@@ -39,6 +39,9 @@ Goal: Decide if the port is possible and classify each dependency as supported, 
 App: ${source.name}
 Dependencies (from package.json):
 ${source.dependencies.map((dependency) => `- ${dependency}`).join("\n") || "- none detected"}
+
+Workshop brief:
+${workshopBrief || "No workshop brief was supplied."}
 
 Deterministic portability findings:
 ${JSON.stringify(findings, null, 2)}
@@ -58,8 +61,9 @@ export async function runFeasibility(options: {
   liveMcp?: boolean;
   mcpClient?: McpClient;
   maxCostUsd?: number;
+  workshopBrief?: string;
 }): Promise<FeasibilityResult> {
-  const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt, options.liveMcp);
+  const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt, options.liveMcp, options.workshopBrief);
   const model = await options.executor.call(FEASIBILITY_PHASE, prompt, {
     schema: FeasibilityOutputSchema,
     extraTools: options.mcpClient ? [options.mcpClient] : [],

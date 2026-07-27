@@ -71,9 +71,13 @@ The strictness has a reason: a model with a write tool or a shell can corrupt yo
 
 ---
 
-## 4. The guarded copy: your source is never touched
+## 4. The product input and guarded copy
 
-Before anything runs, the harness copies your app into `out/<runId>/app/` and does `git init` inside that copy (`src/port-pipeline.ts` → `initializeGit`). Everything the model proposes is written there. The feasibility model reads a separate disposable copy. Your real `apps/pocket-cinema/` is never passed to a write-capable process.
+The existing React Native app is the product input. It supplies the current code, content, dependencies, and behavior. Its required `workshop-brief.md` adds one bounded flow, constraints, non-goals, and verification. The workshop does not use separate content, brand, or design JSON files.
+
+The harness hashes this complete input and records it in `run-spec.json`. A resumed run refuses a changed source or brief. This prevents one approved plan from being applied to a different product state.
+
+Before anything runs, the harness copies your app into `out/<runId>/app/` and does `git init` inside that copy (`src/source-app.ts`, `src/port-pipeline.ts`). Everything the model proposes is written there. The feasibility model reads a separate disposable copy. Your real `apps/pocket-cinema/` is never passed to a write-capable process.
 
 We verified this live: after the whole port, `git status apps/pocket-cinema/` was clean. The `<runId>` (e.g. `e5ec5311`) is a fresh directory per run, so runs never clobber each other.
 
@@ -119,14 +123,19 @@ This is where the model combines its own reasoning with Amazon's platform knowle
 
 The model chose what to read, so the reconstructed audit trail is the only proof of what knowledge it actually used. Hashing it keeps the run provable and reproducible even though nothing was pre-picked. (The harness no longer sits between the model and each call, so provenance comes from the message history, not a live wrapper.)
 
-**2b. The model writes the migration plan.** Using what it read, it returns `VEGA_PORT.md` (preserved behavior, Vega replacements, the exact remote flow), and the harness records the ADBT sources it consulted in `NextSteps.md`. The instruction is blunt: *Use the ADBT tools to discover and read the workflows you need. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md.*
+**2b. The model writes a typed migration plan.** Using what it read, it returns `port-plan.json`, `VEGA_PORT.md`, and `NextSteps.md`. The JSON file identifies the vertical slice, screens, focus targets, Select and Back transitions, preserved and deferred behavior, and independent evidence. Its Zod schema rejects broken references, missing Select or Back behavior, invalid initial focus, and preserved behavior without evidence.
+
+**2c. A person approves the product decision.** Schema validation proves structure, not intent. A person compares the plan with the app and `workshop-brief.md`, traces Select and Back, and runs `approve-plan <runId> --yes`. The approval records the exact plan and brief hashes. `port`, `build`, `launch`, and `test` refuse a missing or stale approval. The model may read the approved files but may not change them.
+
+`VEGA_PORT.md` remains the human explanation of preserved behavior, Vega replacements, and the remote flow. `NextSteps.md` records ADBT sources and unsupported mappings. The instruction is blunt: *Use the ADBT tools to discover and read the workflows you need. Do not invent Vega APIs. Write unsupported mappings to NextSteps.md.*
 **Phase context:** the focus-management skill supplies TV interaction guidance. The phase prompt separately tells the agent to use ADBT MCP to discover current Vega workflows, keep facts and assumptions separate, port one vertical slice, and record gaps instead of inventing APIs.
 **Checks:**
+- `port-plan.json` matches the structured plan schema and the current brief hash
 - `VEGA_PORT.md` contains `## TV Flow`
 - `VEGA_PORT.md` contains `## Focus`
 - `NextSteps.md` contains `ADBT` (names its sources)
 
-**Inspect:** `out/<runId>/adbt-port-context.json`, `VEGA_PORT.md`, `NextSteps.md`, and the commit `workshop(plan): ...`.
+**Inspect:** `out/<runId>/adbt-port-context.json`, `port-plan.json`, `port-plan-approval.json`, `VEGA_PORT.md`, `NextSteps.md`, and the commit `workshop(plan): ...`.
 
 This phase forces the model to *plan in writing*, grounded in real Amazon migration docs, before any Vega code is written.
 
@@ -150,6 +159,7 @@ This phase forces the model to *plan in writing*, grounded in real Amazon migrat
 
 ### Phase 6 — `test` (the remote-control contract)
 **Goal:** Prove the transitions. **Checks:** `node --import tsx tests/verify-tv-focus.ts` must exit 0 — Back must return focus to the *originating card*, verified by a script, not an eyeball; `tv-focus-result.json` contains `"passed": true`; `TV_VERIFICATION.md` contains `originating card`. **Device stages:** `review` (the optional multimodal verdict, only with `--evaluate-screenshot`) and `focus`, which requires all six named transitions.
+**After a repair:** if the model changes source in this final phase, the harness does not trust the host focus result alone. It rebuilds, installs, launches, scans the new device log, captures and checks new frames, and then runs the focus checks. A late visual or focus repair cannot pass while reintroducing a compile or startup failure.
 **The honest limit:** the test drives the focus module, not the device's input system. It proves the contract the app implements; it does not press a button. Injecting real remote input needs a device input capability the harness does not ship.
 **Inspect:** `tv-focus-result.json`, both frames, and `vega-platform-result.json`.
 
@@ -213,15 +223,13 @@ harness; the model chooses which ADBT documents to read. The project tools
 
 ---
 
-## 9. Replay vs live, and why replay exists
+## 9. Live runs and the recorded recovery path
 
-Every phase can run against a recording instead of a live model (`--replay`) and against recorded ADBT context instead of a live MCP call. Replay is the default workshop path because:
+The normal workshop path uses a live model, live ADBT MCP, and, for platform claims, the Vega SDK and VDA. Every phase can also run against recorded model and platform data after an external dependency fails.
 
-- It needs no API key, no model account, no network, no device — anyone can run the whole thing.
-- It is deterministic: same inputs, same output, every time.
-- The recording format is identical to what a live run produces, so a live run's output becomes tomorrow's replay fixture.
+The recorded path is deterministic and needs no model account or device. It proves command order, checks, retry behavior, and report shape. It does not prove a live model chose current information, a compiler produced a package, or a device ran the app.
 
-Reach for live only to prove the real thing works: model reasoning, current ADBT documents, a real build, or a real device. State which boundary you actually crossed.
+Use it after one failed repair attempt, then state which boundary the evidence actually crossed.
 
 ---
 

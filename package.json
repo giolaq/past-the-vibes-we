@@ -16,7 +16,7 @@
     "check:site": "node scripts/build-site.mjs --check",
     "package:checkpoint": "yarn workspace @past-the-vibes-we/workshop-harness tsx ../../scripts/package-workshop-checkpoint.ts",
     "verify": "yarn typecheck && yarn test && yarn check:workshop && yarn check:ste && yarn check:site",
-    "replay": "yarn workspace @past-the-vibes-we/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json",
+    "replay": "yarn workspace @past-the-vibes-we/workshop-harness tsx src/index.ts plan ../../apps/pocket-cinema --replay ../../workshop/fixtures/port-recording.json",
     "doctor": "yarn workspace @past-the-vibes-we/workshop-harness tsx src/index.ts doctor --replay --json",
     "site": "yarn build:site && node scripts/serve-workshop.mjs"
   },

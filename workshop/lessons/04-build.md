@@ -69,7 +69,6 @@ Use the same executor that you used in the earlier lessons.
 
 :::command Run the build phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases build --yes --run-id workshop
 :::
 
@@ -137,8 +136,11 @@ If the Vega SDK is not available, run the recorded repair in a new run:
 
 :::command Recorded compiler repair
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --replay ../../workshop/fixtures/build-retry/port-recording.json \
+  --phases analyze,plan --run-id build-fallback --yes
+yarn tsx src/index.ts approve-plan build-fallback --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \
   --platform-replay ../../workshop/fixtures/build-retry/vega-lifecycle.json \
-  --run-id build-fallback --yes
+  --phases port,build,launch,test --run-id build-fallback --yes
 :::

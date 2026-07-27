@@ -59,9 +59,13 @@ Expect `tvReady: false`. Record the failure list. This is the initial evidence.
 ### Lesson 2: Plan
 
 - Run the recorded `plan` command.
+- Confirm `port-plan.json` passes its schema.
+- Compare its screen and navigation contract with `workshop-brief.md`.
 - Confirm `VEGA_PORT.md` contains `## TV Flow`.
 - Confirm `VEGA_PORT.md` contains `## Focus`.
 - Confirm `adbt-port-context.json` names hashed ADBT documents.
+- Run `approve-plan <runId> --yes`.
+- Confirm `port-plan-approval.json` contains the plan and brief hashes.
 - State which knowledge came from the focus skill.
 - State which knowledge came from ADBT.
 
@@ -104,6 +108,7 @@ Run the retry example:
 
 - Confirm `tv-focus-result.json` contains `"passed": true`.
 - Confirm all six transitions are present.
+- Confirm a test-phase source repair triggers build, install, launch, log, frame, and focus checks.
 - Run `tv-check` on the ported app.
 - Confirm `tvReady: true`.
 - Compare this result with the initial `tvReady: false` result.

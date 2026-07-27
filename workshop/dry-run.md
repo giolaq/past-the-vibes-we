@@ -196,7 +196,6 @@ yarn tsx src/index.ts naive ../../apps/pocket-cinema \
   --max-cost 1 --run-id naive-rehearsal --yes
 
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases analyze --yes --run-id rehearsal
 ```
 
@@ -208,10 +207,16 @@ source must be unchanged. Select three unchecked claims in `ANALYSIS.md`.
 
 ### Step 14: Test Lesson 2
 
-Run the lesson command with `--phases plan`.
+Run the lesson command with `--phases plan`. Review `port-plan.json`. Then run:
 
-**Expect:** `VEGA_PORT.md` contains `## TV Flow` and `## Focus`.
+```sh
+yarn tsx src/index.ts approve-plan rehearsal --yes
+```
+
+**Expect:** `port-plan.json` identifies the screens, Select, Back, preserved
+behavior, and evidence. `VEGA_PORT.md` contains `## TV Flow` and `## Focus`.
 `adbt-port-context.json` contains ADBT document hashes.
+`port-plan-approval.json` contains the plan and brief hashes.
 
 **Pass:** Explain this division:
 
@@ -219,6 +224,8 @@ Run the lesson command with `--phases plan`.
 - ADBT identifies current Vega APIs.
 - The model selects documents.
 - The harness records the selected sources.
+- The schema checks plan references.
+- A person approves product decisions.
 
 ### Step 15: Test Lesson 3
 
@@ -241,7 +248,6 @@ Confirm the phase commit.
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-retry/port-recording.json \
   --phases analyze,plan --yes
 ```
@@ -278,7 +284,6 @@ git checkout -- src/port-verification.ts
 ```sh
 yarn tsx src/index.ts inject-build-failure rehearsal --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases build --yes --run-id rehearsal
 ```
 
@@ -297,17 +302,20 @@ This command is a recovery test. It is not the main demonstration.
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --replay ../../workshop/fixtures/build-retry/port-recording.json \
+  --phases analyze,plan --run-id build-recovery --yes
+yarn tsx src/index.ts approve-plan build-recovery --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/build-retry/port-recording.json \
   --platform-replay ../../workshop/fixtures/build-retry/vega-lifecycle.json \
-  --yes
+  --phases port,build,launch,test --run-id build-recovery --yes
 ```
 
 **Expect:** The build retry receives compiler error `TS2551`. All six phases
 complete. `build` records one model call. `launch` and `test` record
 `attempts: 0`.
 
-**Pass:** Record the run ID. Step 22 uses it.
+**Pass:** Keep run ID `build-recovery`. Step 22 uses it.
 
 Explain three facts:
 
@@ -328,10 +336,9 @@ Add `FATAL EXCEPTION: main` to the `logs` result in
 
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay /tmp/past-the-vibes-crash-demo.json \
-  --phases launch --yes --run-id crashdemo
+  --phases launch --yes --run-id build-recovery
 ```
 
 **Expect:** The command names the fatal exception and exits with code 2.
@@ -360,7 +367,7 @@ Use the completed run from step 19.
 **Run**
 
 ```sh
-yarn tsx src/index.ts tv-check ../../out/<step-19-runId>/app
+yarn tsx src/index.ts tv-check ../../out/build-recovery/app
 ```
 
 **Expect:** `tvReady: true` and `failures: []`. The focus result contains all

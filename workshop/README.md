@@ -33,6 +33,8 @@ Strands supplies:
 The harness supplies:
 
 - Phase order
+- Product brief injection
+- Structured plan approval
 - Protected writes
 - Independent checks
 - Retry policy
@@ -54,6 +56,31 @@ Neither executor can write files or run shell commands.
 Strands receives ADBT as a native `McpClient`.
 Claude Code receives the same server through `--mcp-config`.
 The harness records each ADBT document read and its hash.
+
+## Know the input contract
+
+The existing app is the product input. It supplies code, content, dependencies,
+and current behavior.
+
+The required `workshop-brief.md` file states the port goal and required
+vertical slice. The harness includes it in model context and records its hash.
+
+`workshop.config.json` selects model execution. Command flags control the seed,
+cost, phases, and run ID. ADBT supplies current Vega information.
+
+The workshop does not use separate generation inputs for content, brand, or
+design.
+
+The plan phase writes `port-plan.json`. Review its screens, navigation,
+preserved behavior, deferred behavior, and checks. Then run:
+
+```sh
+yarn tsx src/index.ts approve-plan <runId> --yes
+```
+
+Implementation cannot start without the matching approval hash.
+Do not change the source app or brief while the run is active. Start a new run
+ID after an input change.
 
 Read [Strands constructs](strands-constructs.md) for the SDK details.
 

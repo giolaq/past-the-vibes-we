@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "briefSha256": "sha256:f14b2d89d8ca677aa55678b2eba4c1489e409c156e8dfe91d5eea48d270f09ce",
+  "target": {
+    "platform": "firetv-vega",
+    "sdk": "0.22.5875"
+  },
+  "verticalSlice": "Browse the Pocket Cinema home screen, open one title, and return to the originating card.",
+  "entryScreenId": "home",
+  "screens": [
+    {
+      "id": "home",
+      "source": "src/App.tsx Home",
+      "purpose": "Browse the featured title and catalog rails.",
+      "initialFocusId": "featured-action",
+      "focusableIds": [
+        "featured-action",
+        "catalog-card"
+      ]
+    },
+    {
+      "id": "details",
+      "source": "src/App.tsx Details",
+      "purpose": "Read the selected title details.",
+      "initialFocusId": "back-action",
+      "focusableIds": [
+        "back-action"
+      ]
+    }
+  ],
+  "navigation": [
+    {
+      "fromScreenId": "home",
+      "action": "down",
+      "toScreenId": "home",
+      "focusResult": "Focus enters the first catalog rail."
+    },
+    {
+      "fromScreenId": "home",
+      "action": "select",
+      "toScreenId": "details",
+      "focusResult": "The details Back action receives focus."
+    },
+    {
+      "fromScreenId": "details",
+      "action": "back",
+      "toScreenId": "home",
+      "focusResult": "The originating catalog card regains focus."
+    }
+  ],
+  "preservedBehaviors": [
+    {
+      "id": "browse-catalog",
+      "requirement": "The viewer can browse the featured title and catalog rails."
+    },
+    {
+      "id": "open-details",
+      "requirement": "The viewer can open details and return to the originating card."
+    }
+  ],
+  "deferredBehaviors": [
+    "Playback, storage, artwork services, and backend integration remain local workshop substitutes."
+  ],
+  "verification": [
+    {
+      "behaviorId": "browse-catalog",
+      "evidence": "The focus transition test proves initial focus, rail entry, and list boundaries."
+    },
+    {
+      "behaviorId": "open-details",
+      "evidence": "The focus transition test proves select and Back focus restoration."
+    }
+  ],
+  "openQuestions": []
+}

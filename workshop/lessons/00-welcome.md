@@ -5,8 +5,8 @@ nav: Start here
 time: 20 minutes
 title: Set up the workshop and understand the runtime
 lead: Complete this setup before the workshop. Select one live model path. Use recorded data only if a live tool fails.
-objective: Prepare one live executor. Explain the functions of Strands, ADBT, the harness, and Git.
-evidence: A working executor, a selected provider and model, and a completed readiness list.
+objective: Prepare one live executor. Identify the product input. Explain the functions of Strands, ADBT, the harness, and Git.
+evidence: A source app with a workshop brief, a working executor, and a completed readiness list.
 ---
 
 :::welcome Welcome to Past the Vibes
@@ -56,7 +56,7 @@ Use this table during the workshop.
 | Model claim | Independent check | Evidence |
 | --- | --- | --- |
 | The model understands the app | Source inventory and recorded unknowns | `ANALYSIS.md` |
-| The plan is correct | Required sections and ADBT document records | `VEGA_PORT.md` |
+| The plan is correct | Schema checks and human approval | `port-plan.json` and its approval hash |
 | The code is ready | Schema, file, and executable checks | Check results and Git commit |
 | The app builds | Vega compiler | `.vpkg` file and build output |
 | The app runs | Device log and two screenshots | Log file and image files |
@@ -151,10 +151,42 @@ label: Actual Android TV capture
 caption: "This image shows the React Native app before the Vega port. The app has no explicit TV focus behavior."
 :::
 
+## Know the product input
+
+The workshop ports an existing app.
+The app is the product input.
+
+| Input | Function |
+| --- | --- |
+| Source app directory | Supplies the current code, content, dependencies, and behavior |
+| `workshop-brief.md` | States the port goal, required flow, constraints, and verification |
+| `workshop.config.json` | Selects the executor, provider, model, and region |
+| Command flags | Set the phase, seed, cost limit, and run ID |
+| ADBT MCP | Supplies current Vega documents during the run |
+| Recordings | Supply recovery data after a live dependency fails |
+
+The workshop does not use separate `content.json`, `brand.json`, or
+`design.json` files. Those files belong to a generation harness. This
+workshop ports the app that already exists.
+
+:::steps
+1. Open `apps/pocket-cinema/workshop-brief.md`.
+2. Find the home-to-details flow.
+3. Find the required Back behavior.
+4. Find the replaceable behavior.
+5. Confirm that the file contains no credentials or private data.
+:::
+
+The harness requires this file.
+It records its SHA-256 hash.
+It supplies the brief to feasibility, plan, and implementation prompts.
+It also records a fingerprint of the source app in `run-spec.json`.
+If the app or brief changes, start a new run ID.
+
 ### Do a safety check of your app
 
 :::raw
-<div class="checklist"><label><input type="checkbox">The app runs before the workshop</label><label><input type="checkbox">The Git working tree is clean</label><label><input type="checkbox">The app contains no production secrets</label><label><input type="checkbox">The app contains no private data</label><label><input type="checkbox">The app contains no protected media</label><label><input type="checkbox">The selected model provider can receive the app content</label></div>
+<div class="checklist"><label><input type="checkbox">The app runs before the workshop</label><label><input type="checkbox"><code>workshop-brief.md</code> states one bounded flow</label><label><input type="checkbox">The Git working tree is clean</label><label><input type="checkbox">The app contains no production secrets</label><label><input type="checkbox">The app contains no private data</label><label><input type="checkbox">The app contains no protected media</label><label><input type="checkbox">The selected model provider can receive the app content</label></div>
 :::
 
 ## 2. Install the workspace
@@ -360,7 +392,7 @@ It does not verify your model, compiler, or device.
 ## Setup checklist
 
 :::raw
-<div class="checklist"><label><input type="checkbox">Node.js 20 or newer is available</label><label><input type="checkbox">Git and Corepack are available</label><label><input type="checkbox"><code>yarn setup</code> is complete</label><label><input type="checkbox"><code>yarn verify</code> passes</label><label><input type="checkbox">I selected one executor, provider, and model</label><label><input type="checkbox">The matching <code>doctor</code> command passes</label><label><input type="checkbox">I selected Pocket Cinema or verified my app</label><label><input type="checkbox">The Vega SDK is ready for Lesson 4</label><label><input type="checkbox">The VDA is ready for Lesson 5</label><label><input type="checkbox">I know that recorded data is only a fallback</label><label><input type="checkbox">I can explain what Strands supplies</label><label><input type="checkbox">I can explain what the harness controls</label></div>
+<div class="checklist"><label><input type="checkbox">Node.js 20 or newer is available</label><label><input type="checkbox">Git and Corepack are available</label><label><input type="checkbox"><code>yarn setup</code> is complete</label><label><input type="checkbox"><code>yarn verify</code> passes</label><label><input type="checkbox">I selected one executor, provider, and model</label><label><input type="checkbox">The matching <code>doctor</code> command passes</label><label><input type="checkbox">I selected Pocket Cinema or verified my app</label><label><input type="checkbox">The source app contains <code>workshop-brief.md</code></label><label><input type="checkbox">The Vega SDK is ready for Lesson 4</label><label><input type="checkbox">The VDA is ready for Lesson 5</label><label><input type="checkbox">I know that recorded data is only a fallback</label><label><input type="checkbox">I can explain what Strands supplies</label><label><input type="checkbox">I can explain what the harness controls</label></div>
 :::
 
 :::knowledge What is the most important boundary?

@@ -24,11 +24,12 @@ You then add these controls:
 
 1. Inspect the app in a guarded copy.
 2. Plan with current Vega documents from ADBT MCP.
-3. Validate and write a typed patch.
-4. Send compiler failures back to the model.
-5. Build, install, start, and inspect the app.
-6. Run the focus transition contract.
-7. Control the complete run in a TUI.
+3. Validate and approve a typed screen and navigation plan.
+4. Validate and write a typed patch.
+5. Send compiler failures back to the model.
+6. Build, install, start, and inspect the app.
+7. Run the focus transition contract.
+8. Control the complete run in a TUI.
 
 Each lesson records a claim, independent evidence, and the remaining limit.
 
@@ -69,6 +70,20 @@ Both live executors use ADBT as an MCP server:
 - Claude Code receives a pinned `--mcp-config`.
 
 Both ADBT connections are read-only. The model has no shell or write tool.
+
+## Product Input
+
+The existing React Native app is the product input. It supplies the current
+code, content, dependencies, and behavior.
+
+Each source app also contains `workshop-brief.md`. The brief states the bounded
+port goal, required flow, constraints, and verification. The harness supplies
+it to the feasibility and phase prompts and records its hash in `run-spec.json`.
+
+`workshop.config.json` selects model execution. Command flags set the phase,
+seed, cost limit, and run ID. ADBT supplies external Vega knowledge.
+
+The workshop does not use separate content, brand, or design input files.
 
 ## Commands
 
@@ -135,6 +150,25 @@ Add `--follow` during a live phase.
 
 Transcripts can contain prompts, source excerpts, and tool results. They are
 inside the ignored `out/` directory. Review them before you share them.
+
+## Plan Approval
+
+The `plan` phase writes `port-plan.json`. Its schema checks screen references,
+Select and Back transitions, preserved behavior, and evidence mappings.
+
+Review the product decisions, then approve the exact file:
+
+```sh
+cd packages/workshop-harness
+yarn tsx src/index.ts approve-plan <runId> --yes
+```
+
+The harness records the plan and brief hashes in `port-plan-approval.json`.
+Code and device phases refuse a missing or stale approval.
+
+Keep the source app unchanged while one run ID is active. The harness records
+the source fingerprint in `run-spec.json`. If the app or brief changes, start a
+new run ID so one approval never covers two product inputs.
 
 ## Important Documents
 

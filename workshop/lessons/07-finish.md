@@ -30,9 +30,13 @@ The TUI displays the existing pipeline state.
 It does not run a second pipeline.
 It does not replace the JSONL transcripts.
 
-:::command Run all phases with the TUI
+:::command Prepare and run the complete approved pipeline
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
+  --phases analyze,plan --seed workshop-v1 \
+  --max-cost 3 --yes --run-id final-dashboard
+yarn tsx src/index.ts approve-plan final-dashboard --yes
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases port,build,launch,test \
   --seed workshop-v1 --max-cost 3 --yes \
   --run-id final-dashboard --tui
 :::
@@ -88,7 +92,11 @@ The TUI is useful after you understand checks, retries, costs, tools, and device
 :::fallback
 If a live dependency fails, run:
 
-`yarn tsx src/index.ts run ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
+`yarn tsx src/index.ts run ../../apps/pocket-cinema --replay ../../workshop/fixtures/port-recording.json --phases analyze,plan --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard`
+
+`yarn tsx src/index.ts approve-plan final-dashboard --yes`
+
+`yarn tsx src/index.ts run ../../apps/pocket-cinema --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --phases port,build,launch,test --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
 
 The recorded TUI has no live ADBT tool events.
 Report `evidence recorded`.

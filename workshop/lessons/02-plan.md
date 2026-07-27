@@ -3,10 +3,10 @@ id: plan
 number: "02"
 nav: Plan the TV port
 time: 30 minutes
-title: Define the TV behavior before you write code
-lead: Supply TV design rules and current Vega documents. Keep these knowledge sources separate from pipeline code.
-objective: Identify the knowledge that a phase needs. Identify how the executor supplies each knowledge source.
-evidence: VEGA_PORT.md contains the focus model and TV flow. NextSteps.md identifies the ADBT documents.
+title: Define and approve the TV behavior before you write code
+lead: Supply TV rules and current Vega documents. Validate a structured plan. Approve it before implementation.
+objective: Identify the knowledge that a phase needs. Review a typed screen and navigation contract before code changes.
+evidence: port-plan.json passes its schema. The human-approved hash is in port-plan-approval.json.
 ---
 
 :::welcome Supply the required knowledge
@@ -42,6 +42,17 @@ Open the `plan` entry in `phases()` in `src/port-pipeline.ts`.
 Keep these fields separate.
 Do not put verification logic in the prompt.
 
+The plan phase writes two views of the same decision:
+
+- `port-plan.json` is the machine-checked contract.
+- `VEGA_PORT.md` explains the plan to a person.
+
+The JSON contract contains screens, navigation edges, preserved behavior,
+deferred behavior, and evidence.
+Its schema rejects missing screen references, missing Select behavior, missing
+Back behavior, an initial focus target that is not focusable, and preserved
+behavior without evidence.
+
 :::note ADBT supplies the Vega skills
 ADBT supplies ten `amazon-devices-vega-*` skills.
 The skills include focus, navigation, manifest, media, performance, and build instructions.
@@ -66,7 +77,6 @@ The harness reuses the guarded copy and its Git history.
 
 :::command Run the plan phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases plan --yes --run-id workshop
 :::
 
@@ -87,8 +97,13 @@ The harness supplies ADBT MCP to both live executors.
 7. Open `out/workshop/app/NextSteps.md`.
 8. Find the ADBT sources.
 9. Find each unsupported mapping.
-10. Open `out/workshop/adbt-port-context.json`.
-11. Find the document names and hashes.
+10. Open `out/workshop/app/port-plan.json`.
+11. Compare `screens` with `apps/pocket-cinema/workshop-brief.md`.
+12. Verify that `navigation` contains Select and Back.
+13. Verify that every `verification` item names a preserved behavior.
+14. Read `deferredBehaviors` and `openQuestions`.
+15. Open `out/workshop/adbt-port-context.json`.
+16. Find the document names and hashes.
 :::
 
 :::knowledge How does the harness record model-selected documents?
@@ -118,14 +133,46 @@ The skill supplies the instruction.
 The check supplies the pass condition.
 Keep them in different files.
 
+## Approve the structured plan
+
+Do not approve only because the schema passes.
+The schema can verify references and required fields.
+It cannot decide if the model selected the correct product flow.
+
+:::steps
+1. Compare the screen count with the source app.
+2. Compare the vertical slice with `workshop-brief.md`.
+3. Trace Select from the entry screen.
+4. Trace Back to the originating focus target.
+5. Reject invented Vega APIs.
+6. Reject a verification item that can pass without its behavior.
+7. Continue only when the plan is correct.
+:::
+
+:::command Approve the reviewed plan
+yarn tsx src/index.ts approve-plan workshop --yes
+:::
+
+:::expected
+"command": "approve-plan"
+"planSha256": "sha256:..."
+:::
+
+The command writes `port-plan-approval.json`.
+The approval contains the exact plan hash and brief hash.
+The `port`, `build`, `launch`, and `test` phases refuse a missing or stale
+approval.
+
 :::proof
-claim: "The plan defines the TV behavior and uses current Vega information"
-gate: "The plan contains the TV flow and focus model. The live run records the ADBT documents."
-evidence: "VEGA_PORT.md, NextSteps.md, and adbt-port-context.json"
+claim: "The plan defines the TV behavior, uses current Vega information, and has human approval"
+gate: "The typed plan validates. A person reviews the product decisions. The live run records the ADBT documents."
+evidence: "port-plan.json, port-plan-approval.json, VEGA_PORT.md, NextSteps.md, and adbt-port-context.json"
 limit: "The plan does not prove that the proposed APIs compile"
 :::
 
 :::done
+`port-plan.json` contains the screens, navigation, behavior, and evidence.
+`port-plan-approval.json` contains the plan and brief hashes.
 `VEGA_PORT.md` contains the focus model and TV flow.
 `adbt-port-context.json` contains the ADBT document records.
 Your team skill produces a section that an independent check requires.
@@ -136,11 +183,11 @@ The recorded response cannot follow a skill that you added after the recording.
 Your new check will fail on the recorded response.
 This failure is correct.
 Checks run during a recorded fallback, but no model runs.
+After the recorded plan passes, run the same `approve-plan` command.
 :::
 
 :::command Recorded fallback
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --phases plan --yes --run-id workshop
 :::

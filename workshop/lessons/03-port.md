@@ -42,15 +42,24 @@ Which static checks can accept the manifest even if Vega rejects it?
 ## Run the port phase
 
 Use the same run ID and executor.
+The port phase checks `port-plan-approval.json` before it calls the model.
+It refuses a missing approval or a plan that changed after approval.
 
 :::command Run the port phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases port --yes --run-id workshop
 :::
 
 :::note Use your workshop configuration
 The command reads the model settings from `../../workshop.config.json`.
+:::
+
+:::note The plan is read-only
+The port model can read `port-plan.json`.
+It cannot change `port-plan.json` or `port-plan-approval.json`.
+
+The approved plan defines success.
+The implementation cannot move that target.
 :::
 
 ## Inspect the files and commit
@@ -111,7 +120,6 @@ Use it to inspect exact retry context.
 
 :::command Run the retry example
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-retry/port-recording.json \
   --phases analyze,plan --yes
 :::
@@ -120,13 +128,6 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 plan attempt 1 failed:
   - TV flow documented: VEGA_PORT.md must contain "## TV Flow"
   - Focus model documented: VEGA_PORT.md must contain "## Focus"
-:::
-
-:::visual
-src: assets/retry-terminal.png
-alt: Terminal output with a failed check and a passing retry
-label: Actual recorded command output
-caption: "The harness adds two exact failures to the second request. It does not use a general retry instruction."
 :::
 
 :::steps

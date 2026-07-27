@@ -51,9 +51,20 @@ Use the same run ID.
 The phase runs the focus test from the port phase.
 It also reads the frames from the launch phase.
 
+:::note A final repair must rebuild and start again
+The first test attempt uses the package and frames from the launch phase.
+
+If the model changes source code after a failed test, the harness does not
+accept the host-side focus test by itself. It runs this sequence:
+
+`build -> install -> launch -> log scan -> frame checks -> focus checks`
+
+A late focus repair can introduce a compile or startup failure.
+The test phase passes only after the repaired app compiles and stays active.
+:::
+
 :::command Run the focus test
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases test --yes --run-id workshop
 :::
 
@@ -103,7 +114,6 @@ review:
 
 :::command Add the optional screenshot review
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --evaluate-screenshot --phases test --yes --run-id workshop
 :::
 

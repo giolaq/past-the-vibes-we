@@ -91,7 +91,6 @@ for (const asset of [
   "workshop/workshop.css",
   "workshop/workshop.js",
   "workshop.config.json",
-  "workshop/assets/retry-terminal.png",
   "workshop/assets/retry-terminal.txt",
 ]) {
   if (!existsSync(asset)) missing.push(`Website asset: ${asset}`);
@@ -130,6 +129,9 @@ const forbiddenCopy: Array<[RegExp, string]> = [
   [/\blessons 1[–-]10\b/i, "stale lesson count"],
   [/\bpackages\/workshop-harness\/out\//, "stale package-local output path"],
   [/\byarn\s+--cwd\b/, "stale --cwd command"],
+  [/\s--inputs(?:\s|\\|$)/, "retired workshop input option"],
+  [/\bpocket-cinema-inputs\b/, "retired synthetic workshop input directory"],
+  [/\btv-build-inputs\.json\b/, "retired synthetic workshop input artifact"],
 ];
 for (const file of files) {
   const source = readFileSync(file, "utf8");

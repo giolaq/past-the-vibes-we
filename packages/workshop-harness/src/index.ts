@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, watchFile, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, watchFile, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -13,14 +13,14 @@ import { BEE_APPLY_PHASE, BEE_SPEC_PHASE, beePhases } from "./bee-pipeline.js";
 import { BEE_SPEC_MD, loadBeeSpec, renderBeeSpec } from "./bee-spec.js";
 import { CliFailure, failure, json } from "./output.js";
 import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memory.js";
-import { assembleProjectContext } from "./phase-context.js";
 import { ModelTranscriptStore } from "./model-transcript.js";
 import { createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
+import { PORT_PLAN_APPROVAL_PATH, PORT_PLAN_PATH, PortPlanApprovalError, approvePortPlan, assertPortPlanApproved } from "./port-plan.js";
 import { ADBT_SERVER, PortBudgetError, commitAll, phases, runPortPipeline } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
 import { createScreenshotJudge } from "./platform/screenshot-vision.js";
 import { ADBT_PACKAGE, VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, startDeviceRun, writeDeviceResult, type ScreenshotJudge, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
-import { copySource, discoverSource } from "./source-app.js";
+import { WORKSHOP_BRIEF, copySource, discoverSource, loadWorkshopBrief, sourceFingerprint } from "./source-app.js";
 import { workshopDoctor } from "./workshop-doctor.js";
 import { loadPortResult, loadRunCost, loadVegaResult, mergePortResults, mergeVegaResults } from "./run-state.js";
 import { shouldUseTui, WorkshopTui } from "./tui.js";
@@ -38,6 +38,7 @@ async function main(): Promise<void> {
   if (command === "doctor") return doctor();
   if (command === "naive") return naiveCommand();
   if (command === "plan") return planCommand();
+  if (command === "approve-plan") return approvePlanCommand();
   if (command === "run") return runCommand();
   if (command === "status") return statusCommand();
   if (command === "logs") return logsCommand();
@@ -79,6 +80,7 @@ function injectBuildFailureCommand(): void {
   const out = join(root, runId);
   const appDir = join(out, "app");
   if (!existsSync(appDir)) failure("run_not_found", `No guarded app exists for ${runId}.`, "Complete the port phase first, using the same --run-id.");
+  requirePortPlanApproval(appDir, runId);
   const injected = injectBuildFailure(appDir, out);
   commitAll(appDir, "workshop: inject the deterministic build exercise");
   json({ command: "inject-build-failure", runId, appDir, ...injected, next: `run --run-id ${runId} --phases build` });
@@ -118,10 +120,8 @@ function feasibilityReplayPath(): string | undefined {
 
 async function buildPlan(sourcePath: string, outDir: string, transcripts?: ModelTranscriptStore) {
   const source = discoverSource(sourcePath);
+  const brief = loadWorkshopBrief(sourcePath);
   const findings = auditSource(source);
-  const inputDir = flag("--inputs");
-  const memory = loadMemory(inputDir ?? sourcePath);
-  const phaseContext = assembleProjectContext(memory, "vega_port");
   const executorConfig = selectedExecutorConfig();
   const maxCostUsd = Number(flag("--max-cost") ?? 10);
   if (!Number.isFinite(maxCostUsd) || maxCostUsd <= 0) throw new Error("--max-cost must be a positive number");
@@ -154,6 +154,7 @@ async function buildPlan(sourcePath: string, outDir: string, transcripts?: Model
       liveMcp,
       mcpClient: feasibilityMcp,
       maxCostUsd,
+      workshopBrief: brief.content,
     });
   } finally {
     await feasibilityMcp?.disconnect();
@@ -162,6 +163,8 @@ async function buildPlan(sourcePath: string, outDir: string, transcripts?: Model
 
   return {
     source,
+    sourceFingerprint: sourceFingerprint(sourcePath),
+    workshopBrief: { path: WORKSHOP_BRIEF, sha256: brief.sha256, content: brief.content },
     target: { platform: "firetv-vega", sdk: VEGA_SDK_VERSION },
     seed: flag("--seed") ?? "workshop-v1",
     maxCostUsd,
@@ -169,8 +172,7 @@ async function buildPlan(sourcePath: string, outDir: string, transcripts?: Model
     summary: summarize(findings),
     findings,
     feasibility,
-    contextEntryIds: phaseContext.entryIds,
-    phaseContext: phaseContext.text,
+    phaseContext: `## Workshop Brief\n\n${brief.content}`,
     adbt: {
       package: ADBT_PACKAGE,
       mode: feasibility.adbt?.mode ?? adbt.mode,
@@ -204,7 +206,7 @@ function guardFeasibility(feasibility: FeasibilityResult): void {
 
 async function planCommand(): Promise<void> {
   const sourcePath = args[1];
-  if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness plan <app> --inputs <dir> --json.");
+  if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness plan <app> --json.");
   const scratch = mkdtempSync(join(tmpdir(), "workshop-plan-"));
   try {
     const plan = await buildPlan(sourcePath, scratch);
@@ -218,9 +220,56 @@ async function planCommand(): Promise<void> {
   }
 }
 
+function approvePlanCommand(): void {
+  const runId = args[1];
+  if (!runId) failure("missing_run", "Run id is required.", "Run approve-plan <runId> --yes after the plan phase.");
+  if (!args.includes("--yes")) failure("confirmation_required", "Plan approval requires an explicit human decision.", `Review out/${runId}/app/${PORT_PLAN_PATH}, then rerun approve-plan ${runId} --yes.`);
+  const out = join(root, runId);
+  const appDir = join(out, "app");
+  const result = loadPortResult(join(out, "port-result.json"));
+  if (!result.phases.some((phase) => phase.name === "plan")) {
+    failure("plan_not_ready", `Run ${runId} has no completed plan phase.`, `Run the analyze and plan phases before approve-plan ${runId}.`);
+  }
+  try {
+    const approval = approvePortPlan(appDir);
+    commitAll(appDir, "workshop(plan): approve the structured port plan");
+    const statusPath = join(out, "status.json");
+    const status = existsSync(statusPath) ? JSON.parse(readFileSync(statusPath, "utf8")) as Record<string, unknown> : {};
+    writeFileSync(statusPath, JSON.stringify({ ...status, schemaVersion: 1, runId, state: "approved", currentPhase: null }, null, 2));
+    json({
+      command: "approve-plan",
+      runId,
+      plan: join(appDir, PORT_PLAN_PATH),
+      approval: join(appDir, PORT_PLAN_APPROVAL_PATH),
+      planSha256: approval.planSha256,
+      next: `run <app> --phases port --yes --run-id ${runId}`,
+    });
+  } catch (error) {
+    if (error instanceof PortPlanApprovalError) {
+      failure("plan_invalid", error.message, `Fix ${PORT_PLAN_PATH}, rerun the plan phase, and review it again.`);
+    }
+    throw error;
+  }
+}
+
+function requirePortPlanApproval(appDir: string, runId: string): void {
+  try {
+    assertPortPlanApproved(appDir);
+  } catch (error) {
+    if (error instanceof PortPlanApprovalError) {
+      failure(
+        "plan_approval_required",
+        error.message,
+        `Review ${join(appDir, PORT_PLAN_PATH)}, then run approve-plan ${runId} --yes.`,
+      );
+    }
+    throw error;
+  }
+}
+
 async function runCommand(): Promise<void> {
   const sourcePath = args[1];
-  if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness run <app> --inputs <dir> --yes --json.");
+  if (!sourcePath) failure("missing_source", "A source app path is required.", "Run workshop-harness run <app> --yes --json.");
   if (!args.includes("--yes")) failure("confirmation_required", "Run requires explicit confirmation.", "Show the plan, then rerun with --yes.");
   // Reject a bad --phases before the run directory or the feasibility call exists.
   try { phases(phaseNames()); } catch (error) { failure("unknown_phase", String(error), `Use --phases with any of ${phases().map((phase) => phase.name).join(", ")}.`); }
@@ -259,6 +308,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
   // Read before the first status write: a resumed run must not forget the phases it already did.
   const alreadyComplete = completedPhases(statusPath);
   try {
+    assertRunSourceUnchanged(sourcePath, out);
     const selected = phases(phaseNames());
     const executorConfig = selectedExecutorConfig();
     const initialBudget = Number(flag("--max-cost") ?? 10);
@@ -268,7 +318,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       evidenceMode: flag("--replay") ? "recorded" : "live",
       seed: flag("--seed") ?? "workshop-v1",
       budgetUsd: initialBudget,
-      phases: [FEASIBILITY_PHASE, ...selected.map((phase) => phase.name)],
+      phases: [FEASIBILITY_PHASE, ...phases().map((phase) => phase.name)],
     }) : undefined;
     const transcripts = new ModelTranscriptStore(out, tui?.transcript);
     tui?.start(FEASIBILITY_PHASE);
@@ -288,11 +338,27 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     // Resuming: `run --run-id <id> --phases build_test` continues in the guarded copy that
     // earlier phases already built and committed, so the source is copied only once per run id.
     const resuming = existsSync(appDir);
-    if (!resuming) copySource(sourcePath, appDir);
-    const inputs = flag("--inputs");
-    if (inputs && existsSync(resolve(inputs))) cpSync(resolve(inputs), join(out, "inputs"), { recursive: true });
+    if (!resuming) {
+      copySource(sourcePath, appDir);
+      // Approval belongs to this run, not to a file that happened to exist in the source app.
+      rmSync(join(appDir, PORT_PLAN_APPROVAL_PATH), { force: true });
+    }
     writeFileSync(join(out, "portability-report.json"), JSON.stringify({ schemaVersion: 1, ...plan }, null, 2));
-    writeFileSync(join(out, "tv-build-inputs.json"), JSON.stringify({ schemaVersion: 1, sourceApp: join(out, "app"), target: "firetv-vega", seed: plan.seed, maxCostUsd: plan.maxCostUsd }, null, 2));
+    writeFileSync(join(out, "run-spec.json"), JSON.stringify({
+      schemaVersion: 1,
+      runId,
+      source: {
+        original: plan.source.source,
+        guarded: appDir,
+        fingerprint: plan.sourceFingerprint,
+        brief: plan.workshopBrief,
+      },
+      target: plan.target,
+      phases: plan.phases,
+      seed: plan.seed,
+      maxCostUsd: plan.maxCostUsd,
+      executor: plan.executor,
+    }, null, 2));
     const replayPath = flag("--replay");
     const liveModel = !replayPath;
     const executor = createPortExecutor({
@@ -333,6 +399,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       outDir: out,
       findings: plan.findings,
       projectContext: plan.phaseContext,
+      briefSha256: plan.workshopBrief.sha256,
       seed: plan.seed,
       maxCostUsd: plan.maxCostUsd - previousPort.costUsd - plan.feasibility.costUsd,
       maxAttempts,
@@ -344,6 +411,9 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       mcpClients,
       liveMcp: liveModel ? [ADBT_SERVER] : [],
       transcripts,
+      beforePhase: (phase) => {
+        if (["port", "build", "launch", "test"].includes(phase.name)) assertPortPlanApproved(appDir);
+      },
       onPhase: (currentPhase) => {
         activePhase = currentPhase;
         tui?.phaseStart(currentPhase);
@@ -370,17 +440,27 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
 
     const executionMode = replayPath ? "Replay (recorded model turns)" : plan.executor.kind === "strands" ? `Strands (${plan.executor.model.provider}:${plan.executor.model.modelId})` : `Claude Code (${plan.executor.model})`;
     const evidenceMode = replayPath ? "replay" : "live model";
-    const report = `# Workshop Run ${runId}\n\n- Target: Vega SDK ${VEGA_SDK_VERSION}\n- Evidence mode: ${evidenceMode}\n- ADBT package: ${ADBT_PACKAGE}\n- ADBT access: MCP for both Strands and Claude Code live executors\n- ADBT port context: ${port.adbt?.mode ?? "missing"} (${port.adbt?.documents.join(", ") ?? "none"})\n- ADBT evidence: ${port.adbt?.evidence ?? "none"}\n- Executor: ${executionMode}\n- Seed: ${plan.seed}\n- Cost cap: $${plan.maxCostUsd}\n- Cumulative model cost: $${port.costUsd.toFixed(4)}\n- Model transcripts: ${transcripts.directory}\n- Transcript files: ${transcripts.files().join(", ") || "none"}\n- Guarded source initialized this invocation: ${resuming ? "no" : "yes"}\n- Port phases: ${port.phases.map((phase) => `${phase.name} (${phase.attempts} attempt${phase.attempts === 1 ? "" : "s"})`).join(", ")}\n- Next: inspect the generated app. Only a Vega result marked evidenceMode: live proves build or device behavior.\n`;
-    writeFileSync(join(out, "report.md"), report);
     // A resumed run reports every phase this run id has completed, not only this invocation's.
     const phasesComplete = [...new Set([...alreadyComplete, ...port.phases.map((phase) => phase.name)])];
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "complete", currentPhase: null, phasesComplete, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() }, null, 2));
+    let planApproved = false;
+    if (phasesComplete.includes("plan")) {
+      try { assertPortPlanApproved(appDir); planApproved = true; } catch (error) {
+        if (!(error instanceof PortPlanApprovalError)) throw error;
+      }
+    }
+    const finalState = phasesComplete.includes("plan") && !planApproved ? "awaiting_approval" : "complete";
+    const next = finalState === "awaiting_approval"
+      ? `Review ${join(appDir, PORT_PLAN_PATH)}, then run approve-plan ${runId} --yes.`
+      : "Inspect the generated app. Only a Vega result marked evidenceMode: live proves build or device behavior.";
+    const report = `# Workshop Run ${runId}\n\n- Target: Vega SDK ${VEGA_SDK_VERSION}\n- Product input: source app and ${WORKSHOP_BRIEF}\n- Source fingerprint: ${plan.sourceFingerprint}\n- Workshop brief hash: ${plan.workshopBrief.sha256}\n- Structured plan approval: ${planApproved ? "approved" : "required"}\n- Evidence mode: ${evidenceMode}\n- ADBT package: ${ADBT_PACKAGE}\n- ADBT access: MCP for both Strands and Claude Code live executors\n- ADBT port context: ${port.adbt?.mode ?? "missing"} (${port.adbt?.documents.join(", ") ?? "none"})\n- ADBT evidence: ${port.adbt?.evidence ?? "none"}\n- Executor: ${executionMode}\n- Seed: ${plan.seed}\n- Cost cap: $${plan.maxCostUsd}\n- Cumulative model cost: $${port.costUsd.toFixed(4)}\n- Model transcripts: ${transcripts.directory}\n- Transcript files: ${transcripts.files().join(", ") || "none"}\n- Guarded source initialized this invocation: ${resuming ? "no" : "yes"}\n- Port phases: ${port.phases.map((phase) => `${phase.name} (${phase.attempts} attempt${phase.attempts === 1 ? "" : "s"})`).join(", ")}\n- Next: ${next}\n`;
+    writeFileSync(join(out, "report.md"), report);
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: finalState, currentPhase: null, phasesComplete, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next }, null, 2));
     tui?.cost(port.costUsd);
     await tui?.complete();
     if (tui) {
       humanRunComplete(runId, out, port.costUsd, phasesComplete, transcripts.directory);
     } else {
-      json({ event: "run_complete", runId, state: "complete", out, seed: plan.seed, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() });
+      json({ event: "run_complete", runId, state: finalState, out, seed: plan.seed, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next });
     }
   } catch (error) {
     tui?.fail(error instanceof Error ? error.message : String(error));
@@ -388,10 +468,11 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     if (error instanceof CliFailure) throw error;
     const budget = error instanceof PortBudgetError;
     const adbtFailure = error instanceof AdbtContextError;
+    const approvalRequired = error instanceof PortPlanApprovalError;
     writeFileSync(statusPath, JSON.stringify({
       schemaVersion: 1,
       runId,
-      state: budget ? "aborted" : "failed",
+      state: approvalRequired ? "awaiting_approval" : budget ? "aborted" : "failed",
       reason: budget ? "budget" : undefined,
       phasesComplete: [...new Set([...alreadyComplete, ...completedThisInvocation])],
       costUsd: previousPort.costUsd + feasibilityCost + invocationCost,
@@ -399,7 +480,36 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       modelLogsDir: join(out, "model-logs"),
       error: String(error),
     }, null, 2));
-    failure(budget ? "budget_exceeded" : adbtFailure ? "adbt_unavailable" : "run_failed", String(error), adbtFailure ? "Run doctor once or use the recorded ADBT replay context." : `Inspect ${out}/run.log, model-logs/, and portability-report.json.`, budget ? 4 : adbtFailure ? 3 : 2);
+    failure(
+      approvalRequired ? "plan_approval_required" : budget ? "budget_exceeded" : adbtFailure ? "adbt_unavailable" : "run_failed",
+      String(error),
+      approvalRequired
+        ? `Review ${out}/app/${PORT_PLAN_PATH}, then run approve-plan ${runId} --yes.`
+        : adbtFailure
+          ? "Run doctor once or use the recorded ADBT replay context."
+          : `Inspect ${out}/run.log, model-logs/, and portability-report.json.`,
+      approvalRequired ? 1 : budget ? 4 : adbtFailure ? 3 : 2,
+    );
+  }
+}
+
+function assertRunSourceUnchanged(sourcePath: string, out: string): void {
+  const specPath = join(out, "run-spec.json");
+  if (!existsSync(specPath)) return;
+  try {
+    const spec = JSON.parse(readFileSync(specPath, "utf8")) as { source?: { fingerprint?: string } };
+    const expected = spec.source?.fingerprint;
+    if (!expected) throw new Error("source fingerprint is missing");
+    if (sourceFingerprint(sourcePath) !== expected) {
+      failure(
+        "source_changed",
+        "The source app or workshop-brief.md changed after this run started.",
+        "Start a new run ID so the plan, approval, and guarded app use one product input.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof CliFailure) throw error;
+    failure("invalid_run_spec", `Cannot read ${specPath}: ${String(error)}`, "Start a new run ID.");
   }
 }
 
@@ -634,6 +744,8 @@ async function vegaRunCommand(): Promise<void> {
   const out = runId && join(root, runId);
   const appDir = out && join(out, "app");
   const vegaDir = appDir && join(appDir, "apps", "vega");
+  if (!appDir || !existsSync(appDir)) failure("run_not_found", `Run ${runId ?? ""} was not found.`, "Use the run ID returned by the port pipeline.");
+  if (!args.includes("--plan")) requirePortPlanApproval(appDir, runId!);
   if (!vegaDir || !existsSync(join(vegaDir, "package.json"))) failure("vega_app_missing", "The guarded run has no apps/vega package.", "Run the verified port pipeline before Vega execution.");
   const liveAdapter = new VegaAdapter(undefined, vegaDir);
   const capabilities: Array<{ capability: VegaCapability; values?: string[] }> = [
@@ -676,6 +788,7 @@ Commands:
   doctor                              Check the selected replay or live environment
   naive <app>                         One unverified model call; saves but never applies its patch
   plan <app>                          Audit feasibility and show the six-phase plan
+  approve-plan <runId> --yes          Approve the structured plan before code phases
   run <app>                           Run all or selected port phases
   status <runId> | logs <runId>       Inspect a run
   logs <runId> --phase <name>          Read one complete model transcript as JSONL
@@ -712,6 +825,11 @@ Pipeline:
   --detach                              Run in the background; use status and logs
   --json                                JSON/NDJSON contract (the workshop CLI emits JSON)
   --tui                                 Final-lesson phase dashboard; q exits after review
+
+Product input:
+  The source app and its required workshop-brief.md are the product input.
+  The plan phase writes port-plan.json. Port, build, launch, and test require a matching
+  port-plan-approval.json created by approve-plan <runId> --yes.
 
 Device evidence:
   --platform-replay <fixture.json>      Recorded lifecycle; proves control flow, not a device

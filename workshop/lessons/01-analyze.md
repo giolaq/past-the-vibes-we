@@ -145,7 +145,6 @@ Use the executor that you selected in Lesson 00.
 
 :::command Run the analyze phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --phases analyze --yes --run-id workshop
 :::
 
@@ -216,7 +215,6 @@ If the live model fails, use the recorded fallback:
 
 :::command Recorded fallback
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --phases analyze --yes --run-id workshop
 :::
