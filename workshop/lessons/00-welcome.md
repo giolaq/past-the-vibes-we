@@ -182,8 +182,15 @@ It does not verify the Vega SDK or VDA.
 
 ### Verify the starting app
 
+Enter the harness package.
+Keep this terminal in this directory for lessons 1 through 7.
+
+:::command Enter the harness package
+cd packages/workshop-harness
+:::
+
 :::command Run the TV-readiness check
-yarn --cwd packages/workshop-harness tsx src/index.ts tv-check ../../apps/pocket-cinema
+yarn tsx src/index.ts tv-check ../../apps/pocket-cinema
 :::
 
 :::expected
@@ -205,12 +212,15 @@ Lesson 6 runs the same check on the ported app.
 Use the same executor, provider, and model in all lessons.
 Do not change providers during the workshop.
 
-| Path | Executor flags | Credential |
+Open `../../workshop.config.json`.
+Replace its contents with one configuration from this section.
+
+| Path | Configuration fields | Credential |
 | --- | --- | --- |
-| Claude Code CLI | `--executor claude-cli --model sonnet` | Authenticated Claude Code |
-| Strands with Bedrock | `--executor strands --provider bedrock --model <model-id> --region <region>` | AWS credentials and model access |
-| Strands with OpenAI | `--executor strands --provider openai --model <model-id>` | `OPENAI_API_KEY` |
-| Strands with OpenRouter | `--executor strands --provider openrouter --model <model-id>` | `OPENROUTER_API_KEY` |
+| Claude Code CLI | `executor`, `model` | Authenticated Claude Code |
+| Strands with Bedrock | `executor`, `provider`, `model`, `region` | AWS credentials and model access |
+| Strands with OpenAI | `executor`, `provider`, `model` | `OPENAI_API_KEY` |
+| Strands with OpenRouter | `executor`, `provider`, `model` | `OPENROUTER_API_KEY` |
 | Recorded fallback | `--replay <recording.json>` | No credential |
 
 With Claude Code, the harness starts the `claude` command.
@@ -220,36 +230,54 @@ Claude Code returns stream JSON.
 With Strands, the SDK calls the selected provider.
 No model CLI is necessary.
 
-### Verify Claude Code
+### Configure Claude Code
 
-:::command Claude Code environment
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor claude-cli --model sonnet --json
+```json
+{
+  "executor": "claude-cli",
+  "model": "sonnet"
+}
+```
+
+### Configure Strands with Bedrock
+
+```json
+{
+  "executor": "strands",
+  "provider": "bedrock",
+  "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "region": "us-west-2"
+}
+```
+
+### Configure Strands with OpenAI
+
+```json
+{
+  "executor": "strands",
+  "provider": "openai",
+  "model": "gpt-4.1"
+}
+```
+
+### Configure Strands with OpenRouter
+
+```json
+{
+  "executor": "strands",
+  "provider": "openrouter",
+  "model": "anthropic/claude-sonnet-4"
+}
+```
+
+### Verify the selected configuration
+
+:::command Verify the model environment
+yarn tsx src/index.ts doctor --json
 :::
 
-### Verify Strands with Bedrock
-
-:::command Bedrock environment
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 \
-  --region us-west-2 --json
-:::
-
-### Verify Strands with OpenAI
-
-:::command OpenAI environment
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor strands --provider openai --model gpt-4.1 --json
-:::
-
-### Verify Strands with OpenRouter
-
-:::command OpenRouter environment
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor \
-  --executor strands --provider openrouter \
-  --model anthropic/claude-sonnet-4 --json
-:::
+The harness automatically loads `../../workshop.config.json`.
+Command-line model flags override the file for one command.
 
 :::note Protect credentials
 Keep credentials in your terminal or credential manager.
@@ -259,7 +287,8 @@ Do not commit credentials in an `.env` file.
 
 :::note Select one live path
 You do not need all providers.
-Run the `doctor` command for your selected path.
+Save one configuration.
+Run the `doctor` command.
 If one repair fails, use the recorded fallback for that exercise.
 :::
 
@@ -295,7 +324,8 @@ Lesson 6 uses the focus test and device images.
 In a system terminal, run:
 
 :::command Start the Vega environment
-yarn --cwd packages/workshop-harness tsx src/index.ts doctor --adbt-live --json
+cd packages/workshop-harness
+yarn tsx src/index.ts doctor --adbt-live --json
 vega --version
 vega virtual-device start --gui
 :::

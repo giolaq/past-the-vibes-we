@@ -1,7 +1,7 @@
 {
   "title": "Lesson 3 · captured output from the committed replay",
   "lines": [
-    { "tone": "prompt", "label": "$ ", "text": "yarn --cwd packages/workshop-harness tsx src/index.ts run \\" },
+    { "tone": "prompt", "label": "$ ", "text": "yarn tsx src/index.ts run \\" },
     "    ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs \\",
     "    --replay ../../workshop/fixtures/port-retry/port-recording.json \\",
     "    --phases analyze,plan --yes --run-id retry-demo",

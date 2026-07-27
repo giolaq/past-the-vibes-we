@@ -72,7 +72,7 @@ h3 { margin: 0 0 8px; color: var(--navy); font-size: 18px; }
 .command header { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 8px 12px; background: var(--navy-2); color: #d5dfe7; font-size: 13px; }
 .copy { border: 1px solid #8fa0ae; background: transparent; color: #fff; padding: 6px 12px; border-radius: 2px; cursor: pointer; }
 .copy:hover { border-color: var(--orange); background: var(--orange); color: #111; }
-pre { margin: 0; padding: 18px; overflow-x: auto; color: #e6edf2; font-size: 13px; line-height: 1.65; }
+pre { margin: 0; padding: 18px; overflow-x: auto; background: #0e151c; color: #e6edf2; font-size: 13px; line-height: 1.65; }
 .note { margin: 24px 0; padding: 18px 20px; border-left: 5px solid var(--blue); background: var(--blue-soft); }
 .note.warning { border-color: var(--orange); background: #fff1e7; }
 .note.success { border-color: var(--green); background: #eaf6ef; }

@@ -71,13 +71,19 @@ Use [Appendix A1](lessons/A1-bee.md) only with Bee consent and access.
 
 ## Select one model path
 
-- **Claude Code:** Use `--executor claude-cli --model sonnet`.
-- **Strands with Bedrock:** Use `--executor strands --provider bedrock --model <id> --region <region>`.
-- **Strands with OpenAI:** Use `--executor strands --provider openai --model <id>`.
-- **Strands with OpenRouter:** Use `--executor strands --provider openrouter --model <id>`.
+- **Claude Code:** Set `executor` to `claude-cli`.
+- **Strands with Bedrock:** Set `executor`, `provider`, `model`, and `region`.
+- **Strands with OpenAI:** Set `executor`, `provider`, and `model`.
+- **Strands with OpenRouter:** Set `executor`, `provider`, and `model`.
 - **Recorded fallback:** Use the lesson `--replay` command after a live dependency fails.
 
-Use the same executor, provider, and model in all live lessons.
+Store the selection in the root `workshop.config.json` file.
+Command-line flags can override the file for one command.
+Do not put credentials in the file.
+
+After setup, run `cd packages/workshop-harness` once.
+Keep the workshop terminal in that directory for lessons 1 through 7.
+
 Start with [Lesson 00](lessons/00-welcome.md).
 Keep [Troubleshooting](troubleshooting.md) open.
 

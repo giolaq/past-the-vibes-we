@@ -78,15 +78,13 @@ Use the same run ID.
 The phase installs the package from Lesson 4.
 
 :::command Install and start the app
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases launch --yes --run-id workshop
 :::
 
-:::note Use your selected executor
-If you selected Strands, replace only the executor, provider, and model flags.
-Use the values from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 :::
 
 ## Inspect the device evidence
@@ -162,7 +160,7 @@ If no device is attached, run the recorded device sequence:
 :::
 
 :::command Recorded device sequence
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \

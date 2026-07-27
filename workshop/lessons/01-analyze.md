@@ -40,13 +40,12 @@ Name one claim that you cannot make.
 :::
 
 :::command Save one live proposal
-yarn --cwd packages/workshop-harness tsx src/index.ts naive ../../apps/pocket-cinema \
-  --executor claude-cli --model sonnet \
+yarn tsx src/index.ts naive ../../apps/pocket-cinema \
   --max-cost 1 --run-id naive-demo --yes
 :::
 
-:::note Use your selected executor
-If you selected Strands, use the provider and model flags from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 Do not add skills or MCP to this command.
 :::
 
@@ -144,18 +143,9 @@ Which part remains a model claim?
 Run one command.
 Use the executor that you selected in Lesson 00.
 
-:::command Claude Code CLI
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+:::command Run the analyze phase
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
-  --phases analyze --yes --run-id workshop
-:::
-
-:::command Strands with Bedrock
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
   --phases analyze --yes --run-id workshop
 :::
 
@@ -225,7 +215,7 @@ If the live model fails, use the recorded fallback:
 :::
 
 :::command Recorded fallback
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --phases analyze --yes --run-id workshop

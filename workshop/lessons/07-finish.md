@@ -31,15 +31,14 @@ It does not run a second pipeline.
 It does not replace the JSONL transcripts.
 
 :::command Run all phases with the TUI
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --seed workshop-v1 --max-cost 3 --yes \
   --run-id final-dashboard --tui
 :::
 
-:::note Use your selected executor
-If you selected Strands, replace only the executor, provider, and model flags.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 Do not change the run ID, seed, cost limit, or phase controls.
 :::
 
@@ -89,7 +88,7 @@ The TUI is useful after you understand checks, retries, costs, tools, and device
 :::fallback
 If a live dependency fails, run:
 
-`yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
+`yarn tsx src/index.ts run ../../apps/pocket-cinema --inputs ../../workshop/fixtures/pocket-cinema-inputs --replay ../../workshop/fixtures/port-recording.json --platform-replay ../../workshop/fixtures/vega-lifecycle.json --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui`
 
 The recorded TUI has no live ADBT tool events.
 Report `evidence recorded`.

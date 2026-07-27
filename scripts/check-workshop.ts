@@ -2,8 +2,8 @@
 //
 // Two matchers, because the material names files two different ways:
 //   1. Backticked paths and Markdown links, resolved from the repository root.
-//   2. Paths inside runnable command blocks, which are written relative to the block's
-//      own `--cwd` (for example `yarn --cwd packages/workshop-harness tsx src/index.ts …`).
+//   2. Paths inside harness command blocks, which run from packages/workshop-harness
+//      after Lesson 00 changes directory once.
 //      Without (2), renaming a step directory keeps `yarn verify` green while every
 //      lesson command breaks.
 
@@ -72,14 +72,14 @@ for (const file of files) {
   }
 
   for (const block of commandBlocks(text)) {
-    const cwd = /--cwd\s+(\S+)/.exec(block);
+    const cwd = /\byarn tsx src\/index\.ts\b/.test(block) ? "packages/workshop-harness" : undefined;
     if (!cwd) continue;
     for (const match of block.matchAll(commandToken)) {
       const path = match[1];
       if (isPattern(path) || isGenerated(path)) continue;
       commandPaths++;
-      const full = normalize(join(cwd[1], path));
-      if (!isGenerated(full) && !existsSync(full)) missing.push(`${file}: ${path} (relative to ${cwd[1]})`);
+      const full = normalize(join(cwd, path));
+      if (!isGenerated(full) && !existsSync(full)) missing.push(`${file}: ${path} (relative to ${cwd})`);
     }
   }
 
@@ -90,6 +90,7 @@ for (const asset of [
   "workshop/index.html",
   "workshop/workshop.css",
   "workshop/workshop.js",
+  "workshop.config.json",
   "workshop/assets/retry-terminal.png",
   "workshop/assets/retry-terminal.txt",
 ]) {
@@ -128,6 +129,7 @@ const forbiddenCopy: Array<[RegExp, string]> = [
   [/@amazon-devices\/amazon-devices-buildertools-mcp@latest/, "unpinned ADBT command"],
   [/\blessons 1[–-]10\b/i, "stale lesson count"],
   [/\bpackages\/workshop-harness\/out\//, "stale package-local output path"],
+  [/\byarn\s+--cwd\b/, "stale --cwd command"],
 ];
 for (const file of files) {
   const source = readFileSync(file, "utf8");

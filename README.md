@@ -58,8 +58,10 @@ The live path supports:
 - Strands with OpenAI.
 - Strands with OpenRouter.
 
-Select one path before lesson 1. Use the same path for all model phases.
-`workshop/lessons/00-welcome.md` gives the exact setup and doctor commands.
+Select one path before lesson 1. Store it in `workshop.config.json`.
+Use the same path for all model phases. The configuration file contains no
+credentials. `workshop/lessons/00-welcome.md` gives the values for each
+provider.
 
 Both live executors use ADBT as an MCP server:
 
@@ -79,6 +81,15 @@ yarn site           # Start the workshop site on port 4173.
 ```
 
 Run these commands from the repository root.
+
+Before the first harness command, enter the harness package:
+
+```sh
+cd packages/workshop-harness
+```
+
+Keep this terminal in the package for lessons 1 through 7. Harness commands
+then start with `yarn tsx src/index.ts`.
 
 If Yarn reports that this directory belongs to another project, confirm that
 you are in the directory that contains this README and the root `yarn.lock`.
@@ -116,7 +127,8 @@ out/<runId>/model-logs/<phase>.jsonl
 Read one transcript:
 
 ```sh
-yarn --cwd packages/workshop-harness tsx src/index.ts logs <runId> --phase plan
+cd packages/workshop-harness
+yarn tsx src/index.ts logs <runId> --phase plan
 ```
 
 Add `--follow` during a live phase.

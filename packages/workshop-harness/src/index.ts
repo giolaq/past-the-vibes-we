@@ -26,6 +26,7 @@ import { loadPortResult, loadRunCost, loadVegaResult, mergePortResults, mergeVeg
 import { shouldUseTui, WorkshopTui } from "./tui.js";
 import { runNaiveProbe } from "./naive-probe.js";
 import { injectBuildFailure } from "./workshop-failure.js";
+import { loadExecutorInput } from "./workshop-config.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
 
 async function naiveCommand(): Promise<void> {
   const sourcePath = args[1];
-  if (!sourcePath) failure("missing_app", "App directory is required.", "Run naive <app> --yes with your executor flags.");
+  if (!sourcePath) failure("missing_app", "App directory is required.", "Run naive <app> --yes after you configure workshop.config.json.");
   if (!args.includes("--yes")) failure("confirmation_required", "The one-shot probe spends model budget.", "Show the command and cost cap, then rerun with --yes.");
   const runId = flag("--run-id") ?? "naive-demo";
   const out = join(root, runId);
@@ -418,7 +419,7 @@ function loadPlatformReplay(): { fixture: VegaReplayFixture; screenshot?: Buffer
 function screenshotJudge(out?: string, transcripts = out ? new ModelTranscriptStore(out) : undefined): ScreenshotJudge | undefined {
   if (!args.includes("--evaluate-screenshot")) return undefined;
   const config = selectedExecutorConfig();
-  if (config.kind !== "strands") failure("screenshot_review_unavailable", "--evaluate-screenshot needs a multimodal model.", "Add --executor strands --provider bedrock, or drop --evaluate-screenshot and keep the deterministic pixel gate.");
+  if (config.kind !== "strands") failure("screenshot_review_unavailable", "--evaluate-screenshot needs a multimodal model.", "Select a multimodal Strands model in workshop.config.json, or drop --evaluate-screenshot.");
   return createScreenshotJudge(config.model, transcripts);
 }
 
@@ -654,14 +655,7 @@ async function vegaRunCommand(): Promise<void> {
 
 function flag(name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
 function selectedExecutorConfig() {
-  return resolveExecutorConfig({
-    executor: flag("--executor"),
-    provider: flag("--provider"),
-    model: flag("--model"),
-    region: flag("--region"),
-    inputRate: flag("--input-rate"),
-    outputRate: flag("--output-rate"),
-  });
+  return resolveExecutorConfig(loadExecutorInput(args));
 }
 function executorName(config: ReturnType<typeof selectedExecutorConfig>): string {
   if (flag("--replay")) return "replay";
@@ -693,6 +687,8 @@ Commands:
   context adbt port | context bee     Inspect context providers
 
 Model execution:
+  workshop.config.json supplies the default executor, provider, model, and region.
+  --config <file>                       Use a different configuration file
   --executor claude-cli                 Local Claude Code (default)
   --executor strands --provider <name>  Strands: bedrock, openai, or openrouter
   --model <id> [--region <aws-region>]  Exact provider model id; region is for Bedrock
@@ -704,7 +700,7 @@ Model execution:
 Credentials:
   claude-cli uses the Claude Code login; bedrock uses AWS_PROFILE or AWS_ACCESS_KEY_ID;
   openai uses OPENAI_API_KEY; openrouter uses OPENROUTER_API_KEY.
-  Keep the same executor/provider/model flags for doctor, plan, and run.
+  Command-line model flags override workshop.config.json. Credentials stay outside the file.
 
 Pipeline:
   --phases analyze,plan                 Run part of the port (default: all six)

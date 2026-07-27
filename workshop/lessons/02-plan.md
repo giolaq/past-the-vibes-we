@@ -64,24 +64,14 @@ Which knowledge source identifies the correct Vega API?
 Use the same run ID.
 The harness reuses the guarded copy and its Git history.
 
-:::command Claude Code CLI
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+:::command Run the plan phase
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor claude-cli --model sonnet \
   --phases plan --yes --run-id workshop
 :::
 
-:::command Strands with Bedrock
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
-  --inputs ../../workshop/fixtures/pocket-cinema-inputs \
-  --executor strands --provider bedrock \
-  --model anthropic.claude-3-5-sonnet-20241022-v2:0 --region us-west-2 \
-  --phases plan --yes --run-id workshop
-:::
-
-:::note Use your selected executor
-Run one command only.
-If you selected OpenAI or OpenRouter, use the flags from Lesson 00.
+:::note Use your workshop configuration
+The command reads the model settings from `../../workshop.config.json`.
 The harness supplies ADBT MCP to both live executors.
 :::
 
@@ -149,7 +139,7 @@ Checks run during a recorded fallback, but no model runs.
 :::
 
 :::command Recorded fallback
-yarn --cwd packages/workshop-harness tsx src/index.ts run ../../apps/pocket-cinema \
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --inputs ../../workshop/fixtures/pocket-cinema-inputs \
   --replay ../../workshop/fixtures/port-recording.json \
   --phases plan --yes --run-id workshop
