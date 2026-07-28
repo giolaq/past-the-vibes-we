@@ -1,194 +1,307 @@
 # Past the Vibes
 
-Build and test a coding harness with
-[Strands Agents SDK](https://github.com/strands-agents/harness-sdk). Use the
-harness to port a React Native flow to Vega TV.
+Past the Vibes is a workshop for React Native developers.
+You use an AI agent harness to port a mobile app to Vega OS for TV.
 
-The model can inspect a guarded copy and propose files. The harness controls
-writes, checks, retries, token and turn limits, and commits.
+An AI agent harness is the software infrastructure around a large language
+model (LLM). It gives the model selected tools and project context. It also
+controls file changes, checks, retries, limits, and reports.
 
-## Repository Contents
+This workshop uses a harness written in TypeScript. The harness runs six
+ordered phases:
 
-| Path | Contents |
+```text
+analyze -> plan -> port -> build -> launch -> test
+```
+
+The sample app is Pocket Cinema. The source app stays unchanged. The harness
+creates a working copy under `out/<runId>/app`.
+
+## Main Technologies
+
+| Technology | Function |
 | --- | --- |
-| `packages/workshop-harness` | Six-phase porting harness |
-| `apps/pocket-cinema` | React Native app for the exercises |
-| `workshop` | Lessons, website, slides, fixtures, and instructor guides |
+| [Strands Agents SDK](https://strandsagents.com/) | Connects the harness to models and tools |
+| [Vega OS](https://developer.amazon.com/docs/vega/0.22/vega-get-started.html) | Runs the ported TV app |
+| [Amazon Devices Builder Tools (ADBT)](https://developer.amazon.com/docs/vega/0.23/mcp-server.html) | Supplies current Vega documents to the model |
 
-## What You Build
+ADBT uses Model Context Protocol (MCP). MCP is a standard connection for
+model tools and data.
 
-The workshop starts with one model call. The model returns a plausible port
-proposal. The command does not apply or test the proposal.
+The harness supports these model paths:
 
-You then add these controls:
+- Claude Code CLI
+- Strands with Amazon Bedrock
+- Strands with OpenAI
+- Strands with OpenRouter
 
-1. Inspect the app in a guarded copy.
-2. Plan with current Vega documents from ADBT MCP.
-3. Validate and approve a typed screen and navigation plan.
-4. Validate and write a typed patch.
-5. Send compiler failures and ADBT MCP back to the repair model.
-6. Build, start or reuse a VDA, install, start, and inspect the app.
-7. Run the focus transition contract.
-8. Control the complete run in a TUI.
+You can select any model that your chosen path supports. Use the exact model
+name or model ID.
 
-Each lesson records a claim, independent evidence, and the remaining limit.
+## What the Harness Controls
 
-## Start
+The model can list, read, and search the working copy. The model has no file
+write tool and no shell tool. It returns proposed files in a structured
+response.
 
-Install Node.js 20 or later and Git.
+The harness performs these operations:
+
+1. Validates the model response and file paths.
+2. Writes accepted files to the working copy.
+3. Runs independent checks.
+4. Sends exact failure text to the model when a repair is necessary.
+5. Stops when checks pass, limits apply, or failures repeat.
+6. Commits each passing phase in the working copy.
+7. Records model, build, and device evidence.
+
+An independent check runs outside the model. The check does not depend on a
+model claim.
+
+## Workshop Phases
+
+| Phase | Work | Main evidence |
+| --- | --- | --- |
+| `analyze` | Reads the app and identifies portable and replacement work | `ANALYSIS.md` |
+| `plan` | Uses ADBT documents and defines TV behavior | Approved `port-plan.json` |
+| `port` | Creates the Vega package and TV focus code | Passing checks and a Git commit |
+| `build` | Runs the Vega compiler and repairs compiler failures | A `.vpkg` package |
+| `launch` | Installs the package and starts it on a Vega device | Running-state samples and device logs |
+| `test` | Injects remote keys and reads the focused control | `tv-focus-result.json` |
+
+The `plan` phase requires human approval. The `port`, `build`, `launch`, and
+`test` phases refuse a missing or changed approval.
+
+The `build`, `launch`, and `test` phases run their checks before they call a
+model. A passing check does not require a repair call.
+
+## Requirements
+
+Install these tools before the workshop:
+
+- [Node.js](https://nodejs.org/en/download) 20 or newer
+- [Git](https://git-scm.com/downloads)
+- [Corepack](https://github.com/nodejs/corepack)
+- One supported model connection
+
+Lessons 4 through 6 also require:
+
+- Vega SDK version `0.23.9221`
+- A Vega Virtual Device (VDA)
+
+Use the [Vega installation guide](https://developer.amazon.com/docs/vega/0.23/install-vega-sdk.html)
+to install the SDK. A VDA is a software TV device that runs on your computer.
+The harness starts a VDA when no Vega device is attached.
+
+## Install the Workshop
+
+Run these commands from a terminal:
 
 ```sh
 git clone https://github.com/giolaq/past-the-vibes-we.git
 cd past-the-vibes-we
+unset NODE_TLS_REJECT_UNAUTHORIZED
 corepack enable
 yarn setup
 yarn verify
+```
+
+The `unset` command removes an unsafe Transport Layer Security (TLS) override
+if the override exists. Do not disable TLS certificate verification.
+
+Start the workshop website:
+
+```sh
 yarn site
 ```
 
-Open `http://localhost:4173`. Start with **Before You Arrive**.
+Open `http://localhost:4173`.
+Begin with Lesson 00.
 
-You can also open `workshop/index.html` directly.
+## Configure a Model
 
-## Select a Model
+Open `workshop.config.json` in the repository root. Select one executor,
+provider, and model. The executor sends prompts to the model. The provider
+hosts the model.
 
-The live path supports:
+The configuration file must not contain credentials. Keep credentials in your
+terminal or credential manager.
 
-- Claude Code CLI.
-- Strands with Amazon Bedrock.
-- Strands with OpenAI.
-- Strands with OpenRouter.
-
-Select one path before lesson 1. Store it in `workshop.config.json`.
-Use the same path for all model phases. The configuration file contains no
-credentials. `workshop/lessons/00-welcome.md` gives the values for each
-provider. Use an exact model ID rather than a provider alias.
-
-Both live executors use ADBT as an MCP server:
-
-- Strands receives an in-process `McpClient`.
-- Claude Code receives a pinned `--mcp-config`.
-
-Both ADBT connections are read-only. The model has no shell or write tool.
-
-## Product Input
-
-The existing React Native app is the product input. It supplies the current
-code, content, dependencies, and behavior.
-
-Each source app also contains `workshop-brief.md`. The brief states the bounded
-port goal, required flow, constraints, and verification. The harness supplies
-it to the feasibility and phase prompts and records its hash in `run-spec.json`.
-
-`workshop.config.json` selects model execution. Command flags set the phase,
-seed, token and turn limits, and run ID. ADBT supplies external Vega knowledge.
-
-The workshop does not use separate content, brand, or design input files.
-
-## Commands
-
-```sh
-yarn setup          # Install all workshop packages.
-yarn verify         # Run code, document, and site checks.
-yarn replay         # Test the recorded recovery path.
-yarn doctor         # Check the recorded recovery environment.
-yarn site           # Start the workshop site on port 4173.
-```
-
-Run these commands from the repository root.
-
-Before the first harness command, enter the harness package:
+Lesson 00 provides configurations for every supported model path. It also
+explains how to verify the connection:
 
 ```sh
 cd packages/workshop-harness
+yarn tsx src/index.ts doctor --json
 ```
 
-Keep this terminal in the package for lessons 1 through 7. Harness commands
-then start with `yarn tsx src/index.ts`.
+Use the same model configuration for all phases.
 
-If Yarn reports that this directory belongs to another project, confirm that
-you are in the directory that contains this README and the root `yarn.lock`.
+## Run the Main Flow
 
-If `npx` asks to download `tsx`, stop. Run `yarn setup` first.
+Run harness commands from `packages/workshop-harness`.
 
-If Node reports `NODE_TLS_REJECT_UNAUTHORIZED=0`, remove the unsafe setting:
+A run ID names one pipeline run and its directory under `out/`. Use the same
+run ID for every phase in one port.
+
+Run the analysis and plan:
 
 ```sh
-unset NODE_TLS_REJECT_UNAUTHORIZED
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases analyze,plan --yes --run-id workshop
 ```
 
-Do not disable TLS certificate checks.
-
-## Live and Recorded Evidence
-
-Use a live model as the normal workshop path.
-
-Use recorded data if an external service blocks an exercise. Recorded data
-proves command order, retry behavior, and report format. It does not prove
-what a live model or device did.
-
-Lessons 4 through 6 need the Vega SDK. Device checks also need an attached
-Vega Virtual Device. Use the supplied checkpoints when platform setup blocks
-the lesson.
-
-## Model Transcripts
-
-Each model phase writes an append-only transcript:
-
-```text
-out/<runId>/model-logs/<phase>.jsonl
-```
-
-Read one transcript:
+Review `../../out/workshop/app/port-plan.json`.
+Approve the reviewed plan:
 
 ```sh
-cd packages/workshop-harness
+yarn tsx src/index.ts approve-plan workshop --yes
+```
+
+Run the remaining phases:
+
+```sh
+yarn tsx src/index.ts run ../../apps/pocket-cinema \
+  --phases port,build,launch,test --yes \
+  --run-id workshop --tui
+```
+
+The terminal user interface (TUI) shows each phase and its events. Select a
+phase with Up or Down. Press Enter to read its messages. Press Escape to
+return to the phase list.
+
+## Understand the Device Evidence
+
+The launch phase performs these operations:
+
+1. Reuses an attached VDA or starts one.
+2. Installs the Vega package from the build phase.
+3. Starts the app.
+4. Confirms that the app process is running.
+5. Waits five seconds.
+6. Reads the device log and rejects known crash text.
+7. Confirms that the app process is still running.
+
+If a source repair is necessary, the phase rebuilds and installs the package
+before it starts the app again.
+
+The launch phase does not use screenshots as evidence.
+
+The test phase uses Automation Toolkit. Automation Toolkit is a VDA service
+that returns the user-interface hierarchy. The harness sends remote keys with
+`inputd-cli` and reads the focused `test_id` after each key.
+
+The test verifies:
+
+- Initial focus
+- Down movement
+- Left and right boundaries
+- Select behavior
+- Back behavior
+- Focus restoration
+
+These checks prove process stability and focus behavior. They do not prove
+visual styling.
+
+## Inspect a Run
+
+Each run writes evidence under `out/<runId>/`.
+
+| Path | Contents |
+| --- | --- |
+| `app/ANALYSIS.md` | App analysis |
+| `app/port-plan.json` | Structured TV plan |
+| `app/port-plan-approval.json` | Human approval hashes |
+| `port-result.json` | Phase, check, retry, and usage results |
+| `model-logs/<phase>.jsonl` | Complete model events for one phase |
+| `adbt-port-context.json` | ADBT document names and hashes |
+| `vega-platform-result.json` | Build and device results |
+| `vega-device.log` | Device log entries for the app |
+| `app/tv-focus-result.json` | Observed focus transitions |
+
+JSON Lines (JSONL) stores one JSON event on each line.
+
+Read one model transcript:
+
+```sh
 yarn tsx src/index.ts logs <runId> --phase plan
 ```
 
-Add `--follow` during a live phase.
+Add `--follow` to read new events while the phase runs.
 
-Transcripts can contain prompts, source excerpts, and tool results. They are
-inside the ignored `out/` directory. Review them before you share them.
+Model transcripts can contain prompts, source text, and tool results. The
+`out/` directory is ignored by Git. Review a transcript before you share it.
 
-## Plan Approval
+## Usage Limits
 
-The `plan` phase writes `port-plan.json`. Its schema checks screen references,
-Select and Back transitions, preserved behavior, and evidence mappings.
+Use `--max-tokens` to set a cumulative token limit for one run.
+Use `--max-turns` to set a turn limit for each model call.
 
-Review the product decisions, then approve the exact file:
+If you omit these options, the harness records usage without adding these
+limits. The model provider can still apply its own limits.
+
+The harness does not calculate a dollar cost. It reports a provider cost only
+when the provider supplies that value.
+
+## Bee Challenge
+
+The optional Bee challenge uses
+[Bee CLI](https://github.com/bee-computer/bee-cli) to read a consented product
+conversation.
+
+The `bee_spec` phase creates a structured request. A person reviews the
+request before app files can change. The `bee_apply` phase applies only the
+approved request. The harness then runs the normal build and launch phases.
+
+Use a live conversation only when every speaker gives consent. The harness
+stores source IDs and hashes in its report. Local model logs can still contain
+conversation text.
+
+Read [the Bee challenge](workshop/lessons/A1-bee.md) after Lesson 07.
+
+## Repository Map
+
+| Path | Contents |
+| --- | --- |
+| `apps/pocket-cinema/` | Source React Native app and port brief |
+| `packages/workshop-harness/` | TypeScript harness and tests |
+| `workshop/lessons/` | Source files for all website lessons |
+| `workshop/workshop.data.js` | Generated website lesson data |
+| `workshop/dry-run.md` | Instructor rehearsal |
+| `workshop/instructor-guide.md` | Instructor schedule and teaching notes |
+| `workshop/troubleshooting.md` | Error explanations and repair steps |
+| `scripts/` | Website build and repository checks |
+
+## Common Commands
+
+Run these commands from the repository root:
 
 ```sh
-cd packages/workshop-harness
-yarn tsx src/index.ts approve-plan <runId> --yes
+yarn setup          # Install dependencies.
+yarn verify         # Run types, tests, workshop checks, and site checks.
+yarn build:site     # Generate website data from the lesson files.
+yarn check:ste      # Check the project language rules.
+yarn site           # Generate and serve the workshop website.
 ```
 
-The harness records the plan and brief hashes in `port-plan-approval.json`.
-Code and device phases refuse a missing or stale approval.
+## Edit the Workshop
 
-Keep the source app unchanged while one run ID is active. The harness records
-the source fingerprint in `run-spec.json`. If the app or brief changes, start a
-new run ID so one approval never covers two product inputs.
+Edit lesson content only in `workshop/lessons/*.md`.
+Do not edit `workshop/workshop.data.js` by hand.
 
-## Important Documents
+After a lesson change, run:
 
-| Path | Use |
-| --- | --- |
-| `workshop/README.md` | Attendee overview |
-| `workshop/STE-STYLE.md` | Workshop writing standard |
-| `workshop/instructor-guide.md` | Schedule and teaching rules |
-| `workshop/dry-run.md` | Instructor rehearsal |
-| `workshop/editing-guide.md` | Safe manual editing procedure |
-| `workshop/troubleshooting.md` | Recovery procedures |
-| `workshop/strands-constructs.md` | Strands code-reading guide |
-| `workshop/lessons/*.md` | Source for the workshop website |
-| `workshop/checkpoints` | Known recovery states |
-| `workshop/fixtures` | Deterministic failures and recorded data |
+```sh
+yarn build:site
+yarn verify
+```
+
+The language check applies the project rules for Simplified Technical English.
+The check is not an ASD-STE100 certification.
 
 ## Scope
 
-This repository contains workshop material. It does not contain the complete
-TV Build product, release system, or historical plans.
+This repository contains the Past the Vibes workshop. It does not contain a
+production release system or a complete TV application platform.
 
 ## License
 
