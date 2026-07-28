@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { consumeStream, ModelTranscriptStore, type TranscriptEntry } from "../src/model-transcript.js";
-import { createPortExecutor, resolveExecutorConfig } from "../src/port-executor.js";
+import { createPortExecutor, PortExecutorError, resolveExecutorConfig } from "../src/port-executor.js";
 
 function entries(path: string): TranscriptEntry[] {
   return readFileSync(path, "utf8").trim().split("\n").map((line) => JSON.parse(line) as TranscriptEntry);
@@ -66,18 +66,23 @@ process.stdin.on("end", () => {
   process.stdout.write("raw diagnostic that is not JSON\\n");
   process.stderr.write("full stderr diagnostic\\n");
   process.stdout.write(JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "complete assistant message" }] } }) + "\\n");
-  process.stdout.write(JSON.stringify({ type: "result", result: "{\\"summary\\":\\"done\\",\\"files\\":{}}", total_cost_usd: 0.0123, usage: { input_tokens: 11, output_tokens: 7 } }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "result", result: "rendered fallback", structured_output: { summary: "done", files: {} }, total_cost_usd: 0.0123, usage: { input_tokens: 11, output_tokens: 7 }, num_turns: 2, modelUsage: { "claude-sonnet-4-6": { inputTokens: 11, outputTokens: 7 } } }) + "\\n");
 });
 `);
   chmodSync(command, 0o755);
   const executor = createPortExecutor({
     appDir: app,
     outDir: out,
-    config: resolveExecutorConfig({ command, model: "sonnet" }),
+    config: resolveExecutorConfig({ command, model: "claude-sonnet-4-6" }),
   });
   const prompt = "Read this fully.\nSecond line.\n" + "z".repeat(10_000);
   const result = await executor.call("port", prompt, { attempt: 2 });
-  assert.equal(result.costUsd, 0.0123);
+  assert.equal(result.providerReportedCostUsd, 0.0123);
+  assert.equal(result.usage.totalTokens, 18);
+  assert.equal(result.usage.calls, 1);
+  assert.equal(result.usage.turns, 2);
+  assert.deepEqual(result.actualModels, ["claude-sonnet-4-6"]);
+  assert.deepEqual(JSON.parse(result.text), { summary: "done", files: {} });
 
   const rows = entries(join(out, "model-logs", "port.jsonl"));
   const request = rows.find((row) => row.kind === "request");
@@ -87,6 +92,57 @@ process.stdin.on("end", () => {
   assert.equal(rows.some((row) => row.kind === "raw_stdout" && row.payload === "raw diagnostic that is not JSON"), true);
   assert.equal(rows.some((row) => row.kind === "stderr" && String(row.payload).includes("full stderr diagnostic")), true);
   assert.equal(rows.every((row) => row.attempt === 2), true);
+});
+
+test("Claude CLI failures retain the terminal reason from the result event", async () => {
+  const root = mkdtempSync(join(tmpdir(), "claude terminal reason-"));
+  const app = join(root, "app");
+  const command = join(root, "fake claude");
+  mkdirSync(app);
+  writeFileSync(join(app, "package.json"), "{}");
+  writeFileSync(command, `#!/usr/bin/env node
+process.stdout.write(JSON.stringify({ type: "result", subtype: "error_max_turns", errors: ["Reached maximum number of turns (12)"], terminal_reason: "max_turns", total_cost_usd: 0.25, usage: { input_tokens: 20, output_tokens: 5 }, num_turns: 12, modelUsage: { "claude-sonnet-4-6": { inputTokens: 20, outputTokens: 5 } } }) + "\\n");
+process.exitCode = 1;
+`);
+  chmodSync(command, 0o755);
+  const executor = createPortExecutor({
+    appDir: app,
+    outDir: join(root, "out"),
+    config: resolveExecutorConfig({ command, model: "claude-sonnet-4-6" }),
+  });
+  let error: PortExecutorError | undefined;
+  try {
+    await executor.call("analyze", "inspect");
+  } catch (caught) {
+    assert.ok(caught instanceof PortExecutorError);
+    error = caught;
+  }
+  assert.ok(error);
+  assert.match(error.message, /Reached maximum number of turns \(12\); terminal reason: max_turns/);
+  assert.equal(error.telemetry.providerReportedCostUsd, 0.25);
+  assert.equal(error.telemetry.usage.totalTokens, 25);
+  assert.equal(error.telemetry.usage.turns, 12);
+});
+
+test("Claude CLI rejects a silently routed model", async () => {
+  const root = mkdtempSync(join(tmpdir(), "claude model mismatch-"));
+  const app = join(root, "app");
+  const command = join(root, "fake claude");
+  mkdirSync(app);
+  writeFileSync(join(app, "package.json"), "{}");
+  writeFileSync(command, `#!/usr/bin/env node
+process.stdout.write(JSON.stringify({ type: "result", structured_output: { summary: "done", files: {} }, usage: { input_tokens: 10, output_tokens: 5 }, num_turns: 1, modelUsage: { "global.anthropic.claude-opus-4-8-v1:0": { inputTokens: 10, outputTokens: 5 } } }) + "\\n");
+`);
+  chmodSync(command, 0o755);
+  const executor = createPortExecutor({
+    appDir: app,
+    outDir: join(root, "out"),
+    config: resolveExecutorConfig({ command, model: "claude-sonnet-4-6" }),
+  });
+  await assert.rejects(
+    () => executor.call("analyze", "inspect"),
+    /used global\.anthropic\.claude-opus-4-8-v1:0 instead of requested model claude-sonnet-4-6/,
+  );
 });
 
 test("replay transcript names the recorded request and keeps every recorded response", async () => {
@@ -108,7 +164,8 @@ test("replay transcript names the recorded request and keeps every recorded resp
     costUsd: 0.001,
   }]));
   const executor = createPortExecutor({ appDir: app, outDir: out, replayPath: recording });
-  await executor.call("analyze", "current assembled prompt", { attempt: 1 });
+  const result = await executor.call("analyze", "current assembled prompt", { attempt: 1 });
+  assert.equal(result.providerReportedCostUsd, 0.001);
 
   const rows = entries(join(out, "model-logs", "analyze.jsonl"));
   assert.match(JSON.stringify(rows.find((row) => row.kind === "replay_request")?.payload), /recorded prompt/);

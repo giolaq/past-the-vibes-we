@@ -231,7 +231,6 @@ const partials = {
     ${rawTable(["Executor", "Method"], [
       ["Claude CLI", "<code>injectSkillText()</code> adds the complete skill body to the process prompt."],
       ["Strands", "<code>AgentSkills</code> registers each <code>Skill</code> as a plugin. The agent activates instructions with the <code>skills</code> tool."],
-      ["Recorded fallback", "No model runs. A recorded response replaces the live call."],
     ])}
     ${comp.note("Missing skill", "<code>loadSkills()</code> reports and skips a missing skill. The run continues without that knowledge.")}`,
   strandsConstructs: () =>

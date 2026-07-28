@@ -2,7 +2,8 @@
   "schemaVersion": 1,
   "target": { "platform": "firetv-vega", "sdk": "0.22" },
   "seed": "workshop-v1",
-  "maxCostUsd": 10,
+  "maxTokens": 1000000,
+  "maxTurns": 12,
   "findings": [
     { "area": "framework", "classification": "portable", "evidence": "react-native", "recommendation": "Keep shared product logic." },
     { "area": "navigation", "classification": "manual", "evidence": "in-memory screen state", "recommendation": "Define remote back and focus restoration." },

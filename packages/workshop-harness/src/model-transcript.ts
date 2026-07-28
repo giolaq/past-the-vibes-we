@@ -60,6 +60,31 @@ export class ModelTranscriptStore {
       .map((name) => join(this.directory, name));
   }
 
+  /** Replays durable events into a resumed observer such as the interactive dashboard. */
+  replayExisting(onEntry: (entry: TranscriptEntry) => void): void {
+    for (const path of this.files()) {
+      for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
+        try {
+          const entry = JSON.parse(line) as Partial<TranscriptEntry>;
+          if (
+            entry.schemaVersion === 1 &&
+            typeof entry.timestamp === "string" &&
+            typeof entry.sequence === "number" &&
+            typeof entry.phase === "string" &&
+            typeof entry.attempt === "number" &&
+            typeof entry.executor === "string" &&
+            typeof entry.direction === "string" &&
+            typeof entry.kind === "string"
+          ) {
+            onEntry(entry as TranscriptEntry);
+          }
+        } catch {
+          // Keep a damaged line on disk for inspection without breaking the dashboard.
+        }
+      }
+    }
+  }
+
   private nextSequence(phase: string): number {
     const known = this.sequences.get(phase);
     if (known !== undefined) {

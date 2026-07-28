@@ -1,11 +1,13 @@
 import { PortOutputSchema, parseJsonBlock } from "./port-contract.js";
-import type { PortExecutor } from "./port-executor.js";
+import { PortExecutorError, type PortExecutor } from "./port-executor.js";
 
 export const NAIVE_PHASE = "one_shot_port";
 
 export const NAIVE_PROMPT = `Port this React Native app to Vega TV in one pass.
 Inspect the project and return every file you think must change as a complete patch.
-Do not ask questions. Do not describe a future plan. Return the patch now.`;
+Do not ask questions. Do not describe a future plan. Return the patch now.
+Return ONLY JSON: {"summary":"short proposal summary","files":{"relative/path":"complete file contents"}}.
+Paths are relative to the app root.`;
 
 const EXPECTED = [
   { claim: "Vega package boundary", test: (paths: string[]) => paths.some((path) => path.startsWith("apps/vega/")) },
@@ -13,13 +15,22 @@ const EXPECTED = [
   { claim: "Remote behavior check", test: (paths: string[]) => paths.some((path) => path.includes("test") || path.includes("verify")) },
 ];
 
-export async function runNaiveProbe(executor: PortExecutor, maxCostUsd = 1) {
-  const model = await executor.call(NAIVE_PHASE, NAIVE_PROMPT, { maxCostUsd, attempt: 1 });
-  const proposal = parseJsonBlock(model.text, PortOutputSchema, NAIVE_PHASE);
+export async function runNaiveProbe(executor: PortExecutor, maxTokens?: number, maxTurns?: number) {
+  const model = await executor.call(NAIVE_PHASE, NAIVE_PROMPT, { maxTokens, maxTurns, attempt: 1 });
+  let proposal;
+  try {
+    proposal = parseJsonBlock(model.text, PortOutputSchema, NAIVE_PHASE);
+  } catch (error) {
+    throw new PortExecutorError(error instanceof Error ? error.message : String(error), model);
+  }
   const paths = Object.keys(proposal.files).sort();
   return {
     proposal,
-    costUsd: model.costUsd,
+    usage: model.usage,
+    providerReportedCostUsd: model.providerReportedCostUsd,
+    providerReportedCostSource: model.providerReportedCostSource,
+    requestedModel: model.requestedModel,
+    actualModels: model.actualModels,
     coverage: EXPECTED.map(({ claim, test }) => ({ claim, proposed: test(paths), proven: false })),
     missingProof: [
       "No ADBT migration document was consulted",

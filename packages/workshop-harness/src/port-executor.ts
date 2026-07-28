@@ -1,25 +1,25 @@
-import { Agent, StructuredOutputError, McpClient, type Tool } from "@strands-agents/sdk";
+import { Agent, McpClient, type Tool } from "@strands-agents/sdk";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { ZodTypeAny } from "zod";
+import { z, type ZodTypeAny } from "zod";
 import { consumeStream, ModelTranscriptStore, serializable, type TranscriptDirection } from "./model-transcript.js";
 import { createModel, defaultModel, type ModelConfig, type RemoteProvider } from "./model-factory.js";
+import { actualClaudeModels, modelMatches, modelUsage, recordedUsage, type ModelTelemetry } from "./model-telemetry.js";
 import { PortOutputSchema } from "./port-contract.js";
 import { PortRecorder, PortReplay } from "./port-recorder.js";
 import { createProjectReadTools } from "./port-tools.js";
 import { createSkillsPlugin, injectSkillText, loadSkills } from "./skills.js";
 
 /** messages carries the agent's turn history so the pipeline can reconstruct ADBT provenance. */
-export type PortModelResult = { text: string; costUsd: number; messages?: unknown[] };
+export type PortModelResult = ModelTelemetry & { text: string; messages?: unknown[] };
 /**
  * Extra tools/providers for a phase. An McpClient can be passed here (e.g. the ADBT MCP client
  * during analyze/plan); Strands discovers its tools dynamically.
  */
 export type ExtraTools = (Tool | McpClient)[];
 export type CliMcpServer = { command: string; args: string[]; env?: Record<string, string> };
-export type ModelPricing = { inputUsdPerMToken: number; outputUsdPerMToken: number; source: string };
 /**
  * What a phase can ask of one model call beyond the prompt:
  * - schema: demand a different structured output (e.g. the feasibility verdict).
@@ -27,28 +27,34 @@ export type ModelPricing = { inputUsdPerMToken: number; outputUsdPerMToken: numb
  * - mcp: named MCP servers the Claude CLI may load for this phase.
  * - skills: names of skills to deliver; each executor delivers them its own way.
  */
-export type PortCall = { schema?: ZodTypeAny; extraTools?: ExtraTools; mcp?: string[]; skills?: string[]; maxCostUsd?: number; attempt?: number };
+export type PortCall = { schema?: ZodTypeAny; extraTools?: ExtraTools; mcp?: string[]; skills?: string[]; maxTokens?: number; maxTurns?: number; attempt?: number };
 export interface PortExecutor { call(phase: string, prompt: string, options?: PortCall): Promise<PortModelResult>; }
+export class PortExecutorError extends Error {
+  constructor(message: string, readonly telemetry: ModelTelemetry) {
+    super(message);
+  }
+}
 export type ExecutorConfig =
-  | { kind: "claude-cli"; command: string; model: string; pricing: ModelPricing }
-  | { kind: "strands"; model: ModelConfig; pricing: ModelPricing };
-export type ExecutorInput = { executor?: string; provider?: string; model?: string; region?: string; command?: string; inputRate?: string; outputRate?: string };
+  | { kind: "claude-cli"; command: string; model: string }
+  | { kind: "strands"; model: ModelConfig };
+export type ExecutorInput = { executor?: string; provider?: string; model?: string; region?: string; command?: string };
 
 export const READ_ONLY_TOOLS = "Read,Grep,Glob";
+export const CLAUDE_EMERGENCY_MAX_COST_USD = 10;
 const READ_ONLY_TOOL_RULES = ["Read", "Grep", "Glob"];
 const BLOCKED_CLAUDE_TOOLS = ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"];
 
 export function resolveExecutorConfig(input: ExecutorInput = {}): ExecutorConfig {
   const kind = input.executor ?? process.env.WORKSHOP_EXECUTOR ?? "claude-cli";
   if (kind === "claude-cli") {
-    const model = input.model ?? process.env.CLAUDE_MODEL ?? "sonnet";
-    return { kind, command: input.command ?? process.env.CLAUDE_PATH ?? "claude", model, pricing: resolvePricing(model, input) };
+    const model = input.model ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
+    return { kind, command: input.command ?? process.env.CLAUDE_PATH ?? "claude", model };
   }
   if (kind !== "strands") throw new Error(`Unknown executor ${kind}; use claude-cli or strands`);
   const provider = (input.provider ?? process.env.WORKSHOP_PROVIDER ?? "bedrock") as RemoteProvider;
   if (!["bedrock", "openai", "openrouter"].includes(provider)) throw new Error(`Unknown Strands provider ${provider}`);
   const modelId = input.model ?? process.env.WORKSHOP_MODEL ?? defaultModel(provider);
-  return { kind, model: { provider, modelId, region: input.region ?? process.env.AWS_REGION }, pricing: resolvePricing(modelId, input) };
+  return { kind, model: { provider, modelId, region: input.region ?? process.env.AWS_REGION } };
 }
 
 export function createPortExecutor(options: { appDir: string; outDir: string; replayPath?: string; config?: ExecutorConfig; recordingName?: string; cliMcpServers?: Record<string, CliMcpServer>; transcripts?: ModelTranscriptStore }): PortExecutor {
@@ -58,7 +64,7 @@ export function createPortExecutor(options: { appDir: string; outDir: string; re
   const config = options.config ?? resolveExecutorConfig();
   const recordingPath = join(options.outDir, options.recordingName ?? "port-recording.json");
   return config.kind === "strands"
-    ? new StrandsPortExecutor(options.appDir, recordingPath, config.model, config.pricing, transcripts)
+    ? new StrandsPortExecutor(options.appDir, recordingPath, config.model, transcripts)
     : new ClaudeCodePortExecutor(options.appDir, recordingPath, config, options.cliMcpServers ?? {}, transcripts);
 }
 
@@ -83,13 +89,15 @@ class ReplayPortExecutor implements PortExecutor {
     }
     this.transcripts.append(phase, {
       attempt, executor: "replay", direction: "system", kind: "usage",
-      payload: { usage: turn.usage, costUsd: turn.costUsd },
+      payload: { usage: recordedUsage(turn.usage), recordedCostUsd: turn.providerReportedCostUsd ?? turn.costUsd, costSource: "recorded" },
     });
-    // Recordings written by PortRecorder always carry costUsd; fall back to the same rates the
-    // live path uses so a hand-written recording cannot silently under-report.
     return {
       text: responseText(turn.response, phase),
-      costUsd: turn.costUsd ?? estimateCost(turn.usage, resolvePricing("sonnet")),
+      usage: recordedUsage(turn.usage),
+      providerReportedCostUsd: turn.providerReportedCostUsd ?? turn.costUsd,
+      providerReportedCostSource: turn.providerReportedCostUsd !== undefined || turn.costUsd !== undefined ? "recorded" : undefined,
+      requestedModel: turn.requestedModel ?? turn.request.model,
+      actualModels: turn.actualModels ?? [],
       messages: responses,
     };
   }
@@ -97,7 +105,7 @@ class ReplayPortExecutor implements PortExecutor {
 
 class StrandsPortExecutor implements PortExecutor {
   private recorder: PortRecorder;
-  constructor(private appDir: string, recordingPath: string, private config: ModelConfig, private pricing: ModelPricing, private transcripts: ModelTranscriptStore) { this.recorder = new PortRecorder(recordingPath); }
+  constructor(private appDir: string, recordingPath: string, private config: ModelConfig, private transcripts: ModelTranscriptStore) { this.recorder = new PortRecorder(recordingPath); }
   async call(phase: string, prompt: string, options: PortCall = {}): Promise<PortModelResult> {
     const attempt = options.attempt ?? 1;
     const outputSchema = options.schema ?? PortOutputSchema;
@@ -122,10 +130,13 @@ class StrandsPortExecutor implements PortExecutor {
     });
     let result;
     try {
+      const limits = {
+        ...(options.maxTurns === undefined ? {} : { turns: options.maxTurns }),
+        ...(options.maxTokens === undefined ? {} : { totalTokens: options.maxTokens }),
+      };
       result = await consumeStream(
         agent.stream(prompt, {
-          cancelSignal: AbortSignal.timeout(10 * 60_000),
-          limits: { turns: 8, totalTokens: 40_000 },
+          ...(Object.keys(limits).length ? { limits } : {}),
         }),
         (event) => {
           const native = serializable(event);
@@ -146,19 +157,32 @@ class StrandsPortExecutor implements PortExecutor {
       this.transcripts.append(phase, { attempt, executor: "strands", direction: "system", kind: "error", payload: error });
       throw error;
     }
-    if (!result.structuredOutput) throw new StructuredOutputError("Strands returned no port output");
-    const text = JSON.stringify(outputSchema.parse(result.structuredOutput));
     const raw = result.metrics?.accumulatedUsage;
-    const usage = { input_tokens: raw?.inputTokens ?? 0, output_tokens: raw?.outputTokens ?? 0 };
-    const costUsd = estimateCost(usage, this.pricing);
+    const turns = result.metrics?.latestAgentInvocation?.cycles.length ?? result.metrics?.cycleCount ?? 0;
+    const usage = modelUsage({
+      inputTokens: raw?.inputTokens,
+      outputTokens: raw?.outputTokens,
+      cacheReadInputTokens: raw?.cacheReadInputTokens,
+      cacheWriteInputTokens: raw?.cacheWriteInputTokens,
+      calls: 1,
+      turns,
+    });
+    const telemetry = { usage, requestedModel: modelName, actualModels: [modelName] };
+    if (!result.structuredOutput) throw new PortExecutorError("Strands returned no port output", telemetry);
+    let text: string;
+    try {
+      text = JSON.stringify(outputSchema.parse(result.structuredOutput));
+    } catch (error) {
+      throw new PortExecutorError(`Strands returned invalid structured output: ${error instanceof Error ? error.message : String(error)}`, telemetry);
+    }
     this.transcripts.append(phase, {
       attempt, executor: "strands", direction: "from_model", kind: "result",
-      payload: { structuredOutput: serializable(result.structuredOutput), stopReason: result.stopReason, usage, costUsd },
+      payload: { structuredOutput: serializable(result.structuredOutput), stopReason: result.stopReason, usage, requestedModel: modelName, actualModels: [modelName] },
     });
-    this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `${this.config.provider}:${this.config.modelId}`, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: text }], usage, costUsd });
+    this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: modelName, system: "workshop-vega-port", messages: [{ role: "user", content: prompt }] }, response: [{ type: "result", result: text }], usage, requestedModel: modelName, actualModels: [modelName] });
     // Return the turn history so the pipeline can reconstruct ADBT provenance from tool calls.
     const messages = agent.messages.map((message) => (typeof (message as { toJSON?: () => unknown }).toJSON === "function" ? (message as { toJSON: () => unknown }).toJSON() : message));
-    return { text, costUsd, messages };
+    return { text, usage, requestedModel: modelName, actualModels: [modelName], messages };
   }
 }
 
@@ -167,6 +191,7 @@ class ClaudeCodePortExecutor implements PortExecutor {
   constructor(private appDir: string, recordingPath: string, private config: Extract<ExecutorConfig, { kind: "claude-cli" }>, private mcpServers: Record<string, CliMcpServer>, private transcripts: ModelTranscriptStore) { this.recorder = new PortRecorder(recordingPath); }
   async call(phase: string, prompt: string, options: PortCall = {}): Promise<PortModelResult> {
     const attempt = options.attempt ?? 1;
+    const outputSchema = options.schema ?? PortOutputSchema;
     // A CLI subprocess shares no in-process plugin, so the executor sends the skill text itself.
     const withSkills = injectSkillText(prompt, loadSkills(options.skills ?? []));
     const before = projectFingerprint(this.appDir);
@@ -178,17 +203,27 @@ class ClaudeCodePortExecutor implements PortExecutor {
     let result;
     try {
       result = await invokeClaude(
-        this.config.command, this.appDir, withSkills, this.config.model, this.config.pricing,
-        selectedMcp, options.maxCostUsd,
+        this.config.command, this.appDir, withSkills, this.config.model,
+        selectedMcp, outputSchema, options.maxTurns,
         (entry) => this.transcripts.append(phase, { attempt, executor: "claude-cli", ...entry }),
       );
-      if (projectFingerprint(this.appDir) !== before) throw new Error("Claude Code modified the guarded copy directly; only the validated structured patch may write files");
+      if (projectFingerprint(this.appDir) !== before) {
+        throw new PortExecutorError(
+          "Claude Code modified the guarded copy directly; only the validated structured patch may write files",
+          result,
+        );
+      }
     } catch (error) {
       this.transcripts.append(phase, { attempt, executor: "claude-cli", direction: "system", kind: "error", payload: error });
       throw error;
     }
-    this.recorder.record({ timestamp: new Date().toISOString(), phase, request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: withSkills }] }, response: result.events, usage: result.usage, costUsd: result.costUsd });
-    return { text: result.text, costUsd: result.costUsd, messages: result.events };
+    this.recorder.record({
+      timestamp: new Date().toISOString(), phase,
+      request: { model: `claude-cli:${this.config.model}`, system: "workshop-vega-port", messages: [{ role: "user", content: withSkills }] },
+      response: result.events, usage: result.usage, providerReportedCostUsd: result.providerReportedCostUsd,
+      requestedModel: this.config.model, actualModels: result.actualModels,
+    });
+    return { text: result.text, usage: result.usage, providerReportedCostUsd: result.providerReportedCostUsd, requestedModel: this.config.model, actualModels: result.actualModels, messages: result.events };
   }
 }
 
@@ -198,46 +233,26 @@ function responseText(response: unknown, phase: string): string {
   return event.result;
 }
 
-function resolvePricing(model: string, input: { inputRate?: string; outputRate?: string } = {}): ModelPricing {
-  const inputRate = input.inputRate ?? process.env.WORKSHOP_INPUT_USD_PER_MTOK;
-  const outputRate = input.outputRate ?? process.env.WORKSHOP_OUTPUT_USD_PER_MTOK;
-  if (Boolean(inputRate) !== Boolean(outputRate)) throw new Error("Set both --input-rate and --output-rate for custom model pricing");
-  if (inputRate && outputRate) {
-    const inputUsdPerMToken = Number(inputRate);
-    const outputUsdPerMToken = Number(outputRate);
-    if (!Number.isFinite(inputUsdPerMToken) || !Number.isFinite(outputUsdPerMToken) || inputUsdPerMToken < 0 || outputUsdPerMToken < 0) {
-      throw new Error("--input-rate and --output-rate must be non-negative numbers");
-    }
-    return { inputUsdPerMToken, outputUsdPerMToken, source: "cli" };
-  }
-  const id = model.toLowerCase();
-  if (id.includes("opus")) return { inputUsdPerMToken: 15, outputUsdPerMToken: 75, source: "model table" };
-  if (id.includes("haiku")) return { inputUsdPerMToken: 0.8, outputUsdPerMToken: 4, source: "model table" };
-  if (id.includes("sonnet")) return { inputUsdPerMToken: 3, outputUsdPerMToken: 15, source: "model table" };
-  if (id === "gpt-4.1" || id.includes("/gpt-4.1")) return { inputUsdPerMToken: 2, outputUsdPerMToken: 8, source: "model table" };
-  throw new Error(`No pricing is configured for ${model}; pass --input-rate and --output-rate in USD per million tokens`);
-}
-
-function estimateCost(usage: { input_tokens: number; output_tokens: number }, pricing: ModelPricing): number {
-  return (usage.input_tokens * pricing.inputUsdPerMToken + usage.output_tokens * pricing.outputUsdPerMToken) / 1_000_000;
-}
-
 type ClaudeTranscriptEvent = { direction: TranscriptDirection; kind: string; payload: unknown };
+type ClaudeResult = ModelTelemetry & { text: string; events: unknown[] };
 
-function invokeClaude(command: string, cwd: string, prompt: string, model: string, pricing: ModelPricing, mcpServers: Record<string, CliMcpServer>, maxCostUsd?: number, onTranscript?: (entry: ClaudeTranscriptEvent) => void): Promise<{ text: string; costUsd: number; usage: { input_tokens: number; output_tokens: number }; events: unknown[] }> {
+function invokeClaude(command: string, cwd: string, prompt: string, model: string, mcpServers: Record<string, CliMcpServer>, outputSchema: ZodTypeAny, maxTurns: number | undefined, onTranscript?: (entry: ClaudeTranscriptEvent) => void): Promise<ClaudeResult> {
   return new Promise((resolve, reject) => {
     const mcpTools = Object.keys(mcpServers).map((name) => `mcp__${name}__*`);
+    const { $schema: _draft, ...jsonSchema } = z.toJSONSchema(outputSchema);
     const cliArgs = [
       "-p", "-", "--tools", READ_ONLY_TOOLS,
       "--allowedTools", ...READ_ONLY_TOOL_RULES, ...mcpTools,
       "--disallowedTools", ...BLOCKED_CLAUDE_TOOLS,
       "--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers }),
-      "--output-format", "stream-json", "--verbose", "--max-turns", "8",
+      "--output-format", "stream-json", "--verbose",
+      ...(maxTurns === undefined ? [] : ["--max-turns", String(maxTurns)]),
       "--no-session-persistence", "--model", model,
+      "--json-schema", JSON.stringify(jsonSchema),
+      "--max-budget-usd", CLAUDE_EMERGENCY_MAX_COST_USD.toFixed(4),
     ];
-    if (maxCostUsd !== undefined && maxCostUsd > 0) cliArgs.push("--max-budget-usd", maxCostUsd.toFixed(4));
     const child = spawn(command, cliArgs, { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
-    let buffer = "", stderr = "", text = "", costUsd = 0, usage = { input_tokens: 0, output_tokens: 0 }, timedOut = false;
+    let buffer = "", stderr = "", text = "", providerReportedCostUsd: number | undefined, usage = modelUsage(), actualModels: string[] = [];
     const events: unknown[] = [];
     child.stdout.on("data", (chunk) => { buffer += chunk.toString(); const lines = buffer.split("\n"); buffer = lines.pop() ?? ""; lines.forEach(consume); });
     child.stderr.on("data", (chunk) => {
@@ -246,19 +261,46 @@ function invokeClaude(command: string, cwd: string, prompt: string, model: strin
       onTranscript?.({ direction: "system", kind: "stderr", payload: text });
     });
     child.stdin.end(prompt);
-    const timer = setTimeout(() => { timedOut = true; child.kill("SIGTERM"); }, 10 * 60_000);
     child.on("error", (error) => {
-      clearTimeout(timer);
       onTranscript?.({ direction: "system", kind: "spawn_error", payload: error });
       reject(error);
     });
     child.on("close", (code) => {
-      clearTimeout(timer);
       consume(buffer);
-      if (timedOut) return reject(new Error(`Claude Code executor timed out after 10 minutes: ${stderr.slice(0, 500)}`));
-      if (code !== 0) return reject(new Error(`Claude Code executor exited ${code}: ${stderr.slice(0, 500)}`));
+      const telemetry = {
+        usage,
+        providerReportedCostUsd,
+        providerReportedCostSource: providerReportedCostUsd === undefined ? undefined : "provider" as const,
+        requestedModel: model,
+        actualModels,
+      };
+      if (code !== 0) {
+        const result = [...events].reverse().find((event) => event && typeof event === "object" && "type" in event && event.type === "result") as { errors?: unknown[]; terminal_reason?: unknown } | undefined;
+        const details = [
+          stderr.trim(),
+          ...(result?.errors ?? []).map(String),
+          result?.terminal_reason ? `terminal reason: ${String(result.terminal_reason)}` : "",
+        ].filter(Boolean).join("; ");
+        return reject(new PortExecutorError(
+          `Claude Code executor exited ${code}: ${details || "no diagnostic was emitted"}`,
+          telemetry,
+        ));
+      }
       if (!text) return reject(new Error("Claude Code executor produced no result event"));
-      resolve({ text, costUsd: costUsd || estimateCost(usage, pricing), usage, events });
+      if (actualModels.length === 0) {
+        return reject(new PortExecutorError(
+          `Claude Code did not report modelUsage, so the requested model ${model} could not be verified.`,
+          telemetry,
+        ));
+      }
+      const unexpected = actualModels.filter((actual) => !modelMatches(model, actual));
+      if (unexpected.length) {
+        return reject(new PortExecutorError(
+          `Claude Code used ${unexpected.join(", ")} instead of requested model ${model}. Select an exact model name from Claude Code's availableModels list.`,
+          telemetry,
+        ));
+      }
+      resolve({ text, ...telemetry, events });
     });
     function consume(line: string) {
       if (!line.trim()) return;
@@ -267,9 +309,10 @@ function invokeClaude(command: string, cwd: string, prompt: string, model: strin
         events.push(event);
         onTranscript?.({ direction: claudeDirection(event), kind: eventType(event) || "stream_event", payload: event });
         if (event.type === "result") {
-          text = event.result ?? "";
-          costUsd = event.total_cost_usd ?? 0;
-          usage = { input_tokens: event.usage?.input_tokens ?? 0, output_tokens: event.usage?.output_tokens ?? 0 };
+          text = event.structured_output === undefined ? event.result ?? "" : JSON.stringify(event.structured_output);
+          providerReportedCostUsd = typeof event.total_cost_usd === "number" ? event.total_cost_usd : undefined;
+          usage = recordedUsage({ ...event.usage, calls: 1, turns: event.num_turns });
+          actualModels = actualClaudeModels(event);
         }
       } catch {
         onTranscript?.({ direction: "system", kind: "raw_stdout", payload: line });

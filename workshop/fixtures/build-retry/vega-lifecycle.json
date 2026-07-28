@@ -1,17 +1,16 @@
 {
   "schemaVersion": 1,
   "description": "Synthetic device results where the first build fails and the repaired one passes.",
-  "sdkVersion": "0.22.5875",
+  "sdkVersion": "0.23.9221",
   "adbtPackage": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
   "packagePath": "build/aarch64-debug/pocket-cinema_aarch64.vpkg",
   "appId": "com.tvbuild.pocketcinema.main",
-  "screenshot": "../vega-lifecycle/launch-frame.png",
   "turns": [
     {
       "capability": "sdk_version",
       "result": {
         "code": 0,
-        "stdout": "0.22.5875\n",
+        "stdout": "0.23.9221\n",
         "stderr": "",
         "timedOut": false
       }
@@ -29,7 +28,7 @@
       "capability": "sdk_version",
       "result": {
         "code": 0,
-        "stdout": "0.22.5875\n",
+        "stdout": "0.23.9221\n",
         "stderr": "",
         "timedOut": false
       }
@@ -47,7 +46,7 @@
       "capability": "sdk_version",
       "result": {
         "code": 0,
-        "stdout": "0.22.5875\n",
+        "stdout": "0.23.9221\n",
         "stderr": "",
         "timedOut": false
       }
@@ -80,19 +79,10 @@
       }
     },
     {
-      "capability": "capture",
+      "capability": "app_status",
       "result": {
         "code": 0,
-        "stdout": "Saved /tmp/tv-build-launch.png\n",
-        "stderr": "",
-        "timedOut": false
-      }
-    },
-    {
-      "capability": "pull",
-      "result": {
-        "code": 0,
-        "stdout": "Transferred /tmp/tv-build-launch.png\n",
+        "stdout": "com.tvbuild.pocketcinema.main is running on emulator-5554\n",
         "stderr": "",
         "timedOut": false
       }
@@ -101,25 +91,241 @@
       "capability": "logs",
       "result": {
         "code": 0,
-        "stdout": "00:00:03.114 I PocketCinema: component com.tvbuild.pocketcinema.main started\n00:00:03.402 I ReactNativeJS: Running application PocketCinema\n00:00:03.688 I PocketCinema: initial focus featured-action\n00:00:05.021 I PocketCinema: rail new mounted with 4 cards\n00:00:05.244 I PocketCinema: rail slow mounted with 4 cards\n00:00:07.910 I PocketCinema: frame rendered, waiting for remote input\n",
+        "stdout": "00:00:03.114 I PocketCinema: component com.tvbuild.pocketcinema.main started\n00:00:03.402 I ReactNativeJS: Running application PocketCinema\n00:00:03.688 I PocketCinema: initial focus featured-action\n00:00:05.021 I PocketCinema: rail new mounted with 4 cards\n00:00:05.244 I PocketCinema: rail slow mounted with 4 cards\n00:00:07.910 I PocketCinema: runtime active, waiting for remote input\n",
         "stderr": "",
         "timedOut": false
       }
     },
     {
-      "capability": "capture",
+      "capability": "app_status",
       "result": {
         "code": 0,
-        "stdout": "Saved /tmp/tv-build-launch.png\n",
+        "stdout": "com.tvbuild.pocketcinema.main is running on emulator-5554\n",
         "stderr": "",
         "timedOut": false
       }
     },
     {
-      "capability": "pull",
+      "capability": "sdk_version",
       "result": {
         "code": 0,
-        "stdout": "Transferred /tmp/tv-build-launch.png\n",
+        "stdout": "0.23.9221\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "device_status",
+      "result": {
+        "code": 0,
+        "stdout": "List of devices attached\nemulator-5554 device product:VegaVirtualDevice\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "install",
+      "result": {
+        "code": 0,
+        "stdout": "Installing/Updating pocket-cinema_aarch64.vpkg .. success\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "launch",
+      "result": {
+        "code": 0,
+        "stdout": "Launching app com.tvbuild.pocketcinema.main .. success\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "app_status",
+      "result": {
+        "code": 0,
+        "stdout": "com.tvbuild.pocketcinema.main is running on emulator-5554\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "logs",
+      "result": {
+        "code": 0,
+        "stdout": "00:00:03.114 I PocketCinema: component com.tvbuild.pocketcinema.main started\n00:00:03.402 I ReactNativeJS: Running application PocketCinema\n00:00:03.688 I PocketCinema: initial focus featured-action\n00:00:05.021 I PocketCinema: rail new mounted with 4 cards\n00:00:05.244 I PocketCinema: rail slow mounted with 4 cards\n00:00:07.910 I PocketCinema: runtime active, waiting for remote input\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "app_status",
+      "result": {
+        "code": 0,
+        "stdout": "com.tvbuild.pocketcinema.main is running on emulator-5554\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "automation_enable",
+      "result": {
+        "code": 0,
+        "stdout": "Automation Toolkit enabled\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"featured-action\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_DOWN\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-signal\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_LEFT\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-signal\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_RIGHT\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-orbit\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_RIGHT\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-paper\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_RIGHT\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-seconds\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_RIGHT\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-seconds\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_ENTER\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"back-button\"}}",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "key_press",
+      "result": {
+        "code": 0,
+        "stdout": "KEY_BACK\n",
+        "stderr": "",
+        "timedOut": false
+      }
+    },
+    {
+      "capability": "page_source",
+      "result": {
+        "code": 0,
+        "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"focused\":true,\"focusable\":true,\"test_id\":\"rail-new-card-seconds\"}}",
         "stderr": "",
         "timedOut": false
       }

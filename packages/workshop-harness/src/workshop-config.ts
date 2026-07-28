@@ -7,14 +7,11 @@ import type { ExecutorInput } from "./port-executor.js";
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 export const DEFAULT_WORKSHOP_CONFIG = resolve(repositoryRoot, "workshop.config.json");
 
-const RateSchema = z.union([z.string(), z.number()]).transform(String);
 const WorkshopConfigSchema = z.object({
   executor: z.enum(["claude-cli", "strands"]),
   provider: z.enum(["bedrock", "openai", "openrouter"]).optional(),
   model: z.string().min(1),
   region: z.string().min(1).optional(),
-  inputRate: RateSchema.optional(),
-  outputRate: RateSchema.optional(),
 }).strict().superRefine((config, context) => {
   if (config.executor === "strands" && !config.provider) {
     context.addIssue({ code: "custom", path: ["provider"], message: "provider is required for the Strands executor" });
@@ -32,10 +29,29 @@ export function loadExecutorInput(args = process.argv.slice(2), configPath?: str
       provider: flag(args, "--provider"),
       model: flag(args, "--model"),
       region: flag(args, "--region"),
-      inputRate: flag(args, "--input-rate"),
-      outputRate: flag(args, "--output-rate"),
     }),
   };
+}
+
+export function retryAttemptOverride(args = process.argv.slice(2)): number | undefined {
+  if (args.includes("--until-done")) return Infinity;
+  const raw = flag(args, "--max-attempts");
+  if (raw === undefined) return undefined;
+  const attempts = Number(raw);
+  if (!Number.isSafeInteger(attempts) || attempts < 1) {
+    throw new Error("--max-attempts must be a positive integer");
+  }
+  return attempts;
+}
+
+export function turnLimitOverride(args = process.argv.slice(2)): number | undefined {
+  const raw = flag(args, "--max-turns");
+  if (raw === undefined) return undefined;
+  const turns = Number(raw);
+  if (!Number.isSafeInteger(turns) || turns < 1) {
+    throw new Error("--max-turns must be a positive integer");
+  }
+  return turns;
 }
 
 function loadFile(path: string, required: boolean): ExecutorInput {

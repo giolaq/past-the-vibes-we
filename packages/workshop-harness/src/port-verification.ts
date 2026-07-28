@@ -42,6 +42,7 @@ export function tvReadyChecks(): PortCheck[] {
     { type: "file_exists", path: "src/tv/focus-state.ts", label: "Focus state module" },
     { type: "contains", path: "src/App.tsx", value: "./tv/focus-state", label: "App wires shared focus state" },
     { type: "contains", path: "src/App.tsx", value: "hasTVPreferredFocus", label: "Initial focus declared" },
+    { type: "contains", path: "src/App.tsx", value: "testID", label: "Focusable controls expose stable ids" },
     { type: "file_exists", path: "apps/vega/manifest.toml", label: "Vega package manifest" },
     { type: "contains", path: "apps/vega/manifest.toml", value: "schema-version = 1", label: "Vega manifest schema" },
     { type: "file_exists", path: "tests/verify-tv-focus.ts", label: "Executable focus check present" },

@@ -66,8 +66,8 @@ Expect `tvReady: false`. Record the failure list. This is the initial evidence.
 - Confirm `adbt-port-context.json` names hashed ADBT documents.
 - Run `approve-plan <runId> --yes`.
 - Confirm `port-plan-approval.json` contains the plan and brief hashes.
-- State which knowledge came from the focus skill.
-- State which knowledge came from ADBT.
+- State which ADBT documents supplied focus and platform knowledge.
+- Confirm the default phase used no local Vega skill.
 
 ### Lesson 3: Port
 
@@ -97,18 +97,19 @@ Run the retry example:
 ### Lesson 5: Launch
 
 - Run the recorded platform lifecycle.
-- Confirm install, launch, dwell, log scan, and both frames pass.
+- Confirm install, launch, both running-state samples, dwell, and log scan pass.
 - Add `FATAL EXCEPTION: main` to a copy of the recording.
 - Confirm the command fails with exit code 2 and names that line.
-- Remove the screenshot line from another copy.
-- Confirm the command fails with exit code 2 and reports `frame is 1x1`.
+- Change the second `app_status` result in another copy to `is not running`.
+- Confirm the command fails with exit code 2 and names the post-dwell state check.
 - State that these tests prove control flow. They do not prove device behavior.
+- State that lifecycle checks do not prove visual rendering.
 
 ### Lesson 6: Test
 
-- Confirm `tv-focus-result.json` contains `"passed": true`.
+- Confirm `tv-focus-result.json` contains `"passed": true` and device-observed focus transitions.
 - Confirm all six transitions are present.
-- Confirm a test-phase source repair triggers build, install, launch, log, frame, and focus checks.
+- Confirm a test-phase source repair triggers build, install, launch, state, log, and focus checks.
 - Run `tv-check` on the ported app.
 - Confirm `tvReady: true`.
 - Compare this result with the initial `tvReady: false` result.

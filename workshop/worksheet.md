@@ -61,7 +61,8 @@ What stops the retry loop?
 
 ```text
 Attempt limit:
-Cost limit:
+Cumulative token limit:
+Per-call turn limit:
 No-progress rule:
 ```
 
@@ -79,7 +80,7 @@ What is the time limit?
 
 ```
 
-What is the cost limit?
+What are the token and turn limits?
 
 ```text
 
@@ -95,7 +96,8 @@ Example:
 - Commits
 - Commands
 - Test output
-- Cost
+- Token, turn, and call usage
+- Provider-reported cost, if supplied
 - Retry failures
 - Unresolved risks
 ```

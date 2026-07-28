@@ -1,11 +1,16 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import type { ModelUsage } from "./model-telemetry.js";
 
 export type RecordedTurn = {
   timestamp: string;
   phase: string;
   request: { model: string; system: string; messages: unknown[] };
   response: unknown;
-  usage: { input_tokens: number; output_tokens: number };
+  usage: ModelUsage | { input_tokens: number; output_tokens: number };
+  providerReportedCostUsd?: number;
+  requestedModel?: string;
+  actualModels?: string[];
+  /** Legacy fixture field. It is recorded telemetry, never current replay spend. */
   costUsd?: number;
 };
 

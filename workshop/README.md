@@ -38,7 +38,7 @@ The harness supplies:
 - Protected writes
 - Independent checks
 - Retry policy
-- Cost limits
+- Token and turn limits
 - Git commits
 - Reports
 
@@ -66,7 +66,7 @@ The required `workshop-brief.md` file states the port goal and required
 vertical slice. The harness includes it in model context and records its hash.
 
 `workshop.config.json` selects model execution. Command flags control the seed,
-cost, phases, and run ID. ADBT supplies current Vega information.
+usage limits, phases, and run ID. ADBT supplies current Vega information.
 
 The workshop does not use separate generation inputs for content, brand, or
 design.
@@ -106,6 +106,7 @@ Use [Appendix A1](lessons/A1-bee.md) only with Bee consent and access.
 
 Store the selection in the root `workshop.config.json` file.
 Command-line flags can override the file for one command.
+Use an exact model ID. Claude aliases such as `sonnet` are rejected.
 Do not put credentials in the file.
 
 After setup, run `cd packages/workshop-harness` once.
@@ -134,10 +135,12 @@ A live device claim also requires:
 
 - Successful install and start
 - Filtered device log
-- Two device screenshots
+- Running-state samples immediately after start and after the dwell
+
+This evidence proves process stability. It does not prove visual rendering.
 
 Use `checkpoints/vega-buildable/` or `checkpoints/complete/` after a live failure.
-Read [the live rehearsal record](live-rehearsal.md) before you teach the Vega lessons.
+Run [the dry run](dry-run.md) before you teach the Vega lessons.
 
 ## Automated verification
 

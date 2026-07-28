@@ -17,6 +17,8 @@
       "input_tokens": 620,
       "output_tokens": 210
     },
-    "costUsd": 0.0028
+    "providerReportedCostUsd": 0.0028,
+    "requestedModel": "fixture",
+    "actualModels": ["fixture"]
   }
 ]

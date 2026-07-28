@@ -87,10 +87,17 @@ test("the apply phase cannot rewrite the spec it is measured against", async () 
   writeFileSync(join(app, "package.json"), JSON.stringify({ name: "fixture", type: "module" }));
   writeFileSync(join(app, BEE_SPEC_JSON), JSON.stringify(spec()));
   const executor = {
-    async call() { return { text: JSON.stringify({ summary: "loosen the requirement", files: { [BEE_SPEC_JSON]: "{}" } }), costUsd: 0 }; },
+    async call() {
+      return {
+        text: JSON.stringify({ summary: "loosen the requirement", files: { [BEE_SPEC_JSON]: "{}" } }),
+        usage: { inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0, cacheWriteInputTokens: 0, totalTokens: 2, calls: 1, turns: 1 },
+        requestedModel: "fixture-model",
+        actualModels: ["fixture-model"],
+      };
+    },
   };
   await assert.rejects(() => runPortPipeline({
-    appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 1,
+    appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10,
     // One unmet check, so the phase actually calls the model rather than reporting itself satisfied.
     plan: [{ ...phase, checks: [{ type: "file_exists", path: "src/rail.ts", label: "Rail" }] }],
     phaseNames: [BEE_APPLY_PHASE], executor,
@@ -105,6 +112,7 @@ test("the Bee plan reuses the port's own build and launch phases", () => {
   assert.deepEqual(full.map((phase) => phase.name), [BEE_SPEC_PHASE, BEE_APPLY_PHASE, "build", "launch"]);
   assert.deepEqual(full[2].device, ["build"]);
   assert.deepEqual(full[3].device, ["build", "launch"]);
+  assert.deepEqual(full[3].mcp, ["adbt"]);
 });
 
 test("the recorded conversation is loaded only when its hash matches", () => {

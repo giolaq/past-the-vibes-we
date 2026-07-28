@@ -4,11 +4,11 @@ Use this guide to test the workshop and practice the teaching.
 
 ## Select a Rehearsal
 
-| Rehearsal | When to use it | Time | Work |
-| --- | --- | --- | --- |
-| Technical check | After a code or lesson change | 60 minutes | Do steps 1, 2, 4 through 8, 16, and 19 through 23. |
-| Teaching rehearsal | Before the final week | 3 hours | Do parts A through E. Speak each explanation. |
-| Dress rehearsal | On the day before the workshop | 4 hours | Teach the full schedule. Use the live model and selected device procedure. |
+| Rehearsal          | When to use it                 | Time       | Work                                                                       |
+| ------------------ | ------------------------------ | ---------- | -------------------------------------------------------------------------- |
+| Technical check    | After a code or lesson change  | 60 minutes | Do steps 1, 2, 4 through 8, 16, and 19 through 23.                         |
+| Teaching rehearsal | Before the final week          | 3 hours    | Do parts A through E. Speak each explanation.                              |
+| Dress rehearsal    | On the day before the workshop | 4 hours    | Teach the full schedule. Use the live model and selected device procedure. |
 
 Do the technical check first.
 Do the teaching rehearsal after the technical check passes.
@@ -26,16 +26,16 @@ Do the steps in order. A later step can depend on an earlier step.
 
 Record these values before you start:
 
-| Item | Value |
-| --- | --- |
-| Date | |
-| Git commit | |
-| Machine | |
-| Executor and model | |
-| Device procedure | Live, mixed, or recorded |
-| Start time | |
-| End time | |
-| Failed step and action | |
+| Item                   | Value                    |
+| ---------------------- | ------------------------ |
+| Date                   |                          |
+| Git commit             |                          |
+| Machine                |                          |
+| Executor and model     |                          |
+| Device procedure       | Live, mixed, or recorded |
+| Start time             |                          |
+| End time               |                          |
+| Failed step and action |                          |
 
 Use [the workshop editing guide](editing-guide.md) when you change a lesson,
 the website, a fixture, or harness code.
@@ -83,9 +83,9 @@ cd ../..
 
 The command reads `workshop.config.json`.
 
-**Expect:** The selected executor and credential report `state: ready`.
+**Expect:** The top level doctor state should be `state: ready`.
 
-**Pass:** The selected live path is ready. Vega and Bee can remain optional
+**Pass:** The state is ready. Vega and Bee can remain optional
 until their lessons.
 
 ### Step 4: Record the Initial TV Result
@@ -163,11 +163,13 @@ rm -rf out/*
 vega --version
 ```
 
-**Pass:** The command prints `0.22.5875`.
+**Pass:** The command prints `0.23.9221`.
 
 ### Step 10: Start the Device
 
 Use a dedicated system terminal.
+This prewarms the VDA for the rehearsal.
+The launch phase also runs this command when no device is attached.
 
 **Run**
 
@@ -190,22 +192,11 @@ vega exec vda devices -l
 
 **Expect:** Status reports `running: true`. The second command lists a device.
 
-Wait 20 minutes. Run both commands again.
+**Pass:** Both checks pass.
 
-**Pass:** Both checks pass before and after the wait.
-
-### Step 12: Select the Device Procedure
-
-| Result | Workshop procedure |
-| --- | --- |
-| All checks pass twice. | Run lessons 4 through 6 on the live device. |
-| The device stays attached but screenshot capture fails. | Run lesson 4 live. Use platform recording for lessons 5 and 6. |
-| The device does not stay attached. | Use recorded platform data for lessons 4 through 6. |
-
-Read `workshop/live-rehearsal.md`. Do not claim live device evidence if the
-device checks do not pass.
-
-**Pass:** Tell both co-hosts which procedure you selected.
+During the launch phase, inspect `vega-platform-result.json`.
+If no VDA was attached, it must contain `device_status`, `vda_start`, then a
+second passing `device_status` before `install`.
 
 ## Part C: Test Each Demonstration
 
@@ -223,7 +214,7 @@ Use one live executor for all live model commands.
 
 ```sh
 yarn tsx src/index.ts naive ../../apps/pocket-cinema \
-  --max-cost 1 --run-id naive-rehearsal --yes
+  --max-tokens 1000000 --run-id naive-rehearsal --yes
 
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --phases analyze --yes --run-id rehearsal
@@ -277,8 +268,7 @@ behavior, and evidence. `VEGA_PORT.md` contains `## TV Flow` and `## Focus`.
 
 **Pass:** Explain this division:
 
-- The focus skill defines focus behavior.
-- ADBT identifies current Vega APIs.
+- ADBT supplies Vega focus behavior and current platform APIs.
 - The model selects documents.
 - The harness records the selected sources.
 - The schema checks plan references.
@@ -443,25 +433,29 @@ yarn tsx src/index.ts run ../../apps/pocket-cinema \
 
 **Pass:** Confirm that the lifecycle stops before `test`.
 
-### Step 21: Test the Pixel Check
+### Step 21: Test the Post-Dwell State Check
 
 **Run**
 
 ```sh
-rm -rf /tmp/past-the-vibes-noshot-demo
-mkdir -p /tmp/past-the-vibes-noshot-demo
+rm -rf /tmp/past-the-vibes-stopped-demo
+mkdir -p /tmp/past-the-vibes-stopped-demo
 cp ../../workshop/fixtures/vega-lifecycle.json \
-  /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json
-cp -R ../../workshop/fixtures/vega-lifecycle \
-  /tmp/past-the-vibes-noshot-demo/vega-lifecycle
+  /tmp/past-the-vibes-stopped-demo/vega-lifecycle.json
 ```
 
-Remove the complete `screenshot` property and its comma.
+Change the final `app_status` result to report that the app is not running:
+
+```sh
+node -e 'const fs=require("node:fs"); const p=process.argv[1]; const v=JSON.parse(fs.readFileSync(p,"utf8")); const s=v.turns.filter((t)=>t.capability==="app_status").at(-1); s.result.stdout="com.tvbuild.pocketcinema.main is not running on emulator-5554\n"; fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")' \
+  /tmp/past-the-vibes-stopped-demo/vega-lifecycle.json
+```
+
 Confirm that the edited file contains valid JSON:
 
 ```sh
 node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); console.log("valid JSON")' \
-  /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json
+  /tmp/past-the-vibes-stopped-demo/vega-lifecycle.json
 ```
 
 **Run**
@@ -469,17 +463,17 @@ node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); c
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-recording.json \
-  --platform-replay /tmp/past-the-vibes-noshot-demo/vega-lifecycle.json \
+  --platform-replay /tmp/past-the-vibes-stopped-demo/vega-lifecycle.json \
   --phases launch --yes --run-id build-recovery
 ```
 
-**Expect:** The command reports that the frame is 1x1, flat, and black. It
-exits with code 2.
+**Expect:** The command reports `app remains running after dwell check failed`
+and exits with code 2.
 
 **Pass:** Remove both temporary files:
 
 ```sh
-rm -rf /tmp/past-the-vibes-crash-demo /tmp/past-the-vibes-noshot-demo
+rm -rf /tmp/past-the-vibes-crash-demo /tmp/past-the-vibes-stopped-demo
 ```
 
 ### Step 22: Compare Before and After
@@ -551,18 +545,18 @@ rm -rf ../../out/bee-neg
 
 Speak through the complete workshop with a timer.
 
-| Start | Lesson | Minutes |
-| --- | --- | --- |
-| 00:00 | Setup and doctor | 20 |
-| 00:20 | 1. Analyze | 25 |
-| 00:45 | 2. Plan | 30 |
-| 01:15 | 3. Port | 30 |
-| 01:45 | Break | 10 |
-| 01:55 | 4. Build | 30 |
-| 02:25 | 5. Launch | 30 |
-| 02:55 | Break | 10 |
-| 03:05 | 6. Test | 25 |
-| 03:30 | 7. Control and team exercise | 30 |
+| Start | Lesson                       | Minutes |
+| ----- | ---------------------------- | ------- |
+| 00:00 | Setup and doctor             | 20      |
+| 00:20 | 1. Analyze                   | 25      |
+| 00:45 | 2. Plan                      | 30      |
+| 01:15 | 3. Port                      | 30      |
+| 01:45 | Break                        | 10      |
+| 01:55 | 4. Build                     | 30      |
+| 02:25 | 5. Launch                    | 30      |
+| 02:55 | Break                        | 10      |
+| 03:05 | 6. Test                      | 25      |
+| 03:30 | 7. Control and team exercise | 30      |
 
 Remove optional exercises first if the session is late. Check the Vega device
 during the first break.
@@ -573,21 +567,22 @@ Prepare one short answer for each prediction:
 
 1. A proposed patch does not prove build or behavior.
 2. An analysis claim is not checked evidence.
-3. Skills define behavior. ADBT supplies current platform APIs.
+3. ADBT supplies both Vega interaction guidance and current platform APIs.
 4. A text check can accept a false manifest.
 5. A useful retry includes the exact compiler text.
-6. Two frames and a log scan can detect a delayed crash.
-7. A screenshot cannot prove focus restoration.
+6. Two running-state samples and a log scan can detect a delayed crash.
+7. One visual observation cannot prove focus restoration.
 
 ### Step 26: Prepare the Evidence Statements
 
 State these limits:
 
 - A model response is a claim until an independent check passes.
-- The TUI is a summary. Logs, checks, commits, packages, and frames are evidence.
+- The TUI is a summary. Logs, checks, commits, packages, and state samples are evidence.
 - Device results in fixtures are synthetic.
 - The complete pipeline has not passed with both a live model and live device.
-- The focus test checks the focus module. It does not press a device button.
+- The host check covers the focus module. The device check injects D-pad keys and reads focused `test_id` values from Automation Toolkit.
+- Running-state and log evidence does not prove visual rendering.
 - Bee needs a live account and user consent.
 - Recorded data proves control flow. It does not prove live model or device behavior.
 
@@ -622,7 +617,7 @@ Before the session:
 - Start VDA in a dedicated terminal.
 - Check the device before every device lesson.
 - Prepare both checkpoints.
-- Confirm that ADBT skills are installed.
+- Confirm that the pinned ADBT MCP server can start.
 
 During the session:
 

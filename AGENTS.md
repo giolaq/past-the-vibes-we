@@ -40,7 +40,7 @@ Read every edit aloud. If it sounds like something you would say standing in fro
 
 Run `yarn verify`. Preserve the key-free replay path: every phase, including build, launch, and test, must run from recordings.
 
-Lessons 4-6 require Vega SDK `0.22.5875` and an attached VDA for their *live* claim — that is deliberate, since a build loop with a recorded compiler teaches less. Replay remains a working fallback for all six phases and must stay that way, labeled `evidenceMode: replay`. A live model and ADBT are never mandatory.
+Lessons 4-6 require Vega SDK `0.23.9221` and an attached VDA for their *live* claim — that is deliberate, since a build loop with a recorded compiler teaches less. Replay remains a working fallback for all six phases and must stay that way, labeled `evidenceMode: replay`. A live model and ADBT are never mandatory.
 
 Every exercise must state:
 
