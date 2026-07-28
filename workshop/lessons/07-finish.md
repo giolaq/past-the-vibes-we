@@ -1,195 +1,236 @@
 ---
 id: finish
-number: "07"
-nav: Build your own
+number: '07'
+nav: A complete run
 time: 30 minutes
-title: Control the complete pipeline and design a new harness
-lead: Use the terminal user interface (TUI) to inspect one complete run. The TUI is an interactive dashboard in your terminal. Then design and test a small harness for another engineering task.
-objective: Read a complete run as one system. Design a harness with phases, independent checks, limits, and evidence.
-evidence: A reviewed six-phase run and a team worksheet with an improved check.
+title: Inspect every phase in the terminal user interface
+lead: Run the complete pipeline with the terminal user interface. Open each phase, read its messages, and connect the summary to the saved evidence.
+objective: Use the terminal user interface to inspect phase state, model events, tools, checks, commits, usage, and device evidence.
+evidence: A reviewed six-phase run.
 ---
 
 :::raw
-<div class="takeaway"><code>plan -> context -> run -> check -> retry -> checkpoint -> report</code></div>
+
+<div class="takeaway"><code>plan -> context -> run -> check -> retry -> report</code></div>
 :::
 
-:::welcome Use the complete system
-The earlier lessons presented one control at a time.
-This lesson presents the complete pipeline.
+:::welcome Read the complete pipeline
+The earlier lessons ran one phase at a time.
+This lesson runs the same six phases as one complete workflow.
 
-First, use the TUI to inspect all six phases.
-Then, design a harness for another engineering task.
-
-TV and Vega are the example.
-The controlled pipeline is the reusable result.
+The terminal user interface (TUI) shows phase state and recent events.
+The JSONL transcripts remain the complete record.
 :::
 
-## Run the complete pipeline
+## Know when the TUI appears
 
-The TUI displays the existing pipeline state.
-The TUI does not run a second pipeline.
-The TUI does not replace the JSONL transcripts.
-An interactive terminal accepts keyboard input while a command runs.
-The `--tui` flag opens the dashboard only in an interactive terminal.
-Run the commands in order.
-Wait for each command before you continue to the next command.
+The TUI opens only when all these conditions are true:
+
+- The command includes `--tui`.
+- The command runs in an interactive terminal.
+- Standard output and standard error are attached to that terminal.
+- The command does not include `--json` or `--detach`.
+
+The `approve-plan` command does not open the TUI.
+The first run stops after plan so that you can review and approve it.
+
+## Important harness code
+
+`src/tui.ts` checks the terminal before it opens the dashboard.
+
+:::snippet packages/workshop-harness/src/tui.ts (simplified)
+return stdoutIsTty === true &&
+stderrIsTty === true &&
+args.includes("--tui") &&
+!args.includes("--json") &&
+!args.includes("--detach");
+
+> look: A redirected or non-interactive command prints normal JSON instead of the TUI.
+> :::
+
+The TUI also controls the two views:
+
+:::snippet packages/workshop-harness/src/tui.ts (simplified)
+if (key.name === "return" && state.view === "phases") {
+openMessages();
+}
+
+if (key.name === "escape" && state.view === "messages") {
+state.view = "phases";
+}
+
+> look: Enter opens the selected phase. Escape returns to the phase list.
+> :::
+
+## Run analyze and plan
+
+Use a new run ID so that you can watch every phase.
 
 :::yourturn
-Run the complete six-phase pipeline with the TUI.
-Open the messages for each phase and find the strongest evidence.
+Start the first dashboard.
+Watch analyze and plan.
+Close the dashboard when it requests plan approval.
 :::
 
-:::command Prepare and run the complete approved pipeline
+:::command Run analyze and plan with the TUI
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases analyze,plan --seed workshop-v1 \
-  --max-tokens 1000000 --yes --run-id final-dashboard --tui
+ --phases analyze,plan --seed workshop-v1 \
+ --yes --run-id final-dashboard --tui
+:::
+
+The dashboard shows a `feasibility` preflight before the six port phases.
+The preflight checks whether the source app and its dependencies can continue.
+The dashboard then shows `analyze` and `plan` as passed.
+The later phases remain pending.
+The run ends in `awaiting_approval`.
+The completed dashboard remains open for review.
+
+Press `q` to close it.
+Then, open `out/final-dashboard/app/port-plan.json`.
+Review the plan as you did in Lesson 02.
+
+Approve the plan:
+
+```sh
 yarn tsx src/index.ts approve-plan final-dashboard --yes
+```
+
+## Run the remaining phases
+
+:::yourturn
+Start the second dashboard.
+Confirm that it loads analyze and plan from the earlier run.
+Watch port, build, launch, and test.
+:::
+
+:::command Run port through test with the TUI
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases port,build,launch,test \
-  --seed workshop-v1 --max-tokens 1000000 --yes \
-  --run-id final-dashboard --tui
+ --phases port,build,launch,test \
+ --seed workshop-v1 --yes \
+ --run-id final-dashboard --tui
 :::
 
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
-Do not change the run ID, seed, token limit, or phase controls.
-:::
+The dashboard can remain on one phase for several minutes.
+This does not mean that the process stopped.
+The selected phase can be waiting for a model, compiler, VDA, dwell, or focus
+poll.
 
-The first dashboard stops after plan.
-When the dashboard reports that plan approval is required, close the dashboard.
-Press `q` to close the dashboard.
-Review the plan.
-Approve the plan.
+The header shows:
 
-The second dashboard loads the earlier analyze and plan events.
-The second dashboard then follows port, build, launch, and test.
+- Run ID
+- Executor and model
+- Evidence mode
+- Seed
+- Token usage
+- Turns
+- Model calls
+- Provider cost when the provider reports it
 
-A model call is one request from the harness to a model.
-The TUI header shows the run ID, executor, provider, model, seed, token usage, turns, and model calls.
-`evidence live` means that the current model and Vega device produced the evidence.
+## Use the TUI controls
 
-| Key | Function |
-| --- | --- |
-| Up or Down | Select a phase |
-| `Enter` | Open the selected phase's messages |
-| Up or Down in messages | Select an event |
-| `PageUp` or `PageDown` | Scroll the selected event's content |
-| `Tab` in messages | Select checks, model events, tools, or all events |
-| `Escape` | Return to the phase list |
-| `f` | Select the active phase |
-| `q` | Close the completed TUI |
-
-## Inspect the TUI
+| Key                    | Function                                          |
+| ---------------------- | ------------------------------------------------- |
+| Up or Down             | Select a phase or event                           |
+| `Enter`                | Open messages for the selected phase              |
+| `Escape`               | Return to the phase list                          |
+| `Tab`                  | Select checks, model events, tools, or all events |
+| `PageUp` or `PageDown` | Scroll the selected event                         |
+| `f`                    | Follow the active phase                           |
+| `q`                    | Close a completed dashboard                       |
 
 :::steps
-1. Read the executor in the header.
-2. Read the provider in the header.
-3. Read the model in the header.
-4. Verify that the header reports `evidence live`.
-5. Read the seed.
-6. Read the token limit.
-7. Read the turns value.
-8. Read the calls value.
-9. Select the `plan` phase.
+
+1. Select `feasibility`.
+2. Press `Enter`.
+3. Find the dependency result.
+4. Press `Escape`.
+5. Select `analyze`.
+6. Press `Enter`.
+7. Find the ADBT document operation.
+8. Press `Escape`.
+9. Select `plan`.
 10. Press `Enter`.
-11. Read the type of one model event.
-12. Read the content of the model event.
-13. Press `Tab` to select the tools filter.
-14. Find the ADBT document operations.
-15. Press `Escape` to return to the phase list.
-16. Open the `port` messages.
-17. Select the checks filter.
-18. Find one independent check.
-19. Find one commit event.
-20. Return to the phase list.
-21. Open the `build` messages.
-22. Find the compiler evidence.
-23. Return to the phase list.
-24. Open the `launch` messages.
-25. Find the device evidence.
-26. Press `Escape`.
-27. Press `q` to close the completed TUI.
-28. Open `out/final-dashboard/model-logs/`.
+11. Find the plan checks.
+12. Press `Escape`.
+13. Select `port`.
+14. Press `Enter`.
+15. Press `Tab` until the checks filter is active.
+16. Find the port commit.
+17. Press `Escape`.
+18. Select `build`.
+19. Open its messages.
+20. Find the compiler evidence.
+21. Return to the phase list.
+22. Open `launch`.
+23. Find the two running-state checks.
+24. Open `test`.
+25. Find the focus transition result.
+26. Press `q` after the complete run passes.
+    :::
+
+## Connect the TUI to saved evidence
+
+The TUI is a view.
+It does not replace the evidence files.
+
+| Claim                         | Saved evidence                           |
+| ----------------------------- | ---------------------------------------- |
+| The model inspected the app   | `app/ANALYSIS.md` and analyze transcript |
+| The plan used Vega documents  | `adbt-port-context.json`                 |
+| The code passed source checks | `port-result.json` and phase commit      |
+| The package compiled          | `.vpkg` and `vega-platform-result.json`  |
+| The app stayed active         | `vega-device.log` and state checks       |
+| The remote flow worked        | `app/tv-focus-result.json`               |
+
+Open `out/final-dashboard/model-logs/`.
+Each phase has one JSONL transcript.
+The TUI reads these events and keeps the full files unchanged.
+
+## Design a small harness
+
+The TV port is one use of the harness pattern.
+Use `workshop/worksheet.md` to define a smaller engineering workflow.
+
+:::yourturn
+Select one task.
+Define no more than three phases.
+Give each phase one independent check.
 :::
 
-:::concept The TUI controls the view
-`src/tui.ts` reads the existing run state.
-The TUI opens each phase as a list of events with named types.
-The JSONL files keep the complete event data.
-
-You can use filters to reduce the visible detail.
-The harness does not delete evidence.
-:::
-
-:::knowledge Why does the workshop add the TUI at the end?
-You must first know the meaning of each signal.
-The TUI is useful after you understand checks, retries, usage, tools, and device evidence.
-:::
-
-## Complete the evidence table
-
-| Claim | Strongest evidence |
-| --- | --- |
-| The model inspected the app | Source inventory and explicit unknowns |
-| The plan used Vega knowledge | Live ADBT operations and document hashes |
-| The code met the requirements | Independent checks and a phase commit |
-| The package compiled | Vega build and `.vpkg` file |
-| The app stayed active | Wait period, device log, and two running-state samples |
-| The TV flow worked | Executable focus-transition result |
-
-The evidence becomes stronger near the user behavior.
-The focus-transition result has a limit.
-The focus-transition result does not prove visual focus styling.
-
-## Complete the team exercise
-
-Form a team of two or three people.
-A non-goal is work that the harness must not do.
-A false positive occurs when a check passes an incorrect result.
-A prototype demonstrates a design but is not ready for production use.
 Select one task:
 
-:::yourturn
-Design a small harness for one task.
-Ask another team to find a false positive in your checks.
-:::
-
-:::raw
-<div class="grid"><article><h3>Gradle upgrade</h3><p>Upgrade one Android module. Keep a passing debug build.</p></article><article><h3>Accessibility repair</h3><p>Repair labels and focus order on one screen.</p></article><article><h3>API migration</h3><p>Replace one deprecated client API. Do not change server behavior.</p></article><article><h3>Flaky test repair</h3><p>Repair one test. Prove that repeated runs pass.</p></article></div>
-:::
+- Upgrade one Android dependency.
+- Repair accessibility labels and focus order.
+- Replace one deprecated API.
+- Repair one intermittent test.
 
 :::steps
-1. During minutes 0 to 2, write one required result.
+
+1. Write one required result.
 2. Write three non-goals.
-3. During minutes 2 to 5, define no more than three phases.
-4. Give each phase one independent check.
-5. During minutes 5 to 7, identify the knowledge source.
+3. Define no more than three ordered phases.
+4. Name the input for each phase.
+5. Give each phase one independent check.
 6. Identify the human approval point.
-7. Set the retry limit.
-8. Set the no-progress rule.
-9. Set the cumulative token limit.
-10. Set the per-call turn limit.
-11. During minutes 7 to 9, exchange worksheets with another team.
-12. Find one false positive in the other design.
-13. During minutes 9 to 10, improve one check.
-14. Prepare a 30-second report.
-15. State the claim, evidence, and remaining limit.
-:::
+7. Set an attempt limit.
+8. Set a no-progress rule.
+9. Ask another person to find one false positive.
+10. Improve the weak check.
+    :::
+
+A false positive occurs when a check accepts an incorrect result.
 
 :::proof
-claim: "The harness pattern applies to a task outside TV development"
-gate: "Another team can find a false positive and improve the evidence without changing the model"
+claim: "The harness pattern applies outside the Vega port"
+gate: "Another person can find a false positive and improve one independent check"
 evidence: "workshop/worksheet.md"
-limit: "The worksheet defines a prototype. It does not prove production readiness."
+limit: "The worksheet is a design exercise, not a production implementation"
 :::
 
-:::knowledge What is the minimum useful harness?
-Select one repeatable task.
-Use a short phase sequence.
-Supply one necessary knowledge source.
-Add one independent check to each phase.
-Set retry, token, and turn limits.
-Write a report.
+:::knowledge What happened?
+The TUI combined phase state and transcript events in one terminal view.
+The saved files remained the evidence source.
+The team exercise applied the same control pattern to another task.
 :::
 
 :::done
@@ -199,5 +240,6 @@ The team can identify the pass, retry, and stop conditions.
 :::
 
 :::raw
+
 <div class="links"><a href="worksheet.md">Open the worksheet</a><a href="troubleshooting.md">Troubleshooting</a><a href="editing-guide.md">Edit the workshop</a><a href="instructor-guide.md">Instructor guide</a><button data-go-module="bee">Challenge: Bee phase</button></div>
 :::

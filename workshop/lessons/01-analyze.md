@@ -1,245 +1,172 @@
 ---
 id: analyze
-number: "01"
+number: '01'
 nav: Analyze the app
 time: 25 minutes
-title: Run one model call, then add controls
-lead: Run one model call without the phase controls. Then identify the claims that the call cannot prove. The guarded copy is the private working copy under out/.
-objective: Explain why a patch that appears correct is not a verified result. Identify the boundary between the model and the harness.
-evidence: An unverified proposal and a verified ANALYSIS.md file in the guarded copy.
+title: Analyze the app
+lead: The analyze phase works in a copy under out/ and records the Vega documents that the model reads.
+objective: Run the analyze phase and inspect the output.
+evidence: An verified ANALYSIS.md file in the out/ directory.
 ---
 
-:::welcome Start with the weak process
-First, ask one model to port the app in one call.
-The harness saves the proposal but does not apply it.
+:::welcome Start with one model call
+First, run one model call without the phase controls.
+Then, run the controlled analyze phase.
 
-Then run one controlled phase.
-A schema lists the fields that a response must contain.
-A Git commit records an accepted snapshot of the files.
-The controlled phase has a schema, a check, and a Git commit.
-Compare the two results.
+Both commands ask a model to inspect the same app.
+Only the controlled phase uses ADBT, an independent check, and a Git commit.
 :::
+
+## Compare the two paths
+
+The `naive` command asks for one proposed port.
+The command saves the model response but does not apply the proposed files.
+
+The analyze phase has a smaller goal.
+It reads the app and writes `ANALYSIS.md`.
+It does not change app code.
+
+| Path      | Model task                            | Harness control                             |
+| --------- | ------------------------------------- | ------------------------------------------- |
+| `naive`   | Propose a complete port               | Save the proposal                           |
+| `analyze` | Describe the app and portability work | Use ADBT, check the document, and commit it |
 
 ## Run the one-call example
 
-The model receives read-only project tools.
-A patch is a proposed set of file changes.
-A typed patch uses a JSON response with the required fields.
-The model must return a typed patch.
-
-The call does not receive these controls:
-
-- Phase plan
-- ADBT MCP server
-- Independent checks
-- Retry
-- Compiler
-- Device
-
-:::predict
-The proposal can contain a manifest, focus code, and a test.
-Does the proposal prove that the port is correct?
-Name one claim that you cannot make.
-:::
+Run the command from `packages/workshop-harness`.
 
 :::yourturn
-Run one model call without the controlled phase pipeline.
-Inspect its proposal and identify what the call did not prove.
+Save one proposed port.
+Inspect the missing proof.
+Confirm that the source app did not change.
 :::
 
 :::command Save one live proposal
 yarn tsx src/index.ts naive ../../apps/pocket-cinema \
-  --max-tokens 1000000 --run-id naive-demo --yes
+ --run-id naive-demo --yes
 :::
 
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
-Do not add MCP to this command.
-The `naive` command saves a proposal but does not apply the files.
-The `--yes` flag confirms that you want to start the live model call.
-The token limit is a generous safety limit for this comparison.
-:::
+The command flags have these functions:
 
-`naive-proposal.json` contains the proposed files.
-`naive-result.json` lists the claims that remain unproven.
+| Flag or value              | Function                               |
+| -------------------------- | -------------------------------------- |
+| `../../apps/pocket-cinema` | Selects the source app                 |
+| `--run-id naive-demo`      | Writes this run under `out/naive-demo` |
+| `--yes`                    | Confirms the live model call           |
+
+Expect the command to write two files:
+
+- `out/naive-demo/naive-proposal.json` contains the proposed files.
+- `out/naive-demo/naive-result.json` lists five claims without proof.
 
 :::steps
+
 1. Open `out/naive-demo/naive-proposal.json`.
-2. Read the proposed files.
+2. Find one proposed Vega file.
 3. Open `out/naive-demo/naive-result.json`.
-4. Find each `proven: false` value.
-5. Read the `missingProof` list.
-6. Run `git status` on `apps/pocket-cinema`.
-7. Make sure that the source app did not change.
-:::
+4. Find the `missingProof` list.
+5. Run `git -C ../../apps/pocket-cinema status --short`.
+6. Confirm that the command prints no source changes.
+   :::
 
-:::concept A good proposal is not evidence
-The model can propose good code.
-The proposal is still unverified.
+The proposal can contain useful code.
+The proposal is still a model claim.
+No compiler or device checked it.
 
-Without an independent check, an incorrect result can appear correct.
-Independent checks distinguish correct and incorrect results.
-:::
+## Important harness code
 
-## Know the starting app
+The analyze phase is a TypeScript object in `src/port-pipeline.ts`.
 
-`apps/pocket-cinema` is a small React Native app.
-The app has a featured title, two content rails, and a details screen.
+:::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
+{
+name: "analyze",
+goal: "Read the guarded React Native app and write ANALYSIS.md.",
+instruction: "Read ADBT before making Vega portability claims.",
+mcp: [ADBT_SERVER],
+checks: [{
+type: "contains",
+path: "ANALYSIS.md",
+value: "## Portable",
+label: "Portability analysis documented",
+}],
+}
 
-The app has no explicit TV focus behavior.
-The app has no Vega package.
-Lesson 00 verified these facts with `tv-check`.
+> look: The phase gives ADBT tools to the model. The independent check requires one section in ANALYSIS.md.
+> :::
 
-The analyze phase will create `ANALYSIS.md`.
-This document describes the app structure, dependencies, portable parts, replacement work, and open questions.
-
-:::visual
-src: assets/pocket-cinema-android-tv.png
-alt: Pocket Cinema home screen on an Android TV emulator
-label: Actual Android TV capture
-caption: "The app can render on a TV screen. It does not have remote-control focus or a Vega package."
-:::
-
-## Know the six phases
-
-:::flow
-Analyze | Read the app
-Plan | Define the TV port
-Port | Write the code
-Build | Produce the package
-Launch | Start the app
-Test | Verify remote behavior
-:::
-
-:::concept Know the harness boundary
 The model can list, read, and search the guarded copy.
-The model has no shell tool.
-The model has no write tool.
+The model has no shell tool and no file write tool.
+The model returns proposed files in JSON.
 
-The model returns a JSON object named `{summary, files}`.
-`summary` describes the proposed change.
-`files` maps each relative file path to its complete new content.
-The harness validates the response.
-The harness writes files and runs checks.
-The harness retries with the exact failure text.
-The harness commits only a passing result.
-:::
-
-## Trace Strands in the analyze phase
-
-Open `src/port-executor.ts`.
-One phase creates one Strands agent.
-The optional token and turn limits from Lesson 00 can bound the model call.
-
-:::snippet packages/workshop-harness/src/port-executor.ts (simplified)
-const limits = selectedRunLimits();
-const agent = new Agent({
-  name: `workshop-${phase}`,
-  model: createModel(config),
-  tools: [
-    ...createProjectReadTools(appDir),
-    ...(options.extraTools ?? []),
-  ],
-  structuredOutputSchema: PortOutputSchema,
-  systemPrompt: "Inspect with read-only tools. Return a complete patch.",
-  printer: false,
-});
-
-const result = await consumeStream(
-  agent.stream(prompt, { limits }),
-  event => transcripts.append(phase, event),
-);
->look: `extraTools` contains the ADBT MCP connection. `limits` contains only limits selected for the run. Strands supplies the model and tool loop. The harness controls writes, checks, Git, and cumulative usage.
-:::
-
-| Owner | Analyze action |
-| --- | --- |
-| Strands | Runs the model and tool loop. Lets the model inspect the guarded copy. Lets the model call ADBT tools. |
-| ADBT MCP | Supplies current Vega documents for portability claims. |
-| Harness | Permits the MCP server. Validates the typed response. Writes `ANALYSIS.md`. Runs the check. Commits a passing result. |
-| Evidence | `ANALYSIS.md`, `model-logs/analyze.jsonl`, and the analyze commit |
-
-:::note Claude CLI path
-The snippet runs when `workshop.config.json` selects `strands`.
-The Claude CLI executor receives the same prompt and required response fields.
-The harness keeps the same write, check, and commit boundary.
-:::
-
-:::predict
-The analyze phase will report which parts can move to Vega.
-Which part can the phase verify mechanically?
-Which part remains a model claim?
-:::
+The harness validates the JSON and writes the files.
+The harness then runs the `contains` check.
+The harness commits the files only when the check passes.
 
 ## Run the analyze phase
 
-Run one command.
-Use the executor that you selected in Lesson 00.
-The phase writes its accepted files only to `out/workshop/app`.
+Use run ID `workshop` for the main workshop flow.
+Later lessons continue the same run.
+
+:::yourturn
+Run the analyze phase.
+Wait for the model to inspect the app and read an ADBT document.
+Do not start a second analyze command while the first command runs.
+:::
 
 :::command Run the analyze phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases analyze --yes --run-id workshop
+ --phases analyze --yes --run-id workshop
 :::
 
 :::expected
 "phasesComplete":["analyze"]
 :::
 
-## Inspect the evidence
+The command can take several minutes.
+The final JSON reports the model, token use, turns, and completed phases.
 
-The import commit is the first snapshot of the copied source app.
-The analyze commit is the snapshot accepted after the phase check.
-A JSON Lines (JSONL) file stores one JSON event on each line.
+To watch the phase from a second terminal, run:
+
+```sh
+cd packages/workshop-harness
+yarn tsx src/index.ts logs workshop --phase analyze --follow
+```
+
+The live transcript shows model requests, ADBT tool operations, checks, and the
+phase commit.
+
+## Inspect the result
 
 :::steps
+
 1. Open `out/workshop/app/ANALYSIS.md`.
-2. Find the required portability section.
-3. Run `git status` on `apps/pocket-cinema`.
-4. Make sure that the source app is unchanged.
-5. Run `git log --oneline` in `out/workshop/app`.
-6. Find the import commit.
-7. Find the analyze-phase commit.
-8. Open `out/workshop/port-result.json`.
-9. Find the `attempts` value.
-10. Open `out/workshop/model-logs/analyze.jsonl`.
-11. Find the ADBT document read.
-12. Record three claims in `ANALYSIS.md` that no check verified.
-:::
+2. Find the screen and component inventory.
+3. Find the `## Portable` section.
+4. Find the replacement work.
+5. Open `out/workshop/adbt-port-context.json`.
+6. Find the ADBT document names and hashes.
+7. Open `out/workshop/port-result.json`.
+8. Find the analyze attempt and usage values.
+9. Run `git -C ../../out/workshop/app log --oneline`.
+10. Find the analyze-phase commit.
+11. Record three technical claims that the `contains` check did not verify.
+    :::
 
-:::note Why the harness uses Git
-The harness resets a failed attempt to the phase-start commit.
-A rejected patch leaves no file changes.
-Git supplies rollback and a record of accepted work.
-:::
-
-## Compare two executors
-
-Work with a person who used a different executor.
-Do not run the phase again.
-
-Compare the first and last events in `model-logs/analyze.jsonl`.
-
-| Changes with the executor | Stays in the harness |
-| --- | --- |
-| Provider event names | Phase name |
-| Token accounting | Prompt and response requirements |
-| Claude Code process or Strands `Agent` | Required `{summary, files}` response |
-| Tool event format | Write, check, limit, and commit rules |
-
-Changing the executor must not change the pass condition.
+The ADBT context file proves that the model read current Vega documents.
+It does not prove that every model conclusion is correct.
 
 :::proof
-claim: "The model identified content that can move to Vega"
-gate: "ANALYSIS.md exists and contains the required portability section"
-evidence: "out/workshop/app/ANALYSIS.md and model-logs/analyze.jsonl"
-limit: "This check does not prove that each portability conclusion is correct"
+claim: "The model analyzed the app and identified portable work"
+gate: "ANALYSIS.md contains the required portability section"
+evidence: "out/workshop/app/ANALYSIS.md, adbt-port-context.json, and the analyze commit"
+limit: "The check verifies document structure, not every technical conclusion"
 :::
 
-:::knowledge What did this phase prove?
-The phase proved that `ANALYSIS.md` has the required structure.
-The phase did not prove that the analysis is complete.
-The phase did not prove that each technical conclusion is correct.
+:::knowledge What happened?
+The model inspected a guarded copy of Pocket Cinema.
+The model used ADBT for Vega information.
+The harness wrote and checked `ANALYSIS.md`.
+The source app remained unchanged.
 :::
 
 :::done

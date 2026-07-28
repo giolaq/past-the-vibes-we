@@ -1,182 +1,164 @@
 ---
 id: launch
-number: "05"
-nav: Run it on the device
+number: '05'
+nav: Run it on the VDA
 time: 30 minutes
-title: Start the app and verify that it stays active
-lead: A successful start command proves only that the device accepted the command. A dwell is a fixed wait after start. A crash signature is known failure text in a device log.
-objective: Use two running-state samples and the device log to distinguish an accepted command from a process that stays active.
-evidence: The app reports running after launch and after the dwell. The device log contains no crash signature.
+title: Install the app and prove that runs correctly
+lead: Start or reuse a Vega Virtual Device. Install the package, start the app, wait five seconds, scan the device log, and confirm that the process is still running.
+objective: A Succesful start command of the ported app.
+evidence: The app reports running after launch and the device log contains no crash signature.
 ---
 
-:::welcome Collect evidence after the start
-`launch-app .. success` means that the device accepted the command.
-The success message does not mean that the app stayed active.
+:::welcome Check the process after start
+A successful start command proves that the device accepted the command.
+It does not prove that the app stayed active.
 
-An app can fail during its first render.
-
-This phase waits five seconds.
-The phase samples the running state before the wait.
-The phase samples the running state after the wait.
-The phase reads the device log.
-The phase scans the device log.
-The phase reuses an attached VDA or starts a VDA before installation.
+The launch phase checks the process immediately after start.
+It waits five seconds, reads the device log, and checks the process again.
 :::
 
-:::note A VDA installation is necessary {warning}
-The harness checks for an attached VDA.
-If no VDA is attached, the harness runs `vega virtual-device start --gui --timeout 60`
-and checks the device list again.
+## Prepare the VDA
 
-The VDA in Vega SDK `0.23.9221` does not support the device screenshot command.
-The harness does not call the screenshot command.
-:::
+The Vega Virtual Device (VDA) must be installed.
+You can start it before the phase:
 
-## Know the device sequence
+```sh
+vega virtual-device start --gui
+```
 
-The `.vpkg` file from Lesson 4 is the installable Vega package.
-The app ID is the unique name that Vega uses to start the installed app.
-The package ID identifies the app in device logs.
+If no device is attached, the harness starts the VDA.
+The harness then waits for two stable device checks.
+This wait can take up to 60 seconds.
+
+The app can appear in the VDA before the phase command returns.
+This is normal.
+The harness still has to complete the dwell, log scan, and final state check.
+
+## Know the launch sequence
 
 :::flow
-VDA | Reuse an attached VDA or start one
-Install | Transfer the .vpkg package
+SDK | Require Vega SDK 0.23.9221
+VDA | Reuse an attached device or start one
+Install | Install the .vpkg from Lesson 04
 Start | Start the app ID
-State | Confirm that the app reports running
+State | Confirm that the process is running
 Wait | Wait five seconds
-Logs | Find crash signatures
-State | Confirm that the app still reports running
+Logs | Reject crash signatures
+State | Confirm that the process is still running
 :::
 
-The log query reads entries for this package.
-The log query starts at the app start time.
+The log scan rejects fatal errors, segmentation faults, dead processes,
+Application Not Responding errors, and unhandled JavaScript exceptions.
 
-The log scan rejects these signatures:
+The phase does not use screenshots.
+Process and log checks are the launch evidence.
 
-- `FATAL` reports a fatal runtime error.
-- `SIGSEGV` reports invalid memory access.
-- `has died` reports that the app process stopped.
-- ANR means Application Not Responding.
-- An unhandled JavaScript exception reports a JavaScript error that the app did not catch.
+## Important harness code
 
-Liveness means that the app process continues to run.
-The second state sample is liveness evidence.
-An app that stopped during the dwell reports that it is not running.
-
-## Trace Strands in the launch phase
-
-The Vega adapter owns the platform commands.
-The Vega adapter is the TypeScript component that runs and records Vega CLI commands.
-A platform command builds, installs, starts, or inspects the app on Vega.
-The launch phase calls Strands only when this sequence finds a repairable
-failure.
-A repairable failure is a source-code problem that a new patch can correct.
-The repair call receives ADBT MCP.
-The model must read current Vega guidance.
-`stdout` is normal command output.
-`stderr` is command error output.
+The Vega adapter defines each platform command.
 
 :::snippet packages/workshop-harness/src/platform/vega.ts (simplified)
-let devices = await probe(device, "device_status");
-if (!hasAttachedDevice(devices.stdout)) {
-  await run(device, "vda_start");
-  devices = await run(device, "device_status");
-}
-await run(device, "install", device.packagePath);
-device.launchStartedAt = formatLoggingctlSince(new Date());
-await run(device, "launch", device.appId);
+device_status: ["vega", "exec", "vda", "devices", "-l"],
+vda_start: ["vega", "virtual-device", "start", "--gui", "--timeout", "60"],
+install: ["vega", "device", "install-app", "--packagePath", packagePath],
+launch: ["vega", "device", "launch-app", "--appName", appId],
+app_status: ["vega", "device", "is-app-running", "--appName", appId],
+
+> look: The harness owns these commands. They are not model tools.
+> :::
+
+After start, the harness records two state samples:
+
+:::snippet packages/workshop-harness/src/platform/vega.ts (simplified)
 await recordRunningState(device, "app is running after launch");
-await dwell();
-const logs = await run(device, "logs", packageId, device.launchStartedAt);
-const scan = scanDeviceLog(logs.stdout || logs.stderr);
-await recordRunningState(device, "app remains running after dwell", logs.stdout);
-if (scan.crashed) {
-  device.blockers.push(`the app crashed after launch: ${scan.matches.join(" | ")}`);
-}
->look: The snippet shows harness-controlled Vega CLI operations. The operations are not Strands tools.
-:::
+await wait(5_000);
 
-The `dwell()` operation performs the five-second wait.
+const logs = await readDeviceLogs();
+const scan = scanDeviceLog(logs);
 
-| Owner | Launch action |
-| --- | --- |
-| Strands | Receives a failed platform check. Reads relevant ADBT guidance. Proposes a source repair. |
-| ADBT MCP | Supplies current Vega device and runtime guidance to the repair model. |
-| Harness and Vega CLI | Start or reuse the VDA. Build the app. Install the app. Start the app. Wait five seconds. Read logs. Query the running state twice. |
-| Evidence | `vega-device.log`, `vega-platform-result.json`, and the launch commit |
+await recordRunningState(
+device,
+"app remains running after dwell",
+logs,
+);
 
-:::note No model call is a valid result
-If the package starts and stays active, the phase records evidence without
-calling Strands or Claude Code.
-If no repair is necessary, the phase does not call ADBT.
-This verify-first result is valid because the device checks already passed.
-:::
+> look: The second sample can find an app that started and then stopped.
+> :::
 
-:::predict
-The start command succeeds and the app fails two seconds later.
-Which evidence identifies the failure?
-:::
+The launch phase also uses `verifyFirst`.
+It calls the model only when the device checks find a repairable source
+failure.
+
+If the model changes source code, the harness rebuilds the package, installs
+it, and runs all launch checks again.
 
 ## Run the launch phase
 
-:::yourturn
-Start the app on the VDA.
-Inspect the two state samples.
-Inspect the filtered log.
-:::
+Use the package from Lesson 04 and the same run ID.
 
-Use the same run ID.
-The phase installs the package from Lesson 4.
+:::yourturn
+Start the launch phase.
+Watch the VDA.
+Wait for the final state and log checks after the app appears.
+:::
 
 :::command Install and start the app
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases launch --yes --run-id workshop
+ --phases launch --yes --run-id workshop
 :::
 
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
-:::
+Expect the final JSON to contain:
+
+```json
+{
+  "state": "complete",
+  "phasesComplete": ["analyze", "plan", "port", "build", "launch"]
+}
+```
+
+If all device checks pass, the phase records `attempts: 0`.
+This value means that the phase did not call a model.
+
+If the app crashes, the terminal prints `launch needs a fix`.
+The repair model receives the log and the failed state check.
 
 ## Inspect the device evidence
 
-`vega-device.log` contains device log entries from this launch.
-`vega-platform-result.json` contains every platform step and its pass or fail result.
-
 :::steps
-1. Open `out/workshop/vega-device.log`.
-2. Find the entries after the app start time.
-3. Open `out/workshop/vega-platform-result.json`.
-4. Find the initial `device_status` step.
-5. If the initial `device_status` found no device, find `vda_start` and the later `device_status` steps.
-6. Find `app is running after launch`.
-7. Verify that the check passed.
-8. Find the log-scan result.
-9. Verify that no crash signature was found.
-10. Find `app remains running after dwell`.
-11. Verify that the check passed.
-12. If a repair ran, find the ADBT document read in `model-logs/launch.jsonl`.
-:::
 
-:::note A source repair requires a new build
-A source change does not change the installed package.
-The phase rebuilds after a source repair.
-The phase installs the new package after the build.
+1. Open `out/workshop/vega-platform-result.json`.
+2. Confirm that `evidenceMode` is `live`.
+3. Find the first `device_status` step.
+4. If the device was not attached, find `vda_start`.
+5. Find the passing `install` step.
+6. Find the passing `launch` step.
+7. Find `app is running after launch`.
+8. Confirm that the check passed.
+9. Find `device log free of crash signatures`.
+10. Confirm that the check passed.
+11. Find `app remains running after dwell`.
+12. Confirm that the check passed.
+13. Open `out/workshop/vega-device.log`.
+14. Confirm that the log contains no fatal error for the app.
+15. Open `out/workshop/port-result.json`.
+16. Find the launch `attempts` value.
+    :::
 
-The first verification attempt does not rebuild.
-No source changed after Lesson 4.
-:::
-
-:::knowledge Why are two state samples necessary?
-The first sample proves that the process was active after the start command.
-The device log and second sample add evidence across the dwell.
-The samples and log do not prove correct rendering or focus behavior.
-:::
+`vega-platform-result.json` also records each command, exit code, standard
+output, and standard error.
 
 :::proof
 claim: "The app started and stayed active"
-gate: "Install and start pass. Both running-state samples pass. The log has no crash signature."
+gate: "Install and start pass, both state samples pass, and the log has no crash signature"
 evidence: "vega-platform-result.json and vega-device.log"
-limit: "Process and log evidence does not prove visual rendering or correct focus movement"
+limit: "Process and log evidence does not prove visual rendering or focus behavior"
+:::
+
+:::knowledge What happened?
+The harness reused or started the VDA.
+The harness installed and started the app.
+The harness checked the process before and after a five-second wait.
+The model did not run when all device checks passed.
 :::
 
 :::done

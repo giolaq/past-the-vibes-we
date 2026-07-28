@@ -11,7 +11,8 @@
      - fixed 16:9 stage (1920x1080) scaled to the viewport
      - .active/.visible slide classes (never display:none)
      - staggered .reveal animations per slide
-     - keyboard (arrows/space/pgup/pgdn/home/end) + touch navigation
+     - keyboard, wheel, and touch navigation
+     - inline editing, local autosave, and HTML export
      Style: the workshop's own navy/orange brand, dark "10-foot UI"
      cinema treatment. The recurring orange rounded outline is a TV
      focus ring — the workshop's core visual idea.
@@ -94,7 +95,10 @@ img, video, canvas, svg {
         page-break-after: always;
     }
     .slide:last-child { break-after: auto; page-break-after: auto; }
-    .deck-controls { display: none !important; }
+    .deck-controls,
+    .edit-hotzone,
+    .edit-toggle,
+    .edit-save { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -255,6 +259,84 @@ h2 {
 .cols .panel li::before { content: "—"; position: absolute; left: 0; color: var(--orange); }
 .cols .panel li strong { color: var(--ink); font-weight: 700; }
 
+/* Stable media layouts */
+.speaker-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 14px;
+}
+.speaker-card {
+    width: 370px;
+    height: 132px;
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    align-items: center;
+    gap: 22px;
+    padding: 12px;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.speaker-card.featured {
+    border: 4px solid var(--orange);
+    box-shadow: 0 0 0 7px #ff6b1a22;
+}
+.speaker-card img {
+    width: 108px;
+    height: 108px;
+    object-fit: cover;
+    object-position: center top;
+    border-radius: 6px;
+}
+.speaker-card span {
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 700;
+}
+.lesson-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(520px, 0.92fr);
+    gap: 54px;
+    align-items: center;
+}
+.product-image {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    display: block;
+    object-fit: cover;
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px #00000066;
+}
+.media-grid {
+    display: grid;
+    grid-template-columns: 0.84fr 1.16fr;
+    gap: 28px;
+    height: 555px;
+}
+.media-panel {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 14px;
+}
+.media-panel img {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: block;
+    object-fit: contain;
+    background: #080d0a;
+    border: 2px solid var(--line);
+    border-radius: 8px;
+}
+.media-panel figcaption {
+    margin: 0;
+    font: 600 22px/1.3 var(--mono);
+    color: var(--muted);
+}
+
 /* Pipeline flow (boxes and arrows) */
 .flow { display: flex; align-items: stretch; gap: 18px; }
 .flow .step {
@@ -352,6 +434,66 @@ h2 {
     border-radius: 8px;
     padding: 7px 13px;
 }
+
+/* Inline editor: hidden until the top-left hotzone or E key activates it. */
+.edit-hotzone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80px;
+    height: 80px;
+    z-index: 10000;
+    cursor: pointer;
+}
+.edit-toggle,
+.edit-save {
+    position: fixed;
+    top: 18px;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0c141de8;
+    color: var(--ink);
+    font: 600 18px var(--mono);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease, border-color 180ms ease, background 180ms ease;
+    z-index: 10001;
+}
+.edit-toggle {
+    left: 18px;
+}
+.edit-save {
+    left: 70px;
+    font-size: 25px;
+}
+.edit-toggle.show,
+.edit-toggle.active,
+body.edit-mode .edit-save {
+    opacity: 1;
+    pointer-events: auto;
+}
+.edit-toggle.active {
+    border-color: var(--orange);
+    background: var(--orange);
+    color: #111820;
+}
+.edit-toggle:focus-visible,
+.edit-save:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+}
+body.edit-mode [data-edit-id] {
+    cursor: text;
+}
+body.edit-mode .slide.active [data-edit-id]:hover,
+body.edit-mode .slide.active [data-edit-id]:focus {
+    outline: 3px dashed var(--orange);
+    outline-offset: 5px;
+}
 </style>
 </head>
 <body>
@@ -361,12 +503,18 @@ h2 {
     <!-- 1 ▸ TITLE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start;">
-        <div class="kicker reveal" style="--d:0ms">A four-hour workshop <span class="dim">·</span> Bring a laptop</div>
+        <div class="kicker reveal" style="--d:0ms">A four-hour workshop <span class="dim">·</span> React Native to Vega OS</div>
         <h1 class="reveal" style="--d:120ms">PAST THE<br><span class="accent">VIBES</span></h1>
         <div class="support reveal" style="--d:240ms">Build and test an agent harness with <strong>Strands Agents SDK</strong>.</div>
-        <div class="reveal" style="--d:380ms; display:flex; gap:28px; margin-top:20px;">
-          <div class="focus-card" style="padding:22px 38px; font-size:30px; font-weight:700;">Giovanni Laquidara</div>
-          <div class="panel" style="padding:22px 38px; font-size:30px; font-weight:700; border-radius:22px;">Kourtney Meiss</div>
+        <div class="speaker-row reveal" style="--d:380ms">
+          <div class="speaker-card featured">
+            <img src="assets/giovanni-laquidara.jpg" alt="Giovanni Laquidara">
+            <span>Giovanni<br>Laquidara</span>
+          </div>
+          <div class="speaker-card featured">
+            <img src="assets/kourtney-meiss.jpg" alt="Kourtney Meiss">
+            <span>Kourtney<br>Meiss</span>
+          </div>
         </div>
       </div>
       <div class="foot"><span>past-the-vibes-we</span><span>Use a live model. Keep independent evidence.</span></div>
@@ -376,11 +524,11 @@ h2 {
     <section class="slide">
       <div class="tag"><b>Introduction</b> · the workshop goal</div>
       <div class="wrap">
-        <div class="support reveal" style="--d:0ms">A prompt gives the model a task.</div>
-        <h2 class="reveal" style="--d:140ms">A harness controls<br><span class="accent">how the task runs</span>.</h2>
-        <div class="support reveal" style="--d:300ms">You will build one control at a time. You will use it on a React Native app. You can then adapt it to your codebase.</div>
+        <div class="support reveal" style="--d:0ms">A large language model can reason about a task.</div>
+        <h2 class="reveal" style="--d:140ms">An AI agent harness is the<br><span class="accent">software infrastructure around it</span>.</h2>
+        <div class="support reveal" style="--d:300ms">The harness turns passive reasoning into controlled action. Its main parts are tools, an isolated execution environment, and context management.</div>
       </div>
-      <div class="foot"><span>introduction</span><span>one agent → one controlled pipeline</span></div>
+      <div class="foot"><span>lesson 00</span><span>This harness is a TypeScript phase pipeline.</span></div>
     </section>
 
     <!-- 3 ▸ THE PROBLEM -->
@@ -433,7 +581,7 @@ h2 {
           <div class="arrow">→</div>
           <div class="step"><b>Harness</b><span>write → check → retry → commit</span></div>
           <div class="arrow">→</div>
-          <div class="step"><b>Evidence</b><span>hashes, commits, frames, and report</span></div>
+          <div class="step"><b>Evidence</b><span>hashes, commits, checks, and reports</span></div>
         </div>
         <div class="codeline reveal" style="--d:320ms"><span class="b">analyze</span> → <span class="b">plan</span> → <span class="b">port</span> → <span class="o">build</span> → <span class="o">launch</span> → <span class="o">test</span>
 <span class="c">// The last three phases run a compiler, a device, and a focus contract.</span></div>
@@ -441,33 +589,25 @@ h2 {
       <div class="foot"><span>intro</span><span>packages/workshop-harness/src/port-pipeline.ts</span></div>
     </section>
 
-    <!-- 6 ▸ TODAY'S ARC -->
+    <!-- 6 ▸ PRACTICAL LESSON PATTERN -->
     <section class="slide">
-      <div class="tag"><b>Introduction</b> · lesson sequence</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Each lesson adds<br><span class="accent">one pipeline control</span>.</h2>
-        <div class="cols reveal" style="--d:160ms">
+      <div class="tag"><b>Introduction</b> · the practical sequence</div>
+      <div class="wrap" style="gap:38px;">
+        <h2 class="reveal" style="--d:0ms">Each lesson follows<br><span class="accent">the same practical sequence</span>.</h2>
+        <div class="lesson-layout reveal" style="--d:160ms">
           <div class="panel">
-            <h3 style="color:var(--muted)">Lesson sequence</h3>
-            <ul>
-              <li><strong>1</strong>: Compare one model call with a controlled phase.</li>
-              <li><strong>2–3</strong>: Add knowledge and checked writes.</li>
-              <li><strong>4–6</strong>: Build, start, and test the app.</li>
-              <li><strong>7</strong>: Control the full run and design a new harness.</li>
-            </ul>
+            <div class="codeline" style="font-size:29px; padding:24px 28px;"><span class="o">1</span> purpose     <span class="c">what the phase must do</span>
+<span class="o">2</span> harness code <span class="c">the important TypeScript</span>
+<span class="o">3</span> run         <span class="c">the command to execute</span>
+<span class="o">4</span> expect      <span class="c">the normal output</span>
+<span class="o">5</span> inspect     <span class="c">the files and transcript</span>
+<span class="o">6</span> prove       <span class="c">the independent evidence</span></div>
           </div>
-          <div class="panel">
-            <h3 style="color:var(--muted)">Session rules</h3>
-            <ul>
-              <li>Lesson <strong>4 needs the Vega SDK</strong>. Lessons 5–6 also need a device.</li>
-              <li>Use <strong>one live executor</strong> for all phases.</li>
-              <li>Try one repair. Then use the <strong>recorded fallback</strong>.</li>
-              <li>Use the stated evidence to confirm completion.</li>
-            </ul>
-          </div>
+          <img class="product-image" src="assets/pocket-cinema-android-tv.png" alt="Pocket Cinema before the Vega OS port">
         </div>
+        <div class="support reveal" style="--d:320ms">Pocket Cinema is the product input. The workshop changes its React Native app from mobile behavior to a controlled TV flow.</div>
       </div>
-      <div class="foot"><span>intro</span><span>site: yarn site → localhost:4173</span></div>
+      <div class="foot"><span>lessons 01–07</span><span>Run it. Inspect it. Prove it.</span></div>
     </section>
 
     <!-- 6b ▸ TRUST BOARD -->
@@ -478,8 +618,8 @@ h2 {
         <div class="codeline reveal" style="--d:140ms"><span class="c">CLAIM</span>                      <span class="c">INDEPENDENT OBSERVER</span>
 “the port is correct”      → static + executable checks
 “it builds”                → Vega compiler + .vpkg
-“it runs”                  → dwell + crash log + two frames
-“the remote works”         → focus transition contract</div>
+“it runs”                  → two state samples + crash log
+“the remote works”         → observed focus IDs + approved plan</div>
         <div class="support reveal" style="--d:300ms">Each lesson adds one row. Each row states the remaining limit. No single check proves all behavior.</div>
       </div>
       <div class="foot"><span>Keep this table visible.</span><span>plausible ≠ verified</span></div>
@@ -504,28 +644,28 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
     <section class="slide">
       <div class="tag"><b>Lesson 2</b> · plan the TV port</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Define TV behavior<br><span class="accent">before the build</span>.</h2>
+        <h2 class="reveal" style="--d:0ms">Define and approve TV behavior<br><span class="accent">before code changes</span>.</h2>
         <div class="cols reveal" style="--d:160ms">
           <div class="panel">
-            <h3 style="color:var(--muted)">Installed skill</h3>
+            <h3 style="color:var(--muted)">Plan inputs</h3>
             <ul>
-              <li><code style="font-family:var(--mono)">amazon-devices-vega-focus-management</code></li>
-              <li>Defines initial focus and remote movement.</li>
-              <li>Defines what <strong>Back</strong> restores.</li>
+              <li>The guarded app and <strong>ANALYSIS.md</strong>.</li>
+              <li>The product rules in <strong>workshop-brief.md</strong>.</li>
+              <li>Current Vega documents from <strong>ADBT MCP</strong>.</li>
             </ul>
           </div>
           <div class="panel">
-            <h3 style="color:var(--muted)">ADBT documents</h3>
+            <h3 style="color:var(--muted)">Approval boundary</h3>
             <ul>
-              <li>The model reads workflows through <strong>ADBT MCP</strong>.</li>
-              <li>The harness records a <strong>SHA-256 hash</strong> for each read.</li>
-              <li>The model records missing knowledge.</li>
+              <li>The schema checks screens, focus, Select, and Back.</li>
+              <li>The run ends in <strong>awaiting_approval</strong>.</li>
+              <li>Later phases require matching plan and brief hashes.</li>
             </ul>
           </div>
         </div>
-        <div class="support reveal" style="--d:320ms"><code>port-plan.json</code> defines screens, Select, Back, and evidence. Its schema checks structure. A person approves the exact plan and brief hashes before code changes.</div>
+        <div class="support reveal" style="--d:320ms">Review <code>port-plan.json</code>. Then run <code>approve-plan</code>. A changed plan or brief makes the approval stale.</div>
       </div>
-      <div class="foot"><span>lesson 02 · 30 min</span><span>Skills supply knowledge. Checks enforce requirements.</span></div>
+      <div class="foot"><span>lesson 02 · 30 min</span><span>ADBT supplies Vega knowledge. A person approves product behavior.</span></div>
     </section>
 
     <!-- 9 ▸ STRANDS -->
@@ -537,23 +677,42 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
           <div class="panel">
             <h3 class="blue">Strands supplies</h3>
             <ul>
-              <li>One interface for <strong>Bedrock, OpenAI, and OpenRouter</strong>.</li>
-              <li><strong>Zod-typed tools</strong> and schema-enforced output.</li>
-              <li>Limits, cancellation, metrics, and <strong>MCP</strong>.</li>
+              <li>The configured <strong>model and provider</strong>.</li>
+              <li><strong>Zod-typed tools</strong> and structured output.</li>
+              <li>The model loop and <strong>MCP clients</strong>.</li>
             </ul>
           </div>
           <div class="panel" style="border-color:var(--orange)">
             <h3 class="accent">The harness supplies</h3>
             <ul>
               <li><strong>Writes, Git, phase order, and checks.</strong></li>
-              <li>One stable security boundary.</li>
-              <li>An executor of approximately <strong>100 lines</strong>.</li>
+              <li>Selected project tools for each phase.</li>
+              <li>Usage records and stop conditions.</li>
             </ul>
           </div>
         </div>
-        <div class="support reveal" style="--d:300ms">The repository pins the TypeScript SDK at <code>1.10.0</code>. The SDK reports model activity. The harness keeps control of effects.</div>
+        <div class="support reveal" style="--d:300ms">The attendee selects a supported model in <code>workshop.config.json</code>. The model can propose files. The harness keeps control of effects.</div>
       </div>
-      <div class="foot"><span>reference: strands-constructs.md</span><span>github.com/strands-agents/harness-sdk</span></div>
+      <div class="foot"><span>architecture</span><span>strandsagents.com</span></div>
+    </section>
+
+    <!-- 9b ▸ STRANDS SDK -->
+    <section class="slide">
+      <div class="tag"><b>Strands Agents SDK</b> · open-source agent toolkit</div>
+      <div class="wrap" style="gap:28px;">
+        <h2 class="reveal" style="--d:0ms; font-size:68px;">Create an agent, give it typed tools,<br>and connect it to the selected model.</h2>
+        <div class="media-grid reveal" style="--d:150ms">
+          <figure class="media-panel">
+            <img src="assets/strands-home.png" alt="Strands Agents SDK website">
+            <figcaption>TypeScript package: <span class="accent">@strands-agents/sdk</span></figcaption>
+          </figure>
+          <figure class="media-panel">
+            <img src="assets/strands-agent-example.png" alt="TypeScript example of a Strands agent with a typed search tool">
+            <figcaption>A typed tool gives the model one controlled operation.</figcaption>
+          </figure>
+        </div>
+      </div>
+      <div class="foot"><span>Strands runs the agent loop.</span><span>The harness controls application effects.</span></div>
     </section>
 
     <!-- 10 ▸ ADBT -->
@@ -563,22 +722,23 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
         <h2 class="reveal" style="--d:0ms"><span class="accent">ADBT</span> supplies current<br>Vega documents through MCP</h2>
         <div class="cols reveal" style="--d:160ms">
           <div class="panel">
-            <h3 style="color:var(--muted)">One pinned npm package</h3>
+            <h3 style="color:var(--muted)">Knowledge through MCP</h3>
             <ul>
-              <li>Contains <strong>400+ Vega documents</strong>.</li>
-              <li>Contains <strong>10 agent skills</strong>.</li>
-              <li>Runs locally as an <strong>MCP server</strong>.</li>
+              <li>ADBT runs locally as an <strong>MCP server</strong>.</li>
+              <li>The model searches and reads <strong>Vega documents</strong>.</li>
+              <li>The harness does not contain a Vega scaffold.</li>
             </ul>
           </div>
           <div class="panel">
-            <h3 style="color:var(--muted)">Harness behavior</h3>
+            <h3 style="color:var(--muted)">Recorded provenance</h3>
             <ul>
-              <li>The model reads <strong>Amazon migration guidance</strong>.</li>
-              <li>The run stops with <strong>exit code 3</strong> if ADBT fails.</li>
-              <li>The harness hashes every document read.</li>
+              <li>The run records each document name and excerpt.</li>
+              <li>The harness stores a <strong>SHA-256 hash</strong> for each read.</li>
+              <li>A phase fails when required ADBT use is missing.</li>
             </ul>
           </div>
         </div>
+        <div class="support reveal" style="--d:300ms">ADBT owns Vega knowledge. The phase prompt tells the model when to use that knowledge.</div>
       </div>
       <div class="foot"><span>@amazon-devices/amazon-devices-buildertools-mcp</span><span>developer.amazon.com/docs/vega</span></div>
     </section>
@@ -590,7 +750,7 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
         <h2 class="reveal" style="--d:0ms">A retry must include<br><span class="accent">new failure information</span>.</h2>
         <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> TV flow documented: VEGA_PORT.md must contain "## TV Flow"
 <span class="c">→ that exact text joins attempt 2 …</span>
-<span class="g">✓</span> nine checks pass → one commit</div>
+<span class="g">✓</span> ten checks pass → one commit</div>
         <div class="support reveal" style="--d:300ms">The exact failure identifies the unmet requirement. The phase stops when checks pass, the budget ends, or the failure reaches the retry limit.</div>
       </div>
       <div class="foot"><span>lesson 03 · 30 min</span><span>src/port-verification.ts defines the checks.</span></div>
@@ -604,10 +764,11 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
         <div class="codeline reveal" style="--d:160ms">$ inject-build-failure workshop <span class="c"># guarded copy only</span>
 <span class="r">✗</span> src/workshop-build-break.ts(2,14): error TS2322:
    Type 'number' is not assignable to type 'string'.
-<span class="c">→ the compiler's own words go to the model · rebuild · judge again</span></div>
-        <div class="support reveal" style="--d:300ms">The injected failure is deterministic. The phase checks before it calls the model. It sends the exact diagnostic and commits only after the build passes.</div>
+<span class="c">→ exact diagnostic to the model → repair → complete build</span>
+<span class="g">✓</span> fresh index.hermes.bundle + installable .vpkg</div>
+        <div class="support reveal" style="--d:300ms">The phase verifies first. It calls the model only after a failed build. A successful command must also produce both required build artifacts.</div>
       </div>
-      <div class="foot"><span>lesson 04 · 30 min</span><span>Vega SDK required · recorded fallback available</span></div>
+      <div class="foot"><span>lesson 04 · 30 min</span><span>Vega SDK 0.23.9221 required for live build evidence.</span></div>
     </section>
 
     <!-- 13 ▸ LESSON 5 -->
@@ -615,12 +776,13 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
       <div class="tag"><b>Lesson 5</b> · run it on the device</div>
       <div class="wrap" style="gap:44px;">
         <h2 class="reveal" style="--d:0ms">A successful start command<br>does not prove <span class="accent">continued operation</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms">install → launch → capture → <span class="c">wait 5s</span> → logs → capture
-<span class="g">✓</span> no FATAL / SIGSEGV / ANR in the device log
-<span class="g">✓</span> both frames render content <span class="c">(1x1 pixel or black screen fails)</span></div>
-        <div class="support reveal" style="--d:300ms"><strong>launch-app .. success</strong> confirms command acceptance. The log scan and second frame check continued operation.</div>
+        <div class="codeline reveal" style="--d:160ms">install .vpkg → start app
+<span class="g">✓</span> running-state sample 1
+<span class="c">wait five seconds</span> → scan device log for crash signatures
+<span class="g">✓</span> running-state sample 2</div>
+        <div class="support reveal" style="--d:300ms">The harness starts or reuses the VDA. The command returns only after the dwell, crash scan, and second process check pass.</div>
       </div>
-      <div class="foot"><span>lesson 05 · 30 min</span><span>Rebuild after a source change.</span></div>
+      <div class="foot"><span>lesson 05 · 30 min</span><span>The launch phase does not use screenshots.</span></div>
     </section>
 
     <!-- 14 ▸ LESSON 6 -->
@@ -629,13 +791,12 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
       <div class="wrap" style="gap:40px;">
         <div style="display:grid; grid-template-columns: 1fr 420px; gap:60px; align-items:center;">
           <div style="display:grid; gap:36px;">
-            <h2 class="reveal" style="--d:0ms">A frame shows one state.<br><span class="accent">Focus changes over time.</span></h2>
-            <div class="codeline reveal" style="--d:160ms">launch  → featured action <span class="g">has focus</span>
-down    → focus enters the first rail
-left/right → <span class="g">stops at boundaries</span>
-select  → details opens for <span class="o">that</span> card
-back    → <span class="o">the same card</span> regains focus</div>
-            <div class="support reveal" style="--d:300ms">An executable check confirms focus restoration. If this phase repairs source, the harness rebuilds, installs, launches, scans logs, checks frames, and repeats the focus checks.</div>
+            <h2 class="reveal" style="--d:0ms">Inject a key.<br><span class="accent">Read the focused test ID.</span></h2>
+            <div class="codeline reveal" style="--d:160ms"><span class="b">inputd-cli</span> sends Down, Left, Right, Select, and Back
+<span class="b">getPageSource</span> returns the VDA user-interface hierarchy
+<span class="g">focused: true</span> + <span class="o">test_id</span> gives the observed control
+approved plan ID === observed test_id</div>
+            <div class="support reveal" style="--d:300ms">Automation Toolkit supplies each observation. The harness compares it with the approved plan without model judgment.</div>
           </div>
           <div class="reveal" style="--d:240ms">
             <div class="dpad" aria-label="TV remote D-pad">
@@ -646,63 +807,65 @@ back    → <span class="o">the same card</span> regains focus</div>
           </div>
         </div>
       </div>
-      <div class="foot"><span>lesson 06 · 25 min</span><span>Compare tvReady: false with tvReady: true.</span></div>
+      <div class="foot"><span>lesson 06 · 25 min</span><span>The hierarchy proves focus state, not visual focus style.</span></div>
     </section>
 
-    <!-- 15 ▸ WORKED EXAMPLE -->
+    <!-- 15 ▸ APPROVAL HASHES -->
     <section class="slide">
-      <div class="tag"><b>Lesson 2</b> · recorded model output</div>
+      <div class="tag"><b>Lesson 2</b> · approval protects later phases</div>
       <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">The model must<br><span class="accent">record uncertainty</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="c">## Unverified against SDK docs (MCP doc access not granted)</span>
-The items below … <span class="o">MUST be confirmed</span> against the named KB documents
-before relying on them — they are <span class="o">not invented APIs presented as fact</span>.</div>
-        <div class="support reveal" style="--d:300ms">The model wrote missing knowledge to <code>NextSteps.md</code>. The skill requires this result. Separate checks still evaluate the output.</div>
+        <h2 class="reveal" style="--d:0ms"><span class="accent">awaiting_approval</span><br>is the expected plan result.</h2>
+        <div class="codeline reveal" style="--d:160ms">port-plan.json              → <span class="b">plan SHA-256</span>
+workshop-brief.md           → <span class="b">brief SHA-256</span>
+approve-plan               → port-plan-approval.json
+
+port · build · launch · test → require both matching hashes</div>
+        <div class="support reveal" style="--d:300ms">Review focus, Select, Back, preserved behavior, and deferred behavior. If either input changes, approve the plan again.</div>
       </div>
-      <div class="foot"><span>lesson 02 · worked example</span><span>from recorded run c9fc9e58</span></div>
+      <div class="foot"><span>lesson 02 · human gate</span><span>Schema validity does not replace product review.</span></div>
     </section>
 
     <!-- 16 ▸ OPTIONAL BEE -->
     <section class="slide">
-      <div class="tag"><b>Appendix A1</b> · optional, consent required</div>
+      <div class="tag"><b>Appendix A1</b> · 40-minute Bee challenge</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">A conversation is input.<br>It is not <span class="accent">user approval</span>.</h2>
+        <h2 class="reveal" style="--d:0ms">Use a Bee conversation<br>as <span class="accent">private product input</span>.</h2>
         <div class="cols reveal" style="--d:160ms">
           <div class="panel">
-            <h3 style="color:var(--muted)">Before the harness</h3>
+            <h3 style="color:var(--muted)">Consent and privacy</h3>
             <ul>
               <li>Get <strong>explicit consent</strong>.</li>
               <li>Keep conversation data out of Git.</li>
-              <li>Skip the lesson if consent or access is missing.</li>
+              <li>Store source IDs and hashes, not transcript text.</li>
             </ul>
           </div>
           <div class="panel">
-            <h3 style="color:var(--muted)">Inside the harness</h3>
+            <h3 style="color:var(--muted)">Approval and scope</h3>
             <ul>
-              <li>Bee over MCP produces a proposed specification.</li>
-              <li>The user approves before source changes.</li>
-              <li>Store summaries and source IDs. Do not store a transcript.</li>
+              <li>Bee CLI supplies the conversation through MCP.</li>
+              <li>The model proposes a bounded specification.</li>
+              <li>A person reviews it before source changes.</li>
             </ul>
           </div>
         </div>
-        <div class="support reveal" style="--d:320ms">The model can propose a specification. The user must approve the checks before the harness changes source.</div>
+        <div class="support reveal" style="--d:320ms">A conversation can contain a request. It is not approval to change the application.</div>
       </div>
-      <div class="foot"><span>appendix A1 · optional</span><span>consent first · approval before code</span></div>
+      <div class="foot"><span>appendix A1 · challenge</span><span>github.com/bee-computer/bee-cli</span></div>
     </section>
 
     <!-- 16b ▸ THE SECOND PIPELINE -->
     <section class="slide">
       <div class="tag"><b>Appendix A1</b> · same engine, different plan</div>
       <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">A second plan demonstrates<br><span class="accent">pipeline reuse</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms">--propose   <span class="c">bee_spec</span>   Bee over MCP → bee-spec.json + BEE_SPEC.md · <span class="o">no code</span>
-            <span class="c">↓ you read and approve</span>
---apply     <span class="c">bee_apply</span>  the approved spec becomes code
-            <span class="c">build</span>      the .vpkg          <span class="c">← the port's phase</span>
-            <span class="c">launch</span>     on the VDA         <span class="c">← the port's phase</span></div>
-        <div class="support reveal" style="--d:300ms"><code>runPortPipeline</code> accepts a plan. Specification checks use only <code>file_exists</code> and <code>contains</code>. <code>bee_apply</code> cannot edit the approved specification.</div>
+        <h2 class="reveal" style="--d:0ms">Change the phase plan.<br><span class="accent">Reuse the controlled engine.</span></h2>
+        <div class="codeline reveal" style="--d:160ms"><span class="b">bee_spec</span> → <span class="o">review</span> → <span class="b">bee_apply</span> → <span class="b">build</span> → <span class="b">launch</span>
+
+bee_spec  <span class="c">Bee MCP → validated JSON → rendered BEE_SPEC.md</span>
+review    <span class="c">person checks scope, sources, exclusions, and checks</span>
+bee_apply <span class="c">implements approved requests in the guarded app</span></div>
+        <div class="support reveal" style="--d:300ms">The approved specification files are read-only during <code>bee_apply</code>. Specification checks can use only <code>file_exists</code> and <code>contains</code>.</div>
       </div>
-      <div class="foot"><span>appendix A1 · optional, 25 min</span><span>bee-run · explicit consent required</span></div>
+      <div class="foot"><span>appendix A1 · 40 min</span><span>The implementation cannot edit its measurement.</span></div>
     </section>
 
     <!-- 17 ▸ OPERATOR VIEW -->
@@ -710,25 +873,26 @@ before relying on them — they are <span class="o">not invented APIs presented 
       <div class="tag"><b>Lesson 7</b> · control the complete run</div>
       <div class="wrap" style="gap:38px;">
         <h2 class="reveal" style="--d:0ms">The TUI shows<br><span class="accent">the complete pipeline state</span>.</h2>
-        <div class="codeline reveal" style="--d:140ms"><span class="b">executor</span> strands:openai/gpt-4.1   <span class="b">evidence</span> live   <span class="b">seed</span> workshop-v1   <span class="b">cost</span> $1.84 / $3.00
-<span class="g">✓ analyze</span>   <span class="g">✓ plan</span>   <span class="g">✓ port</span>   <span class="o">● build</span>   ○ launch   ○ test
+        <div class="codeline reveal" style="--d:140ms"><span class="b">executor</span> strands   <span class="b">evidence</span> live   <span class="b">seed</span> workshop-v1
+<span class="b">tokens</span> 1,082,772 / unlimited   <span class="b">turns</span> 71   <span class="b">calls</span> 4
+<span class="g">✓ feasibility</span>  <span class="g">✓ analyze</span>  <span class="g">✓ plan</span>  <span class="g">✓ port</span>  <span class="o">● build</span>  ○ launch  ○ test
 checks: compiler failed → diagnostic retained → repair passed
 commit: 8f2c4d1 workshop(build): produce Vega package</div>
         <div class="cols reveal" style="--d:280ms">
           <div class="panel">
-            <h3 class="blue">Select the visible data</h3>
+            <h3 class="blue">Move between views</h3>
             <ul>
-              <li>Select a phase.</li>
-              <li>Filter checks, model events, or tools.</li>
-              <li>Follow the active phase without interruption.</li>
+              <li><strong>Up or Down</strong> selects a phase.</li>
+              <li><strong>Enter</strong> opens its messages.</li>
+              <li><strong>Escape</strong> returns. <strong>Tab</strong> changes the filter.</li>
             </ul>
           </div>
           <div class="panel" style="border-color:var(--orange)">
-            <h3 class="accent">Keep the complete evidence</h3>
+            <h3 class="accent">Read usage correctly</h3>
             <ul>
-              <li>Record the executor and model.</li>
-              <li>Record ADBT calls, retries, cost, and commits.</li>
-              <li>Use append-only JSONL as the complete record.</li>
+              <li>There is no fixed dollar limit.</li>
+              <li>The token limit can be <strong>unlimited</strong>.</li>
+              <li>Provider cost appears only when reported.</li>
             </ul>
           </div>
         </div>
@@ -742,7 +906,7 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
       <div class="wrap" style="gap:50px;">
         <h2 class="reveal" style="--d:0ms">TV is the example.<br><span class="accent">The pattern applies to other domains.</span></h2>
         <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → commit → report</div>
-        <div class="support reveal" style="--d:300ms">Inspect the live TUI. Then design a three-phase harness. Exchange worksheets. Find a false positive. Strengthen one check. Report the claim, evidence, and limit.</div>
+        <div class="support reveal" style="--d:300ms">Inspect feasibility and all six phases in the TUI. Then design a three-phase harness. Ask another person to find a false positive. Improve one check.</div>
       </div>
       <div class="foot"><span>lesson 07 · 30 min</span><span>Another team tests your check.</span></div>
     </section>
@@ -750,12 +914,12 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
     <!-- 19 ▸ CLOSE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start; gap:44px;">
-        <div class="kicker reveal" style="--d:0ms">Fork the repository. Replace the skills, MCP server, or executor.</div>
+        <div class="kicker reveal" style="--d:0ms">Fork the repository. Change the phase plan, context source, or executor.</div>
         <h1 class="reveal" style="--d:140ms; font-size:110px;">Build evidence.<br>Do not trust <span class="accent">vibes</span>.</h1>
         <div class="reveal" style="--d:280ms; display:grid; gap:14px;">
           <div class="codeline" style="font-size:36px;">github.com/giolaq/past-the-vibes-we</div>
         </div>
-        <div class="support reveal" style="--d:400ms">Use the harness, checks, and evidence in your domain. Use recorded data for regression tests and recovery. Use live runs for live claims. Giovanni Laquidara · Kourtney Meiss</div>
+        <div class="support reveal" style="--d:400ms">Use narrow model authority, independent checks, and review gates in your domain. Giovanni Laquidara · Kourtney Meiss</div>
       </div>
       <div class="foot"><span>Thank you.</span><span>Ask questions now or during the break.</span></div>
     </section>
@@ -764,23 +928,172 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
 </div>
 
 <div class="deck-progress" id="progress"></div>
-<div class="deck-counter" id="counter">1 / 21</div>
+<div class="deck-counter" id="counter">1 / 22</div>
+<div class="edit-hotzone" id="editHotzone" title="Edit mode (E)" aria-hidden="true"></div>
+<button class="edit-toggle" id="editToggle" type="button" title="Edit mode (E)" aria-label="Toggle edit mode" aria-pressed="false">E</button>
+<button class="edit-save" id="editSave" type="button" title="Download edited HTML (Ctrl or Command + S)" aria-label="Download edited HTML">&#8595;</button>
 
 <script>
 /* ============================================================
-   SlidePresentation — fixed-stage scaling + navigation.
+   SlidePresentation — fixed-stage scaling, navigation, and editing.
    - scales the 1920x1080 stage uniformly into the window
    - .active/.visible toggling (visibility/opacity, no display:none)
-   - keyboard: arrows, space, page up/down, home/end
-   - touch: horizontal swipe
+   - keyboard, wheel, and touch navigation
    - URL hash (#n) survives reload and deep-links a slide
+   - E toggles inline editing; edits auto-save in localStorage
+   - Ctrl/Cmd+S downloads a self-contained edited HTML file
    ============================================================ */
 (function () {
   const stage = document.getElementById("stage");
   const slides = Array.from(stage.querySelectorAll(".slide"));
   const progress = document.getElementById("progress");
   const counter = document.getElementById("counter");
+  const editHotzone = document.getElementById("editHotzone");
+  const editToggle = document.getElementById("editToggle");
+  const editSave = document.getElementById("editSave");
   let index = 0;
+
+  class SlideEditor {
+    constructor() {
+      this.isActive = false;
+      this.storageKey = "past-the-vibes-slides-edits-v1";
+      this.sourceById = new Map();
+      this.saveTimer = null;
+      this.targets = [];
+      this.collectTargets();
+      this.restore();
+      stage.addEventListener("input", (event) => {
+        if (this.isActive && event.target instanceof Element && event.target.closest("[data-edit-id]")) {
+          this.scheduleSave();
+        }
+      });
+    }
+
+    collectTargets() {
+      const selector = [
+        ".kicker",
+        "h1",
+        "h2",
+        ".support",
+        ".tag",
+        ".foot > span",
+        ".panel h3",
+        ".panel li",
+        ".flow .step b",
+        ".flow .step span",
+        ".codeline",
+        ".chip",
+        ".statement",
+        ".speaker-card span",
+        "figcaption"
+      ].join(",");
+
+      slides.forEach((slide, slideIndex) => {
+        Array.from(slide.querySelectorAll(selector)).forEach((target, targetIndex) => {
+          const id = `slide-${slideIndex + 1}-text-${targetIndex + 1}`;
+          target.dataset.editId = id;
+          this.sourceById.set(id, target.innerHTML);
+          this.targets.push(target);
+        });
+      });
+    }
+
+    restore() {
+      let saved;
+      try {
+        saved = JSON.parse(localStorage.getItem(this.storageKey) || "{}");
+      } catch {
+        return;
+      }
+      this.targets.forEach((target) => {
+        const id = target.dataset.editId;
+        const edit = saved[id];
+        if (edit && edit.source === target.innerHTML && typeof edit.html === "string") {
+          target.innerHTML = edit.html;
+        }
+      });
+    }
+
+    toggleEditMode(force) {
+      this.isActive = typeof force === "boolean" ? force : !this.isActive;
+      document.body.classList.toggle("edit-mode", this.isActive);
+      editToggle.classList.toggle("active", this.isActive);
+      editToggle.classList.toggle("show", this.isActive);
+      editToggle.setAttribute("aria-pressed", String(this.isActive));
+
+      this.targets.forEach((target) => {
+        if (this.isActive) {
+          target.setAttribute("contenteditable", "true");
+          target.setAttribute("spellcheck", "false");
+        } else {
+          target.removeAttribute("contenteditable");
+          target.removeAttribute("spellcheck");
+        }
+      });
+
+      if (!this.isActive) {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        this.save();
+      }
+    }
+
+    scheduleSave() {
+      window.clearTimeout(this.saveTimer);
+      this.saveTimer = window.setTimeout(() => this.save(), 250);
+    }
+
+    save() {
+      window.clearTimeout(this.saveTimer);
+      const edits = {};
+      this.targets.forEach((target) => {
+        const id = target.dataset.editId;
+        const source = this.sourceById.get(id);
+        if (target.innerHTML !== source) {
+          edits[id] = { source, html: target.innerHTML };
+        }
+      });
+      try {
+        if (Object.keys(edits).length > 0) localStorage.setItem(this.storageKey, JSON.stringify(edits));
+        else localStorage.removeItem(this.storageKey);
+      } catch {
+        /* The deck still edits in memory when localStorage is unavailable. */
+      }
+    }
+
+    download() {
+      this.save();
+      const clone = document.documentElement.cloneNode(true);
+      clone.querySelectorAll("[contenteditable],[spellcheck],[data-edit-id]").forEach((element) => {
+        element.removeAttribute("contenteditable");
+        element.removeAttribute("spellcheck");
+        element.removeAttribute("data-edit-id");
+      });
+      clone.querySelector("body")?.classList.remove("edit-mode");
+      clone.querySelectorAll(".slide").forEach((slide) => slide.classList.remove("active", "visible"));
+      const cloneStage = clone.querySelector("#stage");
+      const cloneProgress = clone.querySelector("#progress");
+      const cloneToggle = clone.querySelector("#editToggle");
+      if (cloneStage) cloneStage.removeAttribute("style");
+      if (cloneProgress) cloneProgress.removeAttribute("style");
+      if (cloneToggle) {
+        cloneToggle.classList.remove("active", "show");
+        cloneToggle.setAttribute("aria-pressed", "false");
+      }
+
+      const html = "<!doctype html>\n" + clone.outerHTML;
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "past-the-vibes-slides.html";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
+  const editor = new SlideEditor();
 
   function scale() {
     const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
@@ -807,22 +1120,76 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
     if (updateHash) history.replaceState(null, "", `#${index + 1}`);
   }
 
+  function isTypingTarget(target) {
+    return target instanceof HTMLElement &&
+      (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  }
+
   window.addEventListener("resize", scale);
   window.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      editor.download();
+      return;
+    }
+    if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "e" || event.key === "E") {
+      event.preventDefault();
+      editor.toggleEditMode();
+      return;
+    }
     if (["ArrowRight", "ArrowDown", " ", "PageDown"].includes(event.key)) { event.preventDefault(); show(index + 1); }
     if (["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key)) { event.preventDefault(); show(index - 1); }
     if (event.key === "Home") { event.preventDefault(); show(0); }
     if (event.key === "End") { event.preventDefault(); show(slides.length - 1); }
   });
 
+  let wheelLocked = false;
+  window.addEventListener("wheel", (event) => {
+    if (editor.isActive || wheelLocked || Math.abs(event.deltaY) < 30) return;
+    event.preventDefault();
+    wheelLocked = true;
+    show(index + (event.deltaY > 0 ? 1 : -1));
+    window.setTimeout(() => { wheelLocked = false; }, 700);
+  }, { passive: false });
+
   let touchX = null;
-  window.addEventListener("touchstart", (event) => { touchX = event.touches[0].clientX; }, { passive: true });
+  window.addEventListener("touchstart", (event) => {
+    if (!editor.isActive) touchX = event.touches[0].clientX;
+  }, { passive: true });
   window.addEventListener("touchend", (event) => {
-    if (touchX === null) return;
+    if (editor.isActive || touchX === null) return;
     const dx = event.changedTouches[0].clientX - touchX;
     if (Math.abs(dx) > 60) show(index + (dx < 0 ? 1 : -1));
     touchX = null;
   }, { passive: true });
+
+  let hideEditTimeout = null;
+  const showEditToggle = () => {
+    window.clearTimeout(hideEditTimeout);
+    editToggle.classList.add("show");
+  };
+  const hideEditToggle = () => {
+    hideEditTimeout = window.setTimeout(() => {
+      if (!editor.isActive) editToggle.classList.remove("show");
+    }, 400);
+  };
+  editHotzone.addEventListener("mouseenter", showEditToggle);
+  editHotzone.addEventListener("mouseleave", hideEditToggle);
+  editHotzone.addEventListener("click", () => editor.toggleEditMode());
+  editToggle.addEventListener("mouseenter", showEditToggle);
+  editToggle.addEventListener("mouseleave", hideEditToggle);
+  editToggle.addEventListener("click", () => editor.toggleEditMode());
+  editSave.addEventListener("click", () => editor.download());
+
+  window.presentation = {
+    goToSlide: (slideIndex) => show(slideIndex),
+    next: () => show(index + 1),
+    previous: () => show(index - 1),
+    get currentSlide() { return index; },
+    get slideCount() { return slides.length; }
+  };
+  window.slideEditor = editor;
 
   scale();
   show(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1), false);

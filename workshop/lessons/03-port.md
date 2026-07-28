@@ -1,232 +1,180 @@
 ---
 id: port
-number: "03"
-nav: Write the port
+number: '03'
+nav: The Porting
 time: 30 minutes
-title: Write the code and verify each requirement
-lead: The port phase changes the app. Nine independent checks control the phase commit.
-objective: Inspect the checks for a code change. Observe how exact failure text causes a useful retry.
-evidence: The guarded copy contains a Vega package and focus module. Git records the passing phase.
+title: Run the porting and inspect the result
+lead: Apply the approved plan. The model proposes files, and the harness controls writes, checks, retries, and the phase commit.
+objective: Run the port phase. Inspect the generated Vega package, focus code, check result, model transcript, and Git commit.
+evidence: The guarded copy contains a Vega package and focus module.
 ---
 
-:::welcome Use checks for code changes
+:::welcome Change code inside the harness boundary
 The first two phases produced documents.
-The port phase produces code.
+The port phase produces application code.
 
-The phase creates a Vega package.
-The phase creates a shared focus-state module.
-The phase creates an executable focus test.
-An executable test is a program that returns pass or fail.
-
-A wrong result can now change application behavior.
-Read the checks before you accept the result.
+The harness applies the model response and checks the result.
 :::
 
-:::concept The verification engine is small
-The verification engine is the TypeScript code that runs the independent checks.
-`src/port-verification.ts` defines four check types:
+## Know what the phase creates
 
-- `file_exists` checks that a required file exists.
-- `contains` checks that a file contains required text.
-- `json_schema` checks that JSON has the required fields and value types.
-- `command` runs a program and requires a successful exit.
+The port phase follows the approved `port-plan.json`.
+It creates these main parts:
 
-`verifyPort()` runs each check and collects the failure text.
-The port phase has nine checks.
-The checks cover the manifest, build scripts, app configuration, focus module, wiring, and test.
-:::
+| Path                       | Function                                                      |
+| -------------------------- | ------------------------------------------------------------- |
+| `apps/vega/`               | Vega package, manifest, build configuration, and dependencies |
+| `src/tv/focus-state.ts`    | Shared focus state for the app and tests                      |
+| `src/App.tsx`              | TV focus IDs and remote behavior                              |
+| `tests/verify-tv-focus.ts` | Host-side focus contract                                      |
+| `TV_VERIFICATION.md`       | Required focus and Back behavior                              |
 
-:::predict
-The model can write a Vega manifest that appears correct.
-A static check reads files without running the Vega compiler.
-Which static checks can accept the manifest even if Vega rejects it?
-:::
+Every focusable control needs a stable React Native `testID`.
+Lesson 06 reads these IDs from the VDA.
 
-## Trace Strands in the port phase
+## Important harness code
 
-Strands returns a typed patch.
-The harness controls every operation that changes the guarded copy.
-One attempt is one model proposal followed by the phase checks.
+The port loop is in `src/port-pipeline.ts`.
 
 :::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
-const model = await options.executor.call(
-  phase.name,
-  prompt(phase, options, failures),
-  { mcp: phase.mcp, attempt },
+const model = await executor.call(
+phase.name,
+prompt(phase, failures),
+{ mcp: phase.mcp, attempt },
 );
+
 const output = parseJsonBlock(model.text, PortOutputSchema, phase.name);
-writeOutput(options.appDir, output.files, phase.readOnly);
-failures = await verify(phase, options, deviceMark, true, attempt);
-if (failures.length === 0) break;
->look: The executor proposes files. The harness parses, writes, and verifies them.
-:::
+writeOutput(appDir, output.files, phase.readOnly);
+failures = await verify(phase);
 
-| Owner | Port action |
-| --- | --- |
-| Strands | Uses read-only project tools. Uses ADBT MCP. Returns `{summary, files}`. |
-| ADBT MCP | Supplies the Vega migration, manifest, dependency, and build guidance selected by the model. |
-| Harness | Rejects unsafe paths. Protects the approved plan. Records ADBT provenance. Writes complete files. Runs nine checks. Commits the result. |
-| Evidence | `port-result.json`, `model-logs/port.jsonl`, and the port commit |
+if (failures.length === 0) {
+commitAll(appDir, `workshop(${phase.name}): ${output.summary}`);
+}
 
-:::note Claude CLI path
-The Claude CLI executor implements the same `PortExecutor.call()` interface.
-This TypeScript interface requires each executor to support the same call operation.
-The Claude CLI executor cannot bypass `writeOutput()` or the independent checks.
-:::
+> look: The model proposes complete files. The harness parses, writes, checks, and commits them.
+> :::
+
+The port phase runs ten checks.
+
+| Check group  | What it checks                                                                     |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Vega package | Manifest schema, interactive component, app registration, Metro, and build scripts |
+| TV code      | Shared focus module, app wiring, and stable `testID` values                        |
+| Test code    | Executable host-side focus check                                                   |
+
+If a check fails, the next model request contains the exact failure text.
+The harness resets a failed attempt before it applies the next proposal.
 
 ## Run the port phase
 
-Use the same run ID and executor.
-The port phase checks `port-plan-approval.json` before it calls the model.
-The port phase refuses a missing approval.
-The port phase refuses a plan that changed after approval.
+Use the approved `workshop` run.
 
 :::yourturn
-Run the code-writing phase against the approved plan.
-Inspect the generated Vega package, shared focus code, and phase commit.
+Run the code-writing phase.
+Watch for a failed check and retry.
+Wait for the final `run_complete` event.
 :::
 
 :::command Run the port phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases port --yes --run-id workshop
+ --phases port --yes --run-id workshop
 :::
 
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
-The port phase supplies ADBT MCP and requires a document read.
-:::
+The phase can take several minutes.
+The model reads the approved plan, project files, and ADBT documents.
 
-:::note The plan is read-only
-The port model can read `port-plan.json`.
-The port model cannot change `port-plan.json` or `port-plan-approval.json`.
+A passing final result contains:
 
-The approved plan defines success.
-The implementation cannot change the approved requirements.
-:::
+```json
+{
+  "state": "complete",
+  "phasesComplete": ["analyze", "plan", "port"]
+}
+```
 
-## Inspect the files and commit
+If a check fails, the terminal prints:
 
-`apps/vega` is the target Vega package directory.
-`manifest.toml` declares the Vega package.
-`package.json` declares JavaScript dependencies and scripts.
-`app.json` identifies the React Native app.
-`metro.config.js` configures the Metro JavaScript bundler.
+```text
+port attempt 1 failed:
+  - <exact check failure>
+```
+
+This message means that the harness rejected the first proposal.
+The next attempt receives the same failure text.
+
+## Inspect the generated files
 
 :::steps
-1. Open `out/workshop/app/apps/vega/`.
-2. Find `manifest.toml`.
-3. Find `package.json`.
-4. Find `app.json`.
-5. Find `metro.config.js`.
-6. Open `src/tv/focus-state.ts`.
-7. Find the focus-state import in `src/App.tsx`.
-8. Find the focus-state import in `tests/verify-tv-focus.ts`.
-9. Run `git log --oneline` in the guarded copy.
-10. Find the port-phase commit.
-:::
 
-The app and test use the same focus module.
-The shared module supports the Lesson 6 test.
+1. Open `out/workshop/app/apps/vega/manifest.toml`.
+2. Find `schema-version = 1`.
+3. Find `[[components.interactive]]`.
+4. Open `out/workshop/app/apps/vega/package.json`.
+5. Find the Vega build command.
+6. Open `out/workshop/app/src/tv/focus-state.ts`.
+7. Open `out/workshop/app/src/App.tsx`.
+8. Find the focus-state import.
+9. Find the stable `testID` values.
+10. Open `out/workshop/app/tests/verify-tv-focus.ts`.
+    :::
 
-## Inspect the recorded events
+## Inspect the checks and commit
 
-The model transcript is the ordered record of requests, responses, tools, checks, and commits.
-The phase writes `out/workshop/model-logs/port.jsonl`.
-Each line contains one complete event.
-An event has a type, sequence number, and payload.
-The payload is the event content.
-The sequence number records event order.
+Open the phase result:
+
+```sh
+node -e 'const r=require("../../out/workshop/port-result.json"); console.log({phase:r.phases.find(p=>p.name==="port"),usage:r.usage})'
+```
+
+Read the `attempts`, `failures`, `checks`, and usage values.
+
+Then, inspect the guarded Git history:
+
+```sh
+git -C ../../out/workshop/app log --oneline
+git -C ../../out/workshop/app status --short
+```
+
+The log must contain a `workshop(port)` commit.
+The status command must print no uncommitted files.
+
+## Inspect the model messages
+
+Read the port transcript:
 
 :::command Read the port transcript
 yarn tsx src/index.ts logs workshop --phase port
 :::
 
-:::steps
-1. Find the `request` event.
-2. Read the complete phase prompt.
-3. Find the model response events.
-4. Find `verification_result`.
-5. Find `commit`.
-6. Find `phase_complete`.
-7. Verify that the `sequence` values increase.
-:::
+Find these event types:
 
-Strands and Claude Code use different native event names.
-Native means that the event keeps the original executor format.
-The transcript keeps the native event payloads.
+1. `request`
+2. ADBT tool operations
+3. Model response events
+4. `verification_result`
+5. `commit`
+6. `phase_complete`
 
-Use `--follow` to read a live phase in a second terminal.
-The option waits for new events and prints them as they arrive.
-
-The transcript can contain prompts, source text, and tool results.
-Keep the transcript in the ignored `out/` directory.
-Review the transcript before you share the transcript.
-
-## Know the retry limits
-
-When a check fails, the next model request contains the exact failure.
-The default permits one retry.
-`--max-attempts N` sets a different limit.
-Replace `N` with a positive number.
-`--until-done` removes the attempt limit.
-
-A configured cumulative token limit still applies.
-The harness also stops after the same failure occurs twice.
-The repeated failure is the no-progress stop condition.
-The model cannot decide to continue the loop.
-
-## Add one requirement
-
-Add a requirement for focus restoration documentation.
-A mechanical requirement has a check that software can run without human judgment.
-
-:::yourturn
-Add one mechanical requirement to the verification code.
-Prove that the requirement rejects the starting app and accepts the prepared port.
-:::
-
-:::steps
-1. Open `tvReadyChecks()` in `src/port-verification.ts`.
-2. Add a `contains` check for `TV_VERIFICATION.md`.
-3. Use `originating card` as the required value.
-4. Use `Focus restoration documented` as the label.
-5. Run `tv-check` on `apps/pocket-cinema`.
-6. Verify that the new check fails.
-7. Run `tv-check` on `workshop/checkpoints/vega-buildable/app`.
-8. Verify that the new check passes.
-9. Add one mechanical requirement from your project.
-:::
-
-:::command Run the same checks on two apps
-yarn tsx src/index.ts tv-check ../../apps/pocket-cinema
-yarn tsx src/index.ts tv-check ../../workshop/checkpoints/vega-buildable/app
-:::
-
-Use the strongest applicable check type:
-
-| Check type | What it proves |
-| --- | --- |
-| `file_exists` | A file exists |
-| `contains` | A required decision is present |
-| `json_schema` | Structured data has the required shape |
-| `command` | A program completed successfully |
-
-:::knowledge Why does the model not verify its own work?
-A model report is another generated claim.
-An independent check runs without model agreement.
-The independent check gives the same result for the same files.
-:::
+The transcript is the complete phase record.
+The TUI in Lesson 07 provides a shorter view of the same events.
 
 :::proof
-claim: "The port code satisfies the declared requirements"
-gate: "Nine static, schema, and executable checks pass before the commit"
-evidence: "port-result.json, model-logs/port.jsonl, and git log"
-limit: "Static checks can accept a manifest that the Vega compiler rejects"
+claim: "The port files satisfy the declared source checks"
+gate: "Ten file, text, schema, and command checks pass before the commit"
+evidence: "port-result.json, model-logs/port.jsonl, generated files, and the port commit"
+limit: "Source checks do not prove that the Vega compiler accepts the package"
+:::
+
+:::knowledge What happened?
+The model proposed a Vega package and TV focus code.
+The harness protected the approved plan.
+The harness applied only safe relative paths.
+The harness committed the files after all port checks passed.
 :::
 
 :::done
 The guarded copy contains the Vega package and focus module.
-Nine checks pass.
+Ten checks pass.
 Git contains the port-phase commit.
-Your added rule fails on the starter app and passes on the ported app.
+The guarded Git working tree is clean.
 :::
