@@ -1,113 +1,108 @@
 ---
 id: build
-number: "04"
-nav: Build until it compiles
+number: '04'
+nav: Build the ported app
 time: 30 minutes
-title: Use the compiler as an independent check
-lead: Run a real Vega build. A compiler diagnostic is the exact error reported during compilation. A .vpkg file is an installable Vega app package.
-objective: Use a produced package as the pass condition. Trace compiler output into the repair request.
+title: Build the Vega package and repair one compiler failure
+lead: Run a real Vega build against the guarded copy. The harness gives exact compiler diagnostics to the model only when the first build fails.
+objective: Observe the verify-first build loop. Confirm that the repaired build produces a fresh Hermes bundle and an installable .vpkg package.
 evidence: A .vpkg file and a phase result that records the repaired compiler failure.
 ---
 
-:::welcome Use an executable check
-The earlier phases can pass when files contain the required text.
-A compiler uses stronger evidence.
-A compiler converts source code into an installable package.
-An executable check runs a program and uses its success or failure as evidence.
+:::welcome Let the compiler decide
+The port checks verified files and required text.
+They did not run the Vega compiler.
 
-The build either produces a `.vpkg` file or it does not.
-If the build fails, the compiler identifies the cause.
-The harness sends this exact diagnostic to the model.
+This lesson adds one controlled TypeScript error.
+The build phase finds the error, sends the exact diagnostic to the model, and
+runs the build again.
 :::
 
-:::note Vega SDK is necessary {warning}
+:::note Prepare the Vega SDK {warning}
 This lesson requires Vega SDK version `0.23.9221`.
-Lesson 5 requires an installed VDA.
-The harness starts the VDA when necessary.
-
-If the SDK is not available, inspect:
-
-`workshop/checkpoints/complete/live-build-result.json`
-
-This checkpoint does not prove a build on your computer.
+Run `vega --version` before you continue.
+Stop if the version is different.
 :::
 
-## Know the build loop
+## Know the build sequence
+
+The phase performs this sequence:
 
 :::flow
-Verify | Run the build first
-Fail | Keep compiler output
-Prompt | Add exact diagnostics
-Patch | Apply a typed repair
-Verify | Build again
+Install | Install declared development dependencies
+Build | Run npm run build:debug
+Check | Require a fresh Hermes bundle and .vpkg file
+Repair | Call the model only after a failed build
+Build | Run the complete build again
 :::
 
-Before each live build attempt, the harness runs `npm install --include=dev`
-inside the guarded `apps/vega` package.
-The command installs the declared development dependencies and Vega build command.
-The command installs dependency changes from a repair.
-If installation fails, the harness does not start the compiler.
+A Hermes bundle contains the compiled JavaScript for the Vega package.
+A `.vpkg` file is the installable Vega application package.
 
-Dependency installation and the build process each have a 15-minute time limit.
-The harness limits the amount of build output in the prompt.
-The harness keeps the start and end of long output.
+The dependency install and build each have a 15-minute time limit.
+The model call has no elapsed-time limit.
+The command can appear quiet while the model works.
 
-The phase runs the build before it calls the model.
-If the build passes, the phase does not call the model.
-If the build fails, the repair call receives ADBT MCP as well as the compiler
-diagnostic. The model must read an ADBT document before proposing a live repair.
+Use this command in a second terminal to watch the phase:
 
-## Trace Strands in the build phase
+```sh
+cd packages/workshop-harness
+yarn tsx src/index.ts logs workshop --phase build --follow
+```
 
-The harness runs the compiler first.
-Strands receives a prompt only when the compiler reports a failure.
-A verify-first phase runs its independent check before it considers a model call.
+## Important harness code
+
+The build phase uses `verifyFirst`.
 
 :::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
+{
+name: "build",
+mcp: [ADBT_SERVER],
+device: ["build"],
+verifyFirst: true,
+maxAttempts: 5,
+}
+
 if (phase.verifyFirst) {
-  failures = await verify(phase, options, deviceMark, false, 0);
+failures = await verify(phase);
 }
-if (failures.length) {
-  report(options, `${phase.name} needs a fix`, failures);
-}
-const model = await options.executor.call(
-  phase.name,
-  prompt(phase, options, failures),
-  { mcp: phase.mcp, attempt },
+
+if (failures.length > 0) {
+const model = await executor.call(
+phase.name,
+prompt(phase, failures),
+{ mcp: phase.mcp, attempt },
 );
->look: `prompt()` includes the exact compiler failure. `mcp` gives the repair access to current ADBT documents. A passing pre-check skips the model call.
-:::
+}
 
-A Hermes bundle is the compiled JavaScript code included in the Vega package.
-Fresh means that the current build created the file.
+> look: The compiler runs before the model. A passing build uses no model call.
+> :::
 
-| Owner | Build action |
-| --- | --- |
-| Strands | Receives the compiler diagnostic. Reads relevant ADBT guidance. Proposes a typed repair. |
-| ADBT MCP | Supplies current Vega build and package guidance to the repair model. |
-| Harness and Vega CLI | Install declared dependencies. Run the build. Require a fresh Hermes bundle and `.vpkg`. Apply the repair. Build again. |
-| Evidence | Compiler output, `.vpkg`, `vega-platform-result.json`, and the build commit |
+The Vega adapter owns the actual commands:
 
-:::note No model call is a valid result
-If the build passes before repair, Strands does not run.
-The Claude CLI path follows the same verify-first rule.
-:::
+:::snippet packages/workshop-harness/src/platform/vega.ts (simplified)
+dependencies: ["npm", "install", "--include=dev"],
+build: ["npm", "run", "build:debug"],
 
-:::predict
-The compiler reports `Type 'number' is not assignable to type 'string'`.
-What text must the model receive?
-Why is `The build failed` insufficient?
-:::
+if (build.code === 0) {
+packagePath = findVpkg(appDir);
+}
+if (!hasGeneratedBundle(appDir)) {
+blockers.push("build produced no non-empty index.hermes.bundle");
+}
 
-## Add the known build failure
+> look: A successful command is not enough. The harness also requires the package and JavaScript bundle.
+> :::
 
-The injector is a workshop command that adds one controlled TypeScript error.
+## Add the controlled failure
+
 The injector changes only `out/workshop/app`.
-The injector does not change `apps/pocket-cinema`.
+It adds one invalid TypeScript file and one import.
+It does not change `apps/pocket-cinema`.
 
 :::yourturn
-Add the controlled compiler error to the guarded copy.
-Run the build phase and watch the harness send the exact diagnostic to the repair model.
+Add the controlled error.
+Confirm that the injector reports the expected TypeScript diagnostic.
 :::
 
 :::command Add the workshop build failure
@@ -118,71 +113,77 @@ yarn tsx src/index.ts inject-build-failure workshop --yes
 "expectedDiagnostic":"Type 'number' is not assignable to type 'string'"
 :::
 
-## Run the live repair
+## Run the build phase
 
-Use the same executor that you used in the earlier lessons.
+:::yourturn
+Run the build.
+Find the first compiler failure.
+Wait for the model repair and the second build.
+:::
 
 :::command Run the build phase
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases build --yes --run-id workshop
-:::
-
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
+ --phases build --yes --run-id workshop
 :::
 
 :::expected
 build needs a fix:
-  - build failed: react-native build-vega exited with code 2
-src/workshop-build-break.ts(2,14): error TS2322: Type 'number' is not assignable to type 'string'.
-:::
 
-`TS2322` identifies a TypeScript type-assignment error.
+- build failed: react-native build-vega exited with code 2
+  src/workshop-build-break.ts(2,14): error TS2322: Type 'number' is not assignable to type 'string'.
+  :::
 
-## Inspect the repair evidence
+The failure is expected.
+`TS2322` identifies the controlled TypeScript error.
 
-The `--porcelain` Git option prints a compact working-tree status.
-Empty output means that no uncommitted file change remains.
+After this message, the harness performs these operations:
+
+1. Starts the configured model.
+2. Supplies the exact compiler text.
+3. Supplies ADBT MCP.
+4. Applies the proposed repair.
+5. Runs dependency installation and the build again.
+6. Checks the Hermes bundle and `.vpkg` file.
+7. Commits the passing repair.
+
+The final JSON must include `build` in `phasesComplete`.
+
+## Inspect the build evidence
 
 :::steps
-1. Find the first build failure in the terminal.
-2. Open `out/workshop/model-logs/build.jsonl`.
-3. Find the failed `verification_result`.
-4. Find the next model request.
-5. Verify that the request contains the compiler diagnostic.
-6. Find the ADBT document read in the model events.
-7. Open `out/workshop/port-result.json`.
-8. Find the recorded failed attempt.
-9. Find the passing attempt and its token and turn usage.
-10. Run `git -C ../../out/workshop/app status --porcelain`.
-11. Verify that the result is empty.
-12. Find the `.vpkg` file in `out/workshop/app/apps/vega/build/`.
-13. Find the build-phase commit.
-:::
 
-:::note The command creates a repeatable failure
-`inject-build-failure` adds one invalid TypeScript file.
-`inject-build-failure` adds one import to `src/App.tsx`.
-The command commits these changes only in the guarded copy.
+1. Open `out/workshop/model-logs/build.jsonl`.
+2. Find the failed `verification_result`.
+3. Find the next model request.
+4. Confirm that the request contains `TS2322`.
+5. Find the ADBT document operation.
+6. Open `out/workshop/vega-platform-result.json`.
+7. Find the `dependencies` step.
+8. Find the failed and passing `build` steps.
+9. Confirm that `evidenceMode` is `live`.
+10. Open `out/workshop/port-result.json`.
+11. Find the build attempt count and earlier failure.
+12. Find the `.vpkg` file under `out/workshop/app/apps/vega/build/`.
+13. Find `index.hermes.bundle` under the same build directory.
+14. Run `git -C ../../out/workshop/app status --short`.
+15. Confirm that the Git status is empty.
+    :::
 
-The build phase requires the file and import to be absent.
-The normal Vega build must also pass.
-Each live provider receives the same compiler failure.
-:::
-
-:::knowledge Why does the phase verify before the model call?
-Most passing builds do not require a repair.
-A model call before the build would spend money without a failure.
-The compiler diagnostic gives the model a specific repair target.
-:::
-
-For this lesson, `evidenceMode: live` means that the current Vega compiler produced the evidence.
+The first failure remains in the phase result.
+The passing repair does not erase the failed evidence.
 
 :::proof
-claim: "The Vega app builds"
-gate: "The Vega build exits successfully and produces a .vpkg file"
-evidence: "vega-platform-result.json and apps/vega/build/*.vpkg"
-limit: "A package can compile and fail after start"
+claim: "The guarded Vega app builds"
+gate: "The Vega build passes and creates a fresh Hermes bundle and .vpkg file"
+evidence: "vega-platform-result.json, the build files, model-logs/build.jsonl, and the build commit"
+limit: "A package can compile and still fail when it starts"
+:::
+
+:::knowledge What happened?
+The harness ran the compiler before it called the model.
+The compiler supplied a specific repair target.
+The model used ADBT and proposed a repair.
+The harness accepted the repair only after the complete build passed.
 :::
 
 :::done

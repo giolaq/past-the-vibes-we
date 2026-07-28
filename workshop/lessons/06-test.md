@@ -1,245 +1,178 @@
 ---
 id: test
-number: "06"
-nav: Test the remote
+number: '06'
+nav: Test the remote control
 time: 25 minutes
-title: Verify the complete focus sequence
-lead: The app is active. A focus transition is the change after one remote key. Lifecycle evidence records that the app started and remained active. Now verify the complete remote sequence.
-objective: Express TV navigation as observable state transitions. Do not use visual impressions as the only evidence.
+title: Inject remote keys and verify focus
+lead: Relaunch the app, send remote keys to the VDA, and read the focused test ID after each key. Compare each observed ID with the approved plan.
+objective: Run the complete remote-control sequence and inspect the evidence for movement, selection, list boundaries, and Back restoration.
 evidence: tv-focus-result.json contains all required focus transitions. Lesson 5 records separate lifecycle evidence.
 ---
 
-:::welcome Test behavior over time
-One observation cannot show the complete focus sequence.
-The screen can appear correct when focus returns to the wrong card.
-
-This phase starts the app again.
-This phase sends remote keys to the VDA.
-The phase reads the focused element after each key.
-The phase does not use pixels as focus evidence.
+:::welcome Test behavior
+The test phase sends remote keys through software.
+After each key, it reads the focused control from the VDA user-interface
+hierarchy.
 :::
 
 ## Know the focus contract
 
-The focus contract lists the required focused control after each remote action.
-
-:::raw
-<div class="remote" aria-label="TV remote direction pad"><button>↑</button><button>←</button><button class="ok">OK</button><button>→</button><button>↓</button></div>
-:::
-
-| Action | Required result |
-| --- | --- |
-| Start | The featured action has focus |
-| Down | Focus moves to the first rail |
-| Left or right | Focus stops at the list boundaries |
-| Select | The details screen opens for the focused card |
-| Back | Focus returns to the same card |
-
-:::flow
-Start | Focus the featured action
-Down | Enter the first rail
-Select | Open the focused details
-Back | Restore the same card
-:::
-
-:::predict
-Which transition can fail when the screen appears correct?
-:::
-
-Automation Toolkit is a VDA service that lets the harness inspect the app interface.
-JSON-RPC is a structured request-and-response format.
-The Automation Toolkit JSON-RPC endpoint accepts requests from the harness.
-`getPageSource` returns the user-interface hierarchy.
-The hierarchy is a tree of controls, and each control is a node.
-A React Native `testID` is exposed in that hierarchy as `test_id`.
-
-D-pad means the directional pad on a TV remote.
-Key injection means that the harness sends a remote key through software.
-The `inputd-cli` command injects keys into the VDA.
-
-## Follow the live verification loop
-
 The approved `port-plan.json` supplies the expected focus IDs.
-A focus ID is the stable name of one focusable control.
-An assertion compares the observed focus ID with the expected focus ID.
-The harness controls the key sequence and the assertions.
-The model cannot replace the key sequence or the assertions.
+A focus ID is the stable `testID` of one React Native control.
 
-:::flow
-Plan | Read the approved focus IDs
-Launch | Start from the Home screen
-Observe | Read the focused test_id
-Input | Send one remote key
-Assert | Compare observed and expected focus
-:::
+| Action | Required result                                             |
+| ------ | ----------------------------------------------------------- |
+| Start  | The featured action has focus                               |
+| Down   | Focus moves to the first rail                               |
+| Left   | Focus stays at the left boundary                            |
+| Right  | Focus moves across the rail and stops at the right boundary |
+| Select | The Details screen opens                                    |
+| Back   | Focus returns to the card that opened Details               |
 
-| Order | Harness action | Live Vega evidence |
-| --- | --- | --- |
-| 1 | Reuse an attached VDA or start one | The device remains attached |
-| 2 | Install the package. Start the package again. | The app is running before and after the dwell |
-| 3 | Enable Automation Toolkit | The JSON-RPC endpoint accepts `getPageSource` |
-| 4 | Find the node where `focused` is `true` | The node exposes a stable React Native `testID` as `test_id` |
-| 5 | Send `KEY_DOWN`, `KEY_LEFT`, `KEY_RIGHT`, `KEY_ENTER`, and `KEY_BACK` | `inputd-cli` accepts each key |
-| 6 | Read focus after every key | Each observation matches the approved focus ID |
+The model cannot change the key sequence or expected IDs during the test.
 
-The right-boundary check sends Right until focus stops moving.
-The harness sends Right one more time.
-The harness makes sure that focus remains on the final card.
-After Select opens details, Back must restore that same card.
+## How the harness reads focus
 
-:::note Automation Toolkit can start after the VDA
-The VDA can report that it is ready before the Automation Toolkit endpoint
-accepts requests. The harness enables the toolkit.
-The harness polls `getPageSource` for a specified time.
-Polling means sending the request again until it succeeds or the time limit ends.
-:::
+Automation Toolkit is a VDA service.
+Its `getPageSource` operation returns the user-interface hierarchy.
 
-:::note Fresh device evidence
-The test phase deletes an earlier `tv-focus-result.json` before the test starts.
-A stale passing file cannot satisfy a new run.
-:::
+A focused React Native control appears with:
 
-## Trace Strands in the test phase
+```json
+{
+  "focused": true,
+  "test_id": "rail-new-card-signal"
+}
+```
 
-The test phase starts with independent focus and device checks.
-Strands runs only when the independent checks identify a source repair.
+The harness sends keys with `inputd-cli`.
+It polls Automation Toolkit until the expected focus appears or the time limit
+ends.
+
+## Important harness code
+
+The focus contract comes from the approved plan:
+
+:::snippet packages/workshop-harness/src/platform/focus.ts (simplified)
+const plan = PortPlanSchema.parse(readFile("port-plan.json"));
+const home = plan.screens.find(
+screen => screen.id === plan.entryScreenId,
+);
+
+return {
+initialFocusId: home.initialFocusId,
+firstRailFocusId: home.focusableIds.find(
+id => id !== home.initialFocusId,
+),
+detailFocusId: details.initialFocusId,
+homeFocusableIds: home.focusableIds,
+};
+
+> look: The approved plan supplies expected values. The model does not supply them during verification.
+> :::
+
+The test phase defines the device work:
 
 :::snippet packages/workshop-harness/src/port-pipeline.ts (simplified)
 {
-  name: "test",
-  skills: [],
-  mcp: [ADBT_SERVER],
-  device: ["launch", "focus"],
-  repairDevice: ["build", "launch", "focus"],
-  verifyFirst: true,
-  maxAttempts: 3,
-  checks: [FOCUS_TEST_CHECK, restorationCheck],
+name: "test",
+mcp: [ADBT_SERVER],
+device: ["launch", "focus"],
+repairDevice: ["build", "launch", "focus"],
+verifyFirst: true,
+maxAttempts: 3,
+checks: [FOCUS_TEST_CHECK, restorationCheck],
 }
->look: After a repair, the harness rebuilds the app. The harness starts the app before it accepts the focus result.
-:::
 
-| Owner | Test action |
-| --- | --- |
-| Strands | Reads relevant ADBT documents. Proposes a typed repair after failed evidence. |
-| ADBT MCP | Supplies current Vega focus guidance. |
-| Harness and Vega CLI | Start the app again. Inject D-pad keys. Read focused `test_id` values. Repeat device checks after a repair. |
-| Evidence | `tv-focus-result.json`, `TV_VERIFICATION.md`, device evidence, and the test commit |
+> look: A source repair must build, start, and pass the complete focus sequence.
+> :::
 
-:::note No model call is a valid result
-If all focus and device checks pass, the phase does not call Strands or Claude
-Code.
-:::
+## Know the test sequence
+
+The phase performs these operations:
+
+1. Runs the host-side focus-state test.
+2. Deletes an earlier `tv-focus-result.json`.
+3. Starts the app from Home.
+4. Enables Automation Toolkit.
+5. Reads the initial focused `test_id`.
+6. Sends one remote key.
+7. Reads focus again.
+8. Repeats the operation for every required transition.
+9. Writes a new `tv-focus-result.json`.
+
+The first attempt does not rebuild the package.
+If a failed focus check causes a source repair, the harness rebuilds and
+relaunches before it tests focus again.
 
 ## Run the test phase
 
 :::yourturn
-Run the focus contract.
-Inspect the transition sequence.
-Inspect the Back restoration.
-:::
-
-Use the same run ID.
-Host-side means that the check runs on your computer without reading the VDA.
-A known state means that the app starts from the Home screen before key input.
-First, the phase runs the host-side focus-state contract.
-Then, the phase starts the app in a known state.
-The phase tests the approved plan on the VDA.
-Run the command from `packages/workshop-harness`.
-
-This first contract checks the shared focus-state module.
-
-:::note A final repair must rebuild and start again
-The first test attempt starts the Lesson 5 package again.
-The first test attempt does not rebuild the package.
-
-If the model changes source code after a failed test, the harness does not
-accept only the host-side focus contract.
-The harness runs this sequence:
-
-`build -> install -> launch -> state -> log scan -> state -> keys -> focused test_id`
-
-A late focus repair can introduce a compile or startup failure.
-The test phase passes only after the repaired app compiles and stays active.
+Run the focus sequence.
+Watch the VDA respond to the injected keys.
+Wait for the final focus result.
 :::
 
 :::command Run the focus test
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
-  --phases test --yes --run-id workshop
+ --phases test --yes --run-id workshop
 :::
 
 :::expected
 "phasesComplete":["analyze","plan","port","build","launch","test"]
 :::
 
-:::note Use your workshop configuration
-The command reads the model settings from `../../workshop.config.json`.
-:::
+A passing verify-first test can report `attempts: 0`.
+The phase calls a model only when the independent checks identify a source
+repair.
 
 ## Inspect the focus evidence
 
-From the repository root, open `out/workshop/app/tv-focus-result.json`.
-From the harness directory, the same file is
-`../../out/workshop/app/tv-focus-result.json`.
-Read these fields before you inspect the generated code:
-A transition record contains one key, one expected focus ID, and one observed focus ID.
-The focus-failure fixture is a prepared example of an incorrect Back transition.
+Open `out/workshop/app/tv-focus-result.json`.
 
-| Field | Evidence meaning |
-| --- | --- |
-| `evidenceMode: "live"` | The VDA supplied the observations |
-| `passed: true` | Every required transition passed in this run |
-| `transitions` | The VDA observations include the required transition names |
-| `observations[].key` | The harness sent this remote key |
-| `observations[].expected` | The focus ID from the approved plan |
-| `observations[].observed` | The VDA reported this focused `test_id` |
+| Field                     | Meaning                                   |
+| ------------------------- | ----------------------------------------- |
+| `evidenceMode: "live"`    | The VDA supplied the observations         |
+| `passed: true`            | Every required transition passed          |
+| `transitions`             | Names of passing transitions              |
+| `observations[].key`      | Key sent by the harness                   |
+| `observations[].expected` | Focus ID from the approved plan           |
+| `observations[].observed` | Focused `test_id` from Automation Toolkit |
+| `observations[].passed`   | Comparison result                         |
 
-Look for this sequence:
+Find these transition names:
 
-:::snippet tv-focus-result.json (abbreviated)
-KEY_DOWN  -> rail-new-card-signal
-KEY_LEFT  -> rail-new-card-signal
-KEY_RIGHT -> each card, then the final card again
-KEY_ENTER -> back-button
-KEY_BACK  -> the card that opened details
->look: Expected and observed must match on every observation.
-:::
+```text
+launch-hero
+down-to-first-rail
+left-boundary
+right-boundary
+open-details
+back-restore
+```
 
 :::steps
-1. Open `out/workshop/app/tv-focus-result.json`.
-2. Read the transitions in sequence.
-3. Verify that all six transitions are present.
-4. Find the `back-restore` transition.
-5. Open `workshop/fixtures/focus-failure/README.md`.
-6. Read the failed Back example.
-7. Open the focus-state module in the guarded app.
-8. Find the focus-restoration code.
-9. Run `git -C ../../out/workshop/app status --porcelain`.
-10. Verify that the result is empty.
-11. Find the test-phase commit.
-:::
 
-:::note Know the focus API
-`hasTVPreferredFocus` defines the preferred initial focus.
-`onFocus` and `onBlur` report focus changes.
+1. Confirm that `evidenceMode` is `live`.
+2. Confirm that `passed` is `true`.
+3. Read each observation in order.
+4. Compare `expected` and `observed`.
+5. Find the `right-boundary` observation.
+6. Confirm that focus stays on the final card.
+7. Find the `open-details` observation.
+8. Confirm that the Details screen receives focus.
+9. Find the `back-restore` observation.
+10. Confirm that focus returns to the originating card.
+11. Open `out/workshop/vega-platform-result.json`.
+12. Find the Automation Toolkit and key press steps.
+    :::
 
-The workshop uses the React Native TV focus model.
-The target platform is Vega.
-:::
-
-:::note Know the device evidence
-The harness sends keys with `inputd-cli`.
-The harness reads the UI hierarchy through Automation Toolkit `getPageSource`.
-
-Every focusable React Native control needs a stable `testID`.
-The result proves focus movement and selection, not visual focus styling.
-:::
-
-## Compare the starting app and ported app
+## Compare before and after
 
 Lesson 00 ran `tv-check` on the starting app.
-The result was `tvReady: false`.
+That command reported `tvReady: false`.
 
-Run the same check on the ported app:
+Run the same check on the guarded port:
 
 :::command Run the final TV-readiness check
 yarn tsx src/index.ts tv-check ../../out/workshop/app
@@ -250,20 +183,21 @@ yarn tsx src/index.ts tv-check ../../out/workshop/app
 "failures": []
 :::
 
-The same check now passes.
-The phase result is the workshop before-and-after evidence.
-
-:::knowledge Why is Back behavior necessary?
-Back must restore the user's previous navigation position.
-Without restoration, the user loses context.
-The screen can look correct while the interaction is incorrect.
-:::
+The same source check now passes.
+The live focus result adds device observations that `tv-check` cannot supply.
 
 :::proof
-claim: "A remote user can complete the TV flow"
-gate: "The focus test observes start, movement, selection, boundaries, and Back restoration"
+claim: "A remote user can complete the required TV flow"
+gate: "The VDA reports the expected focus after start, movement, selection, boundaries, and Back"
 evidence: "tv-focus-result.json and tv-check with tvReady:true"
-limit: "The UI hierarchy proves focus state, not visual styling"
+limit: "The UI hierarchy proves focus state, not visual focus styling"
+:::
+
+:::knowledge What happened?
+The harness took expected focus IDs from the approved plan.
+The harness injected keys through the VDA.
+Automation Toolkit reported the focused `test_id`.
+The harness compared expected and observed focus without model judgment.
 :::
 
 :::done
