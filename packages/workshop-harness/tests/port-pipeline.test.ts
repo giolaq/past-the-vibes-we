@@ -8,13 +8,13 @@ import type { AdbtContextProvider, AdbtPortContext } from "../src/context-provid
 import { createPortExecutor, resolveExecutorConfig, type PortCall, type PortExecutor, type PortModelResult } from "../src/port-executor.js";
 import { PortRecorder, PortReplay } from "../src/port-recorder.js";
 import { VegaReplayAdapter, startDeviceRun } from "../src/platform/vega.js";
-import { PortBudgetError, phases, runPortPipeline } from "../src/port-pipeline.js";
+import { PortTokenBudgetError, phases, runPortPipeline, type PortPhase } from "../src/port-pipeline.js";
 
 class FakeExecutor implements PortExecutor {
-  calls: { phase: string; prompt: string; skills?: string[] }[] = [];
+  calls: { phase: string; prompt: string; mcp?: string[]; skills?: string[] }[] = [];
   constructor(private responses: PortModelResult[]) {}
   async call(phase: string, prompt: string, options?: PortCall): Promise<PortModelResult> {
-    this.calls.push({ phase, prompt, skills: options?.skills });
+    this.calls.push({ phase, prompt, mcp: options?.mcp, skills: options?.skills });
     const result = this.responses.shift();
     if (!result) throw new Error("fake exhausted");
     return result;
@@ -31,7 +31,7 @@ test("ports three concerns and commits each verified phase", async () => {
     findings: [],
     projectContext: "approved",
     seed: "fixed",
-    maxCostUsd: 10,
+    maxTokens: 10,
     phaseNames: MODEL_PHASES,
     executor,
     adbt: fakeAdbt(),
@@ -79,6 +79,30 @@ test("a retry keeps build output instead of rebuilding from zero", async () => {
   assert.equal(existsSync(join(app, "WRONG.md")), false, "the rejected attempt's file survived");
 });
 
+test("phase commits exclude generated dependencies and Vega build artifacts", async () => {
+  const app = fixtureApp();
+  mkdirSync(join(app, "node_modules", "fixture"), { recursive: true });
+  writeFileSync(join(app, "node_modules", "fixture", "index.js"), "generated dependency");
+  mkdirSync(join(app, "apps", "vega", "build", "aarch64-debug"), { recursive: true });
+  writeFileSync(join(app, "apps", "vega", "build", "aarch64-debug", "fixture.vpkg"), "generated package");
+
+  await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    phaseNames: ["analyze"],
+    executor: new FakeExecutor([successResponses()[0]]),
+    adbt: fakeAdbt(),
+  });
+
+  const tracked = execFileSync("git", ["ls-files"], { cwd: app, encoding: "utf8" });
+  assert.match(tracked, /ANALYSIS\.md/);
+  assert.doesNotMatch(tracked, /node_modules|apps\/vega\/build|\.vpkg/);
+  assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
+});
+
 test("a raised attempt budget loops until the checks pass", async () => {
   const app = fixtureApp();
   // Attempt 1: no ANALYSIS.md at all. Attempt 2: the file exists but lacks the marker —
@@ -90,6 +114,39 @@ test("a raised attempt budget loops until the checks pass", async () => {
   ]);
   const result = await pipeline(app, executor, 10, 5);
   assert.equal(result.phases[0].attempts, 3);
+});
+
+test("verify-first retries accumulate progressive source repairs", async () => {
+  const app = fixtureApp();
+  const repair: PortPhase = {
+    name: "repair",
+    goal: "Repair both required files.",
+    instruction: "Keep earlier fixes while addressing the next failure.",
+    skills: [],
+    verifyFirst: true,
+    maxAttempts: 2,
+    checks: [
+      { type: "file_exists", path: "first.txt", label: "First repair" },
+      { type: "file_exists", path: "second.txt", label: "Second repair" },
+    ],
+  };
+  const executor = new FakeExecutor([
+    response({ "first.txt": "first fix" }),
+    response({ "second.txt": "second fix" }),
+  ]);
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    plan: [repair],
+    phaseNames: ["repair"],
+    executor,
+  });
+  assert.equal(result.phases[0].attempts, 2);
+  assert.equal(readFileSync(join(app, "first.txt"), "utf8"), "first fix");
+  assert.equal(readFileSync(join(app, "second.txt"), "utf8"), "second fix");
 });
 
 test("until-done stops when the same failures repeat", async () => {
@@ -104,30 +161,73 @@ test("until-done stops when the same failures repeat", async () => {
   assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
 });
 
-test("budget abort restores a clean generated tree", async () => {
+test("token-limit abort restores a clean generated tree", async () => {
   const app = fixtureApp();
-  const executor = new FakeExecutor([{ ...response({ "VEGA_PORT.md": "## TV Flow" }), costUsd: 4 }]);
-  await assert.rejects(() => pipeline(app, executor, 3), PortBudgetError);
+  const executor = new FakeExecutor([{ ...response({ "VEGA_PORT.md": "## TV Flow" }), usage: usage(4) }]);
+  await assert.rejects(() => pipeline(app, executor, 3), PortTokenBudgetError);
   assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: app, encoding: "utf8" }), "");
   assert.throws(() => readFileSync(join(app, "VEGA_PORT.md")));
+});
+
+test("omitting the token limit allows cumulative usage without a cap", async () => {
+  const app = fixtureApp();
+  const executor = new FakeExecutor([
+    { ...successResponses()[0], usage: usage(1_000_000) },
+  ]);
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: `${app}-out`,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    phaseNames: ["analyze"],
+    executor,
+  });
+  assert.equal(result.usage.totalTokens, 1_000_000);
 });
 
 test("runs only the requested phases and leaves the rest for later", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor(successResponses());
-  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze"], executor, adbt: fakeAdbt() });
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["analyze"], executor, adbt: fakeAdbt() });
   assert.deepEqual(result.phases.map((phase) => phase.name), ["analyze"]);
   assert.equal(executor.calls.length, 1);
   // The guarded copy keeps the import commit plus the one phase that ran.
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "2");
 });
 
+test("does not require ADBT provenance from phases that do not declare ADBT", async () => {
+  const app = fixtureApp();
+  const out = `${app}-out`;
+  const localPhase = {
+    name: "local",
+    goal: "Write a local report.",
+    instruction: "Use project files only.",
+    skills: [],
+    checks: [{ type: "contains" as const, path: "ANALYSIS.md", value: "## Portable", label: "Local report" }],
+  };
+  const result = await runPortPipeline({
+    appDir: app,
+    outDir: out,
+    findings: [],
+    projectContext: "approved",
+    seed: "fixed",
+    maxTokens: 10,
+    plan: [localPhase],
+    phaseNames: ["local"],
+    executor: new FakeExecutor([successResponses()[0]]),
+    liveMcp: ["adbt"],
+  });
+  assert.equal(result.adbt, undefined);
+  assert.equal(existsSync(join(out, "adbt-port-context.json")), false);
+});
+
 test("a second pipeline run continues in the same guarded copy", async () => {
   const app = fixtureApp();
   const first = new FakeExecutor(successResponses());
-  await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["analyze", "plan"], executor: first, adbt: fakeAdbt() });
+  await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["analyze", "plan"], executor: first, adbt: fakeAdbt() });
   const second = new FakeExecutor(successResponses().slice(2));
-  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["port"], executor: second, adbt: fakeAdbt() });
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["port"], executor: second, adbt: fakeAdbt() });
   assert.deepEqual(result.phases.map((phase) => phase.name), ["port"]);
   // import + analyze + plan + port: git init did not wipe the earlier history.
   assert.equal(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: app, encoding: "utf8" }).trim(), "4");
@@ -158,24 +258,20 @@ test("only the device phases ask for a device, and they say so when there is non
   const withDevice = phases().filter((phase) => phase.device?.length).map((phase) => phase.name);
   assert.deepEqual(withDevice, ["build", "launch", "test"]);
   await assert.rejects(
-    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor: new FakeExecutor([]), adbt: fakeAdbt() }),
+    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["build"], executor: new FakeExecutor([]), adbt: fakeAdbt() }),
     /build needs a device session/,
   );
 });
 
-test("each phase asks its executor for its own skills", async () => {
+test("default phases delegate Vega knowledge to ADBT MCP without injected Vega skills", async () => {
   const app = fixtureApp();
   const executor = new FakeExecutor(successResponses());
   await pipeline(app, executor);
-  assert.deepEqual(executor.calls.map((call) => call.skills), [
-    ["amazon-devices-vega-best-practices"],
-    ["amazon-devices-vega-focus-management"],
-    ["amazon-devices-vega-build-and-run"],
-  ]);
-  // The plan phase is the one that carries both kinds of knowledge: the focus skill and ADBT.
-  assert.equal(phases().filter((phase) => phase.mcp?.includes("adbt")).map((phase) => phase.name).join(","), "plan");
-  // The phase instruction reaches the prompt; skill bodies do not — the executor delivers those.
-  assert.match(executor.calls[0].prompt, /Instruction: Discovery first/);
+  assert.deepEqual(executor.calls.map((call) => call.skills), [[], [], []]);
+  assert.deepEqual(phases().map((phase) => phase.mcp), [["adbt"], ["adbt"], ["adbt"], ["adbt"], ["adbt"], ["adbt"]]);
+  assert.match(executor.calls[0].prompt, /All Vega-specific knowledge for this phase must come from .*ADBT/);
+  assert.match(executor.calls[0].prompt, /embedded scaffold/);
+  assert.doesNotMatch(executor.calls[0].prompt, /amazon-devices-vega-/);
 });
 
 test("a green build costs no model call, and a failed one becomes the retry's context", async () => {
@@ -187,9 +283,9 @@ test("a green build costs no model call, and a failed one becomes the retry's co
   // Attempt 1: the build fails and the compiler says why. Attempt 2, after the model's patch: green.
   const device = startDeviceRun({
     adapter: new VegaReplayAdapter([
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "build", result: { code: 2, stdout: "src/App.tsx(12,5): error TS2304: Cannot find name 'Rail'.", stderr: "", timedOut: false } },
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "build", result: ok("build-vega completed") },
     ]),
     outDir: `${app}-out`,
@@ -197,8 +293,9 @@ test("a green build costs no model call, and a failed one becomes the retry's co
     packagePath: "",
   });
   const executor = new FakeExecutor([response({ "src/App.tsx": "fixed" })]);
-  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
+  const result = await runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
   assert.equal(result.phases[0].attempts, 1, "the model was called once, after the first build failed");
+  assert.deepEqual(executor.calls[0].mcp, ["adbt"]);
   // The compiler's own diagnostic reached the prompt — not "the build failed".
   assert.match(executor.calls[0].prompt, /error TS2304: Cannot find name 'Rail'/);
   assert.match(result.phases[0].failures[0].join(" "), /error TS2304/);
@@ -211,7 +308,7 @@ test("a build that already passes skips the model entirely", async () => {
   const out = `${app}-out`;
   const device = startDeviceRun({
     adapter: new VegaReplayAdapter([
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "build", result: ok("build-vega completed") },
     ]),
     outDir: out,
@@ -220,7 +317,7 @@ test("a build that already passes skips the model entirely", async () => {
     appId: "fixture.main",
   });
   const executor = new FakeExecutor([]);
-  const result = await runPortPipeline({ appDir: app, outDir: out, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
+  const result = await runPortPipeline({ appDir: app, outDir: out, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["build"], executor, device, adbt: fakeAdbt() });
   assert.equal(executor.calls.length, 0);
   assert.equal(result.phases[0].attempts, 0);
   assert.match(result.phases[0].summary, /no model call/);
@@ -255,7 +352,7 @@ test("a verify-first phase commits deterministic evidence and leaves a clean tre
     findings: [],
     projectContext: "approved",
     seed: "fixed",
-    maxCostUsd: 10,
+    maxTokens: 10,
     plan: [evidencePhase],
     phaseNames: ["evidence"],
     executor: new FakeExecutor([]),
@@ -272,14 +369,14 @@ test("a crash on the device is what the launch phase hands back to the model", a
     // The first launch check runs against the package the build phase produced, so it does not
     // rebuild — only a retry, which carries a fix, does.
     adapter: new VegaReplayAdapter([
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "device_status", result: ok("List of devices attached\nemulator-5554 device") },
       { capability: "install", result: ok("installed") },
       { capability: "launch", result: ok("launched") },
-      { capability: "capture", result: ok("saved") },
-      { capability: "pull", result: ok("pulled") },
+      { capability: "app_status", result: ok("fixture.main is running on emulator-5554") },
       { capability: "logs", result: ok("PocketCinema: started\nFATAL EXCEPTION: main") },
-    ], readFileSync(join(import.meta.dirname, "../../../workshop/fixtures/vega-lifecycle/launch-frame.png"))),
+      { capability: "app_status", result: ok("fixture.main is not running on emulator-5554") },
+    ]),
     outDir: `${app}-out`,
     evidenceMode: "replay",
     packagePath: "build/fixture.vpkg",
@@ -287,9 +384,10 @@ test("a crash on the device is what the launch phase hands back to the model", a
   });
   const executor = new FakeExecutor([]);
   await assert.rejects(
-    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd: 10, phaseNames: ["launch"], executor, device, adbt: fakeAdbt() }),
+    () => runPortPipeline({ appDir: app, outDir: `${app}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens: 10, phaseNames: ["launch"], executor, device, adbt: fakeAdbt() }),
     /fake exhausted/,
   );
+  assert.deepEqual(executor.calls[0].mcp, ["adbt"]);
   // The model was asked to fix it, and the crash line is what it was given.
   assert.match(executor.calls[0].prompt, /the app crashed after launch: fatal exception: FATAL EXCEPTION: main/);
 });
@@ -300,21 +398,33 @@ test("a final test-phase repair rebuilds and relaunches before it can pass", asy
   mkdirSync(join(app, "src", "tv"), { recursive: true });
   writeFileSync(join(app, "tests", "verify-tv-focus.ts"), "process.exit(1);\n");
   writeFileSync(join(app, "TV_VERIFICATION.md"), "Back restores the originating card.\n");
-  const screenshot = readFileSync(join(import.meta.dirname, "../../../workshop/fixtures/vega-lifecycle/launch-frame.png"));
+  writeFileSync(join(app, "port-plan.json"), portPlanText());
   const device = startDeviceRun({
     adapter: new VegaReplayAdapter([
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "build", result: ok("build-vega completed") },
-      { capability: "sdk_version", result: ok("0.22.5875") },
+      { capability: "sdk_version", result: ok("0.23.9221") },
       { capability: "device_status", result: ok("List of devices attached\nemulator-5554 device") },
       { capability: "install", result: ok("installed") },
       { capability: "launch", result: ok("launched") },
-      { capability: "capture", result: ok("saved") },
-      { capability: "pull", result: ok("pulled") },
+      { capability: "app_status", result: ok("fixture.main is running on emulator-5554") },
       { capability: "logs", result: ok("PocketCinema: running") },
-      { capability: "capture", result: ok("saved") },
-      { capability: "pull", result: ok("pulled") },
-    ], screenshot),
+      { capability: "app_status", result: ok("fixture.main is running on emulator-5554") },
+      { capability: "automation_enable", result: ok("enabled") },
+      { capability: "page_source", result: focusPage("featured-action") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("first-card") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("first-card") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("second-card") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("second-card") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("back-action") },
+      { capability: "key_press", result: ok("pressed") },
+      { capability: "page_source", result: focusPage("second-card") },
+    ]),
     outDir: `${app}-out`,
     evidenceMode: "replay",
     packagePath: "build/fixture.vpkg",
@@ -335,7 +445,7 @@ writeFileSync("tv-focus-result.json", JSON.stringify({ passed: true, transitions
     findings: [],
     projectContext: "approved",
     seed: "fixed",
-    maxCostUsd: 10,
+    maxTokens: 10,
     phaseNames: ["test"],
     executor,
     device,
@@ -344,7 +454,16 @@ writeFileSync("tv-focus-result.json", JSON.stringify({ passed: true, transitions
   assert.match(executor.calls[0].prompt, /Executable focus transitions: exited 1/);
   assert.deepEqual(
     device.steps.map((step) => step.capability),
-    ["sdk_version", "build", "sdk_version", "device_status", "install", "launch", "capture", "pull", "logs", "capture", "pull"],
+    [
+      "sdk_version", "build", "sdk_version", "device_status", "install", "launch", "app_status", "logs", "app_status",
+      "automation_enable", "page_source",
+      "key_press", "page_source",
+      "key_press", "page_source",
+      "key_press", "page_source",
+      "key_press", "page_source",
+      "key_press", "page_source",
+      "key_press", "page_source",
+    ],
   );
 });
 
@@ -372,7 +491,7 @@ test("only the harness may write product input or plan approval", async () => {
     findings: [],
     projectContext: "approved",
     seed: "fixed",
-    maxCostUsd: 1,
+    maxTokens: 1,
     phaseNames: ["analyze"],
     executor,
   }), /Read-only in this phase/);
@@ -397,13 +516,15 @@ test("Claude gets only read tools plus explicit ADBT MCP, and direct writes are 
     result: JSON.stringify({ summary: "plan", files: { "VEGA_PORT.md": "## TV Flow\nremote\n## Focus\nhero", "NextSteps.md": "ADBT" } }),
     total_cost_usd: 0.001,
     usage: { input_tokens: 1, output_tokens: 1 },
+    num_turns: 1,
+    modelUsage: { "claude-sonnet-4-6": { inputTokens: 1, outputTokens: 1 } },
   });
   writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsPath}'\nprintf 'bypass' > direct-write.txt\nprintf '%s\\n' '${result}'\n`);
   chmodSync(fake, 0o755);
   const executor = createPortExecutor({
     appDir: app,
     outDir: `${app}-out`,
-    config: resolveExecutorConfig({ command: fake, model: "sonnet" }),
+    config: resolveExecutorConfig({ command: fake, model: "claude-sonnet-4-6" }),
     cliMcpServers: { adbt: { command: "npx", args: ["-y", "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5"] } },
   });
   await assert.rejects(() => runPortPipeline({
@@ -412,7 +533,7 @@ test("Claude gets only read tools plus explicit ADBT MCP, and direct writes are 
     findings: [],
     projectContext: "approved",
     seed: "fixed",
-    maxCostUsd: 1,
+    maxTokens: 1,
     phaseNames: ["plan"],
     executor,
     liveMcp: ["adbt"],
@@ -424,8 +545,13 @@ test("Claude gets only read tools plus explicit ADBT MCP, and direct writes are 
   assert.deepEqual(optionValues(cliArgs, "--allowedTools"), ["Read", "Grep", "Glob", "mcp__adbt__*"]);
   assert.deepEqual(optionValues(cliArgs, "--disallowedTools"), ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]);
   assert.equal(cliArgs.includes("*"), false);
+  assert.equal(cliArgs.includes("--max-turns"), false);
+  assert.equal(cliArgs[cliArgs.indexOf("--max-budget-usd") + 1], "10.0000");
   const mcpConfig = JSON.parse(cliArgs[cliArgs.indexOf("--mcp-config") + 1]);
   assert.deepEqual(mcpConfig.mcpServers.adbt.args, ["-y", "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5"]);
+  const outputSchema = JSON.parse(cliArgs[cliArgs.indexOf("--json-schema") + 1]);
+  assert.deepEqual(outputSchema.required, ["summary", "files"]);
+  assert.equal(outputSchema.$schema, undefined);
 });
 
 test("recording appends turns when a run resumes", () => {
@@ -438,8 +564,8 @@ test("recording appends turns when a run resumes", () => {
 /** The three model phases. The device phases need a device session; see the tests below. */
 const MODEL_PHASES = ["analyze", "plan", "port"];
 
-function pipeline(appDir: string, executor: PortExecutor, maxCostUsd = 10, maxAttempts?: number) {
-  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxCostUsd, maxAttempts, phaseNames: MODEL_PHASES, executor, adbt: fakeAdbt() });
+function pipeline(appDir: string, executor: PortExecutor, maxTokens = 10, maxAttempts?: number) {
+  return runPortPipeline({ appDir, outDir: `${appDir}-out`, findings: [], projectContext: "approved", seed: "fixed", maxTokens, maxAttempts, phaseNames: MODEL_PHASES, executor, adbt: fakeAdbt() });
 }
 
 function fixtureApp(): string {
@@ -469,7 +595,7 @@ function successResponses(): PortModelResult[] {
       "apps/vega/metro.config.js": "module.exports = {};",
       "package.json": "{\"type\":\"module\",\"scripts\":{\"vega:build\":\"cd apps/vega && npm run build:debug\"}}",
       "src/tv/focus-state.ts": "export const nextFocus = () => 'paper';",
-      "src/App.tsx": "import { nextFocus } from './tv/focus-state';\nexport const app = nextFocus();",
+      "src/App.tsx": "import { nextFocus } from './tv/focus-state';\nexport const testID = 'featured-action';\nexport const app = nextFocus();",
       "tests/verify-tv-focus.ts": "import fs from 'node:fs'; import assert from 'node:assert/strict'; import { nextFocus } from '../src/tv/focus-state.js'; assert.equal(nextFocus(), 'paper'); fs.writeFileSync('tv-focus-result.json', JSON.stringify({ passed: true }, null, 2));",
       "TV_VERIFICATION.md": "Back restores the originating card.",
     }),
@@ -481,18 +607,35 @@ function recordedTurn(phase: string) {
 }
 
 function response(files: Record<string, string>): PortModelResult {
-  return { text: JSON.stringify({ summary: "fixture phase", files }), costUsd: 0.01 };
+  return {
+    text: JSON.stringify({ summary: "fixture phase", files }),
+    usage: usage(1),
+    requestedModel: "fixture-model",
+    actualModels: ["fixture-model"],
+  };
+}
+
+function usage(inputTokens: number) {
+  return {
+    inputTokens,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheWriteInputTokens: 0,
+    totalTokens: inputTokens,
+    calls: 1,
+    turns: 1,
+  };
 }
 
 function portPlanText(): string {
   return JSON.stringify({
     schemaVersion: 1,
     briefSha256: `sha256:${"a".repeat(64)}`,
-    target: { platform: "firetv-vega", sdk: "0.22.5875" },
+    target: { platform: "firetv-vega", sdk: "0.23.9221" },
     verticalSlice: "Browse from home to details and back.",
     entryScreenId: "home",
     screens: [
-      { id: "home", source: "App home", purpose: "Browse titles", initialFocusId: "featured-action", focusableIds: ["featured-action", "first-card"] },
+      { id: "home", source: "App home", purpose: "Browse titles", initialFocusId: "featured-action", focusableIds: ["featured-action", "first-card", "second-card"] },
       { id: "details", source: "App details", purpose: "Read title details", initialFocusId: "back-action", focusableIds: ["back-action"] },
     ],
     navigation: [
@@ -504,6 +647,10 @@ function portPlanText(): string {
     verification: [{ behaviorId: "open-details", evidence: "Executable focus transition test." }],
     openQuestions: [],
   }, null, 2);
+}
+
+function focusPage(testId: string) {
+  return ok(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { focused: true, test_id: testId } }));
 }
 
 function optionValues(args: string[], option: string): string[] {

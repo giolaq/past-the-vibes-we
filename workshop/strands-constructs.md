@@ -3,8 +3,8 @@
 Use this guide when you read the workshop harness.
 
 The harness pins `@strands-agents/sdk` `1.10.0`. Strands controls the uncertain
-model and tool loop. Workshop code controls writes, checks, retries, cost, and
-commits.
+model and tool loop. Workshop code controls writes, checks, retries, token and
+turn limits, and commits.
 
 Read these files with this guide:
 
@@ -128,12 +128,12 @@ agent.stream(prompt, {
 | `AgentStreamEvent` | Carries messages, tool calls, tool results, and lifecycle events. |
 | `limits.turns` | Limits the model and tool loop to eight turns. |
 | `limits.totalTokens` | Limits total tokens for the call. |
-| `cancelSignal` | Stops the call after the ten-minute timeout or an external abort. |
+| `cancelSignal` | Supports an external abort. The workshop does not set an elapsed-time deadline. |
 | `AgentResult` | Holds structured output, messages, stop data, and metrics. |
 | `metrics.accumulatedUsage` | Reports input and output token use. |
 
-Strands reports token use. The harness calculates cost. The harness applies
-the run budget.
+Strands reports token use. The harness applies cumulative token and per-call
+turn limits. It does not calculate a dollar cost.
 
 ## Skills
 
@@ -165,7 +165,7 @@ The transcript contains model messages, tool calls, tool results, and the
 final result. `consumeStream()` also keeps the returned `AgentResult`.
 
 Streaming improves observation. It does not give the SDK control of phase
-order, budgets, retries, checkpoints, verification, or reports.
+order, limits, retries, checkpoints, verification, or reports.
 
 ## MCP and ADBT
 
@@ -200,13 +200,13 @@ record format.
 | Responsibility | Owner |
 | --- | --- |
 | Phase order, dependencies, retries, and resume | Workshop harness |
-| Human approval and cost limit | Workshop harness |
+| Human approval and usage limits | Workshop harness |
 | Schemas | Zod and workshop code |
 | MCP transport | Model Context Protocol SDK |
 | Protected writes and rollback | Workshop harness |
 | Build, focus, and platform checks | Workshop harness |
 | Commits, checkpoints, recordings, and reports | Workshop harness |
-| Token price calculation | Workshop harness |
+| Provider-reported cost passthrough | Workshop harness |
 
 ## SDK Features Not Used
 

@@ -15,7 +15,7 @@ export const PortPlanSchema = z.object({
   briefSha256: ShaSchema,
   target: z.object({
     platform: z.literal("firetv-vega"),
-    sdk: z.literal("0.22.5875"),
+    sdk: z.literal("0.23.9221"),
   }).strict(),
   verticalSlice: z.string().min(1),
   entryScreenId: IdSchema,
@@ -100,7 +100,7 @@ export function renderPortPlanContract(briefSha256: string): string {
 {
   "schemaVersion": 1,
   "briefSha256": "${briefSha256}",
-  "target": { "platform": "firetv-vega", "sdk": "0.22.5875" },
+  "target": { "platform": "firetv-vega", "sdk": "0.23.9221" },
   "verticalSlice": "one sentence",
   "entryScreenId": "home",
   "screens": [{ "id": "home", "source": "source screen or component", "purpose": "viewer goal", "initialFocusId": "featured-action", "focusableIds": ["featured-action"] }],

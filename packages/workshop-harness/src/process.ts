@@ -5,16 +5,16 @@ export type ProcessResult = { code: number; stdout: string; stderr: string; time
 
 /**
  * How much of one stream survives. A failing build can print megabytes, and this output becomes
- * retry context for a model with a 40,000-token budget — so keep the start (what it was doing)
+ * retry context for a model with a 40,000-token limit — so keep the start (what it was doing)
  * and the end (where it failed), and say how much was dropped in between.
  */
 export const MAX_CAPTURED_CHARS = 8_000;
 
-export function runProcess(command: string, args: string[], timeoutMs = 10_000, cwd?: string): Promise<ProcessResult> {
+export function runProcess(command: string, args: string[], timeoutMs = 10_000, cwd?: string, maxCapturedChars = MAX_CAPTURED_CHARS): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, shell: false, env: process.env });
-    const stdout = new BoundedCapture();
-    const stderr = new BoundedCapture();
+    const stdout = new BoundedCapture(maxCapturedChars / 2);
+    const stderr = new BoundedCapture(maxCapturedChars / 2);
     let timedOut = false;
     child.stdout.on("data", (chunk) => { stdout.add(String(chunk)); });
     child.stderr.on("data", (chunk) => { stderr.add(String(chunk)); });

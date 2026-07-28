@@ -15,16 +15,14 @@ change that you must make.
 6. Test the live path from a clean clone.
 7. Test each recorded fallback.
 8. Verify ADBT version `1.0.5`.
-9. Verify Vega SDK version `0.22.5875`.
+9. Verify Vega SDK version `0.23.9221`.
 10. Verify the target VDA image.
-11. Run the pinned ADBT `init-context` command.
-12. Verify the `amazon-devices-vega-*` skills.
-13. Read [the live rehearsal record](live-rehearsal.md).
-14. Start VDA in a separate system terminal.
-15. Keep the VDA terminal open.
-16. Run `vega virtual-device status`.
-17. Run `vega exec vda devices -l`.
-18. Keep the completed TV app hidden until Lesson 6.
+11. Run `doctor --adbt-live` and verify document listing and reading.
+12. Start VDA in a separate system terminal.
+13. Keep the VDA terminal open.
+14. Run `vega virtual-device status`.
+15. Run `vega exec vda devices -l`.
+16. Keep the completed TV app hidden until Lesson 6.
 
 ## Start with the one-call example
 
@@ -39,7 +37,7 @@ Use this table after each lesson.
 After the example, explain the boundary:
 
 - Strands supplies the model loop, tools, schema, MCP client, limits, and metrics.
-- The harness supplies phases, writes, checks, retries, commits, costs, and evidence.
+- The harness supplies phases, writes, checks, retries, commits, usage limits, and evidence.
 
 Show these files:
 
@@ -47,9 +45,9 @@ Show these files:
 - `port-contract.ts`
 - `context-providers/adbt.ts`
 
-## Explain skills and MCP
+## Explain ADBT MCP
 
-In Lesson 2, trace `amazon-devices-vega-focus-management`.
+In Lesson 2, trace `ADBT_SERVER` from the phase definition to the executor.
 Show `port-plan.json` before you show its approval file.
 Ask one attendee to trace Select and Back before approval.
 Show the source fingerprint in `run-spec.json`.
@@ -57,19 +55,17 @@ Explain that a changed app or brief needs a new run ID and a new approval.
 
 For Claude Code:
 
-1. Show the full skill text in the prompt.
-2. Show the explicit ADBT MCP configuration.
+1. Show the explicit ADBT MCP configuration.
+2. Show the ADBT document read in the model log.
 
 For Strands:
 
-1. Show the `Skill`.
-2. Show `AgentSkills`.
-3. Show the `plugins` property.
-4. Show the `skills` activation tool.
-5. Show the native ADBT `McpClient`.
+1. Show the native ADBT `McpClient`.
+2. Show it in `extraTools`.
+3. Show the discovered document tools.
 
-Explain that Amazon supplies the skill content.
-The harness selects the skills.
+Explain that every default phase uses `skills: []`.
+Optional skills are for team-specific rules, not Vega platform knowledge.
 
 Then explain these Strands constructs:
 
@@ -173,15 +169,18 @@ It is not live evidence.
 
 A live Vega claim requires:
 
-- SDK version `0.22.5875`
+- SDK version `0.23.9221`
 - Attached VDA
 - Valid manifest
 - Successful `.vpkg` build
 - Successful install
 - Successful app start
 - Saved device log
-- Two device screenshots
+- Running-state samples immediately after start and after the dwell
 - Passing focus-transition test
 
 If an item is missing, identify the failed boundary.
 Then continue with the recorded fallback.
+
+Lifecycle evidence does not prove that the intended interface rendered
+correctly.

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceMode": "live-partial",
   "date": "2026-07-20",
-  "sdkVersion": "0.22.5875",
+  "sdkVersion": "0.23.9221",
   "adbtPackage": "@amazon-devices/amazon-devices-buildertools-mcp@1.0.5",
   "command": ["npm", "run", "build:debug"],
   "build": {
@@ -19,5 +19,5 @@
     "passed": false,
     "reason": "VDA did not remain attached in the automation session"
   },
-  "remainingGates": ["install", "launch", "logs", "capture", "pull"]
+  "remainingGates": ["install", "launch", "app_status", "logs", "app_status"]
 }

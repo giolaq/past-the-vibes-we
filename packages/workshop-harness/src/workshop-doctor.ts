@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { runProcess } from "./process.js";
 import { AdbtMcpContextProvider } from "./context-providers/adbt.js";
 import { resolveExecutorConfig } from "./port-executor.js";
@@ -38,11 +41,48 @@ async function executorCheck(): Promise<DoctorCheck> {
   if (process.argv.includes("--replay")) return { name: "model-executor", status: "pass", detail: "replay (no model required)" };
   // Same resolution the port uses, so doctor can never green-light a different executor.
   const config = resolveExecutorConfig(loadExecutorInput(process.argv.slice(2)));
-  if (config.kind === "claude-cli") return commandCheck("model-executor", config.command, ["--version"], "Install Claude Code or select Strands in workshop.config.json.");
+  if (config.kind === "claude-cli") {
+    const availability = claudeModelAvailability(config.model);
+    if (availability?.status === "repair") return availability;
+    const command = await commandCheck("model-executor", config.command, ["--version"], "Install Claude Code or select Strands in workshop.config.json.");
+    if (command.status === "pass" && availability) command.detail = `${command.detail}; model ${config.model} is available`;
+    return command;
+  }
   const provider = config.model.provider;
   const key = provider === "openai" ? "OPENAI_API_KEY" : provider === "openrouter" ? "OPENROUTER_API_KEY" : "AWS_PROFILE";
   const ready = Boolean(process.env[key] || (provider === "bedrock" && process.env.AWS_ACCESS_KEY_ID));
   return { name: "model-executor", status: ready ? "pass" : "repair", detail: `Strands ${provider}: ${config.model.modelId}`, hint: ready ? undefined : `Configure ${key}, select Claude Code in workshop.config.json, or use --replay.` };
+}
+
+export function claudeModelAvailability(model: string, settingsPath = join(homedir(), ".claude", "settings.json")): DoctorCheck | undefined {
+  if (["default", "sonnet", "opus", "haiku"].includes(model.toLowerCase())) {
+    return {
+      name: "model-executor",
+      status: "repair",
+      detail: `Claude model ${model} is an alias, not an exact model name`,
+      hint: `Set workshop.config.json model to an exact name${existsSync(settingsPath) ? " from ~/.claude/settings.json availableModels" : ", for example claude-sonnet-4-6"}.`,
+    };
+  }
+  if (!existsSync(settingsPath)) return undefined;
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as { enforceAvailableModels?: unknown; availableModels?: unknown };
+    if (settings.enforceAvailableModels !== true || !Array.isArray(settings.availableModels)) return undefined;
+    const available = settings.availableModels.filter((value): value is string => typeof value === "string");
+    if (available.includes(model)) return { name: "model-executor", status: "pass", detail: `Claude model ${model} is in the enforced availableModels list` };
+    return {
+      name: "model-executor",
+      status: "repair",
+      detail: `Claude model ${model} is not in the enforced availableModels list`,
+      hint: `Set workshop.config.json model to one exact available name: ${available.join(", ")}`,
+    };
+  } catch (error) {
+    return {
+      name: "model-executor",
+      status: "repair",
+      detail: `Cannot validate Claude model settings: ${error instanceof Error ? error.message : String(error)}`,
+      hint: `Repair ${settingsPath} or select Strands in workshop.config.json.`,
+    };
+  }
 }
 
 async function commandCheck(name: string, command: string, args: string[], hint: string, optional = false, timeoutMs = 2_000): Promise<DoctorCheck> {

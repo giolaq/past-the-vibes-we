@@ -1,41 +1,80 @@
 import { existsSync, readFileSync } from "node:fs";
+import { addModelUsage, EMPTY_MODEL_USAGE, mergeProviderCostSource, recordedUsage, type ModelUsage, type ProviderCostSource } from "./model-telemetry.js";
 import type { PortResult } from "./port-pipeline.js";
 import type { VegaPlatformResult } from "./platform/vega.js";
 
+export type RunTelemetry = {
+  usage: ModelUsage;
+  providerReportedCostUsd?: number;
+  providerReportedCostSource?: ProviderCostSource;
+  requestedModels: string[];
+  actualModels: string[];
+};
+
 export function loadPortResult(path: string): PortResult {
-  if (!existsSync(path)) return { phases: [], costUsd: 0 };
+  if (!existsSync(path)) return { phases: [], usage: { ...EMPTY_MODEL_USAGE }, requestedModels: [], actualModels: [] };
   try {
     const value = JSON.parse(readFileSync(path, "utf8")) as Partial<PortResult>;
     return {
       phases: Array.isArray(value.phases) ? value.phases : [],
-      costUsd: typeof value.costUsd === "number" ? value.costUsd : 0,
+      usage: recordedUsage(value.usage),
+      providerReportedCostUsd: finite(value.providerReportedCostUsd),
+      providerReportedCostSource: costSource(value.providerReportedCostSource),
+      requestedModels: strings(value.requestedModels),
+      actualModels: strings(value.actualModels),
       adbt: value.adbt,
     };
   } catch {
-    return { phases: [], costUsd: 0 };
+    return { phases: [], usage: { ...EMPTY_MODEL_USAGE }, requestedModels: [], actualModels: [] };
   }
 }
 
-/** Status is written after every model turn, so it may contain spend not yet in port-result. */
-export function loadRunCost(path: string): number {
-  if (!existsSync(path)) return 0;
+/** Status is written after every model call, so it may include usage not yet in port-result. */
+export function loadRunTelemetry(path: string): RunTelemetry {
+  if (!existsSync(path)) return { usage: { ...EMPTY_MODEL_USAGE }, requestedModels: [], actualModels: [] };
   try {
-    const value = (JSON.parse(readFileSync(path, "utf8")) as { costUsd?: unknown }).costUsd;
-    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+    const value = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    return {
+      usage: recordedUsage(value.usage),
+      providerReportedCostUsd: finite(value.providerReportedCostUsd),
+      providerReportedCostSource: costSource(value.providerReportedCostSource),
+      requestedModels: strings(value.requestedModels),
+      actualModels: strings(value.actualModels),
+    };
   } catch {
-    return 0;
+    return { usage: { ...EMPTY_MODEL_USAGE }, requestedModels: [], actualModels: [] };
   }
 }
 
-/** A resumed run is one audit trail: latest phase result, cumulative cost, retained ADBT evidence. */
+/** A resumed run is one audit trail: latest phase result, cumulative usage, retained evidence. */
 export function mergePortResults(previous: PortResult, current: PortResult): PortResult {
   const phases = new Map(previous.phases.map((phase) => [phase.name, phase]));
   for (const phase of current.phases) phases.set(phase.name, phase);
   return {
     phases: [...phases.values()],
-    costUsd: previous.costUsd + current.costUsd,
+    usage: addModelUsage(previous.usage, current.usage),
+    providerReportedCostUsd: addOptional(previous.providerReportedCostUsd, current.providerReportedCostUsd),
+    providerReportedCostSource: mergeProviderCostSource(previous.providerReportedCostSource, current.providerReportedCostSource),
+    requestedModels: [...new Set([...previous.requestedModels, ...current.requestedModels])],
+    actualModels: [...new Set([...previous.actualModels, ...current.actualModels])],
     adbt: current.adbt ?? previous.adbt,
   };
+}
+
+function finite(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function costSource(value: unknown): ProviderCostSource | undefined {
+  return value === "provider" || value === "recorded" || value === "mixed" ? value : undefined;
+}
+
+function addOptional(left?: number, right?: number): number | undefined {
+  return left === undefined && right === undefined ? undefined : (left ?? 0) + (right ?? 0);
 }
 
 export function loadVegaResult(path: string): VegaPlatformResult | undefined {
@@ -59,7 +98,6 @@ export function mergeVegaResults(previous: VegaPlatformResult | undefined, curre
     dwellMs: Math.max(previous.dwellMs, current.dwellMs),
     steps: [...previous.steps, ...current.steps],
     checks: [...checks.values()],
-    screenshots: [...new Set([...previous.screenshots, ...current.screenshots])],
     logFiles: [...new Set([...previous.logFiles, ...current.logFiles])],
   };
 }

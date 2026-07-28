@@ -5,7 +5,7 @@ Build and test a coding harness with
 harness to port a React Native flow to Vega TV.
 
 The model can inspect a guarded copy and propose files. The harness controls
-writes, checks, retries, cost, and commits.
+writes, checks, retries, token and turn limits, and commits.
 
 ## Repository Contents
 
@@ -26,8 +26,8 @@ You then add these controls:
 2. Plan with current Vega documents from ADBT MCP.
 3. Validate and approve a typed screen and navigation plan.
 4. Validate and write a typed patch.
-5. Send compiler failures back to the model.
-6. Build, install, start, and inspect the app.
+5. Send compiler failures and ADBT MCP back to the repair model.
+6. Build, start or reuse a VDA, install, start, and inspect the app.
 7. Run the focus transition contract.
 8. Control the complete run in a TUI.
 
@@ -62,7 +62,7 @@ The live path supports:
 Select one path before lesson 1. Store it in `workshop.config.json`.
 Use the same path for all model phases. The configuration file contains no
 credentials. `workshop/lessons/00-welcome.md` gives the values for each
-provider.
+provider. Use an exact model ID rather than a provider alias.
 
 Both live executors use ADBT as an MCP server:
 
@@ -81,7 +81,7 @@ port goal, required flow, constraints, and verification. The harness supplies
 it to the feasibility and phase prompts and records its hash in `run-spec.json`.
 
 `workshop.config.json` selects model execution. Command flags set the phase,
-seed, cost limit, and run ID. ADBT supplies external Vega knowledge.
+seed, token and turn limits, and run ID. ADBT supplies external Vega knowledge.
 
 The workshop does not use separate content, brand, or design input files.
 

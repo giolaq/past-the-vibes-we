@@ -34,14 +34,19 @@ The pipeline has six phases:
    `port-plan.json`, `VEGA_PORT.md`, and `NextSteps.md`. A person approves the
    exact plan before implementation.
 3. `port` creates the Vega package, focus adapter, and remote check.
-4. `build` runs the Vega build. It gives compiler failures to the model.
-5. `launch` installs and starts the app. It checks two frames and the device
-   log.
-6. `test` runs the remote navigation and focus restoration contract.
+4. `build` installs the guarded Vega package dependencies, then runs the Vega
+   build. On failure, it gives the compiler diagnostics and ADBT MCP to the
+   repair model.
+5. `launch` starts a VDA when none is attached, installs and starts the app,
+   samples running state before and after a dwell, and scans the device log. A
+   failed launch repair receives ADBT MCP.
+6. `test` relaunches the app, injects D-pad keys with `inputd-cli`, reads the
+   focused `test_id` through Automation Toolkit, and verifies navigation and
+   focus restoration against the approved plan.
 
 If the test phase repairs source code, it rebuilds, installs, starts, scans the
-log, checks both frames, and reruns focus checks. A late repair cannot pass only
-the host-side test.
+log, samples running state again, and reruns focus checks. A late repair cannot
+pass only the host-side test.
 
 For each model phase, the pipeline:
 
@@ -50,16 +55,20 @@ For each model phase, the pipeline:
 3. Requests a typed `PortOutputSchema` result.
 4. Validates all proposed paths.
 5. Writes the files.
-6. Checks the cumulative cost.
+6. Checks cumulative token usage.
 7. Runs phase checks.
 8. Commits passed work.
 
 A failed check returns the exact failure text to the model. The retry starts
-from the clean phase commit. The default is one retry.
+from the clean phase commit. Build and device repairs then reapply the typed
+candidate from earlier attempts so sequential fixes accumulate. A final phase
+failure still rolls back the whole candidate. Each phase declares its retry
+limit; ordinary model phases permit one retry, while build and device phases
+permit more.
 
-Use `--max-attempts N` to set a fixed attempt limit. Use `--until-done` to
-continue until checks pass or another limit stops the phase. The cost limit
-always applies. Repeated failures with no progress stop early.
+Use `--max-attempts N` to override every phase with a fixed attempt limit. Use
+`--until-done` to continue until checks pass or another limit stops the phase.
+The token limit always applies. Repeated failures with no progress stop early.
 
 The model has read-only project tools. It has no shell or write tool.
 
@@ -74,9 +83,9 @@ brief hash and source fingerprint in `out/<runId>/run-spec.json`.
 Keep the source app unchanged while the run ID is active. Start a new run ID
 after an app or brief change.
 
-`workshop.config.json` selects model execution. Flags set the phase, seed, cost
-limit, and run ID. ADBT supplies current Vega documents. The workshop does not
-use separate content, brand, or design input files.
+`workshop.config.json` selects model execution. Flags set the phase, seed,
+token and turn limits, and run ID. ADBT supplies current Vega documents. The
+workshop does not use separate content, brand, or design input files.
 
 ## Strands Agents SDK
 
@@ -108,7 +117,8 @@ The harness supplies:
 - Verification.
 - Retry policy.
 - Git commits.
-- Cost control.
+- Token and turn controls.
+- Optional provider-reported cost telemetry.
 - Reports.
 
 Read `workshop/strands-constructs.md` for each SDK construct.
@@ -133,9 +143,14 @@ For Claude Code CLI:
 ```json
 {
   "executor": "claude-cli",
-  "model": "sonnet"
+  "model": "claude-sonnet-4-6"
 }
 ```
+
+Use an exact Claude model name, not `sonnet`, `opus`, or `haiku`. On managed
+installations, choose a name from `~/.claude/settings.json` `availableModels`.
+`doctor` validates an enforced list, and each live call compares the requested
+name with Claude Code's reported `modelUsage`.
 
 For Strands with Amazon Bedrock:
 
@@ -151,15 +166,28 @@ For Strands with Amazon Bedrock:
 Strands also supports `openai` and `openrouter`. Configure the provider
 credential before you run `doctor`. Do not put credentials in this file.
 Command-line model options remain available as temporary overrides.
+Any provider-supported model may be selected by its exact ID.
+
+The primary controls are an optional cumulative token limit and optional
+per-call turns. Model calls have no elapsed-time timeout. Without
+`--max-tokens`, the harness records cumulative usage but does not stop on it.
+When a limit is set, Strands receives the remaining token allowance for each
+call. Claude Code reports usage after a call, so a single Claude call can cross
+the configured limit; the harness records that usage and stops before another
+call.
+The Claude subprocess retains a fixed `$10` emergency ceiling. The harness
+does not estimate dollars or stop a run based on calculated cost. It passes
+through provider-reported cost when present and labels replay cost as recorded
+metadata.
 
 ## Audit Feasibility
 
 ```sh
 yarn tsx src/index.ts plan ../../apps/pocket-cinema \
-  --seed workshop-v1 --max-cost 3 --json
+  --seed workshop-v1 --max-tokens 1000000 --json
 ```
 
-Read the brief, dependency verdict, phases, and cost limit.
+Read the brief, dependency verdict, phases, token limit, and turn limit.
 
 ## Plan and Approve the Port
 
@@ -168,7 +196,7 @@ Run the analysis and plan phases:
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --phases analyze,plan --yes --seed workshop-v1 \
-  --max-cost 3 --run-id workshop --json
+  --max-tokens 1000000 --run-id workshop --json
 yarn tsx src/index.ts approve-plan workshop --yes
 ```
 
@@ -187,15 +215,15 @@ Keep the returned `runId`. Inspect these files:
 | --- | --- |
 | `out/<runId>/feasibility-report.json` | Feasibility result |
 | `out/<runId>/portability-report.json` | Portability findings |
-| `out/<runId>/run-spec.json` | Source fingerprint, brief hash, phases, seed, and cost |
-| `out/<runId>/port-result.json` | Phases, checks, retries, and cost |
+| `out/<runId>/run-spec.json` | Source fingerprint, brief hash, phases, seed, and limits |
+| `out/<runId>/port-result.json` | Phases, checks, retries, usage, and model names |
 | `out/<runId>/model-logs/<phase>.jsonl` | Complete model transcript |
 | `out/<runId>/adbt-port-context.json` | ADBT document sources and hashes |
 | `out/<runId>/app/NextSteps.md` | Unsupported work |
 | `out/<runId>/app/port-plan.json` | Structured screen, navigation, behavior, and evidence contract |
 | `out/<runId>/app/port-plan-approval.json` | Human-approved plan and brief hashes |
-| `out/<runId>/01-launch.png` | First device frame |
-| `out/<runId>/02-postlaunch.png` | Second device frame |
+| `out/<runId>/vega-device.log` | Filtered device log since launch |
+| `out/<runId>/vega-platform-result.json` | Device commands, running-state checks, and blockers |
 | `out/<runId>/app` | Generated app and phase commits |
 
 Read one transcript:
@@ -249,16 +277,10 @@ Claude can use:
 
 Claude cannot use shell, write, web, or notebook tools.
 
-Both live paths fail with exit code 3 if a required phase reads no ADBT
-document.
-
-`init-context` installs optional Amazon Vega skills. It does not create the
-runtime MCP connection:
-
-```sh
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 init-context --agent claude-code-cli --force
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 check-status --agent claude-code-cli
-```
+Every default phase delegates Vega knowledge to ADBT MCP and fails if its live
+model call reads no ADBT document. The harness does not inject a Vega scaffold
+or select local Vega skills. Skill support remains available for optional
+team-specific instructions.
 
 ## Vega Device Lifecycle
 
@@ -272,21 +294,25 @@ Read the plan before you continue.
 
 The live lifecycle:
 
-1. Checks Vega SDK `0.22.5875`.
-2. Checks the attached VDA target.
-3. Builds the `.vpkg`.
-4. Installs the package.
-5. Starts the app.
-6. Captures the first frame.
-7. Waits five seconds.
-8. Scans the device log.
-9. Captures the second frame.
-10. Runs the focus check.
+1. Checks Vega SDK `0.23.9221`.
+2. Checks for an attached VDA target.
+3. Starts the VDA and checks again when no target is attached.
+4. Installs the guarded Vega package dependencies.
+5. Builds the `.vpkg`.
+6. Installs the package.
+7. Starts the app.
+8. Confirms that the app reports running.
+9. Waits five seconds.
+10. Scans the device log.
+11. Confirms that the app still reports running.
+12. Enables Automation Toolkit.
+13. Injects Down, Left, Right, Select, and Back keys.
+14. Reads the focused `test_id` after each transition.
 
-The command fails if the log has a crash signature. It also fails if a frame
-is too small, flat, black, or white.
+The command fails if either running-state sample is false, if a device command
+fails, or if the log has a crash signature.
 
-Start VDA in a dedicated terminal:
+To troubleshoot VDA startup manually:
 
 ```sh
 vega virtual-device start --gui
@@ -312,9 +338,14 @@ A live claim requires:
 
 - Successful install.
 - Successful start.
+- Running state immediately after start.
 - No crash after the wait.
-- Two valid device frames.
+- Running state after the wait.
+- Every required focus transition observed from the VDA UI hierarchy.
 - `evidenceMode: "live"`.
+
+This proves lifecycle stability and remote focus behavior. It does not prove
+visual styling or pixel-level rendering.
 
 ## Recorded Recovery
 
@@ -324,13 +355,13 @@ Use this only if a model, ADBT, SDK, or device blocks the exercise:
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-recording.json \
   --phases analyze,plan --yes --seed workshop-v1 \
-  --max-cost 3 --run-id recorded
+  --max-tokens 1000000 --run-id recorded
 yarn tsx src/index.ts approve-plan recorded --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --replay ../../workshop/fixtures/port-recording.json \
   --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
   --phases port,build,launch,test --yes --seed workshop-v1 \
-  --max-cost 3 --run-id recorded --json
+  --max-tokens 1000000 --run-id recorded --json
 ```
 
 Recorded data tests the pipeline contract. It does not prove live model or
@@ -342,7 +373,7 @@ Lesson 1 uses one model call without the normal control loop:
 
 ```sh
 yarn tsx src/index.ts naive ../../apps/pocket-cinema \
-  --max-cost 1 --run-id naive-demo --yes
+  --max-tokens 1000000 --run-id naive-demo --yes
 ```
 
 This command saves a proposal. It does not apply, build, start, or test it.
@@ -360,15 +391,20 @@ Lesson 7 shows the complete run in a TUI:
 ```sh
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --phases analyze,plan --seed workshop-v1 \
-  --max-cost 3 --yes --run-id final-dashboard
+  --max-tokens 1000000 --yes --run-id final-dashboard --tui
 yarn tsx src/index.ts approve-plan final-dashboard --yes
 yarn tsx src/index.ts run ../../apps/pocket-cinema \
   --phases port,build,launch,test \
-  --seed workshop-v1 --max-cost 3 --yes --run-id final-dashboard --tui
+  --seed workshop-v1 --max-tokens 1000000 --yes --run-id final-dashboard --tui
 ```
 
-The TUI filters visible events. The JSONL transcript remains the complete
-record.
+Close the first TUI after it reports that plan approval is required. The
+resumed TUI loads analyze and plan events before it follows the remaining
+phases. Use Up and Down to select a phase, then Enter to open its messages.
+The message view shows each event type and content. Use Up and Down to select
+an event, PageUp and PageDown to scroll its content, Tab to change the event
+filter, and Escape to return to the phase list. Press `q` to close a completed
+TUI. The JSONL transcript remains the complete record.
 
 ## Add a CLI Executor
 
@@ -377,7 +413,8 @@ Edit `src/port-executor.ts`.
 1. Implement `PortExecutor.call(phase, prompt)`.
 2. Send the prompt through standard input.
 3. Run the CLI in the guarded app directory.
-4. Return `{text, costUsd}`.
+4. Return `{text, usage, requestedModel, actualModels}` and include
+   `providerReportedCostUsd` only when the provider supplies it.
 5. Record turns with `PortRecorder`.
 6. Add the executor kind to `ExecutorConfig`.
 7. Add it to `resolveExecutorConfig()`.

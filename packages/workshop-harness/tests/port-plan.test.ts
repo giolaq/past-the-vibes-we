@@ -76,7 +76,7 @@ function fixturePlan() {
   return {
     schemaVersion: 1,
     briefSha256: loadWorkshopBrief(app).sha256,
-    target: { platform: "firetv-vega", sdk: "0.22.5875" },
+    target: { platform: "firetv-vega", sdk: "0.23.9221" },
     verticalSlice: "Browse from home to details and back.",
     entryScreenId: "home",
     screens: [

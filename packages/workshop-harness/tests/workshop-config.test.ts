@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { loadExecutorInput } from "../src/workshop-config.js";
+import { loadExecutorInput, retryAttemptOverride, turnLimitOverride } from "../src/workshop-config.js";
 
 function configFile(value: unknown): string {
   const directory = mkdtempSync(join(tmpdir(), "workshop-config-"));
@@ -48,4 +48,19 @@ test("rejects unknown configuration fields", () => {
 
 test("reports a missing explicit configuration file", () => {
   assert.throws(() => loadExecutorInput(["--config", "/missing/workshop.json"]), /Workshop config not found/);
+});
+
+test("leaves phase retry limits intact unless the CLI overrides them", () => {
+  assert.equal(retryAttemptOverride([]), undefined);
+  assert.equal(retryAttemptOverride(["--max-attempts", "5"]), 5);
+  assert.equal(retryAttemptOverride(["--until-done"]), Infinity);
+  assert.throws(() => retryAttemptOverride(["--max-attempts", "0"]), /positive integer/);
+  assert.throws(() => retryAttemptOverride(["--max-attempts", "many"]), /positive integer/);
+});
+
+test("does not impose a turn limit unless the CLI requests one", () => {
+  assert.equal(turnLimitOverride([]), undefined);
+  assert.equal(turnLimitOverride(["--max-turns", "24"]), 24);
+  assert.throws(() => turnLimitOverride(["--max-turns", "0"]), /positive integer/);
+  assert.throws(() => turnLimitOverride(["--max-turns", "many"]), /positive integer/);
 });

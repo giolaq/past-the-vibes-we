@@ -6,27 +6,27 @@ import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { auditSource, summarize } from "./portability-audit.js";
-import { FEASIBILITY_PHASE, runFeasibility, type FeasibilityResult } from "./feasibility.js";
+import { FEASIBILITY_PHASE, loadFeasibilityResult, runFeasibility, type FeasibilityResult } from "./feasibility.js";
 import { ADBT_PORT_WORKFLOWS, AdbtMcpContextProvider, AdbtContextError, AdbtReplayContextProvider, createAdbtCliMcpServer, createAdbtMcpClient, type AdbtContextProvider } from "./context-providers/adbt.js";
 import { BEE_SERVER, BeeContextProvider, createBeeMcpClient, extractBeeProvenance, loadRecordedBeeContext, recordedBeeProvenance } from "./context-providers/bee.js";
 import { BEE_APPLY_PHASE, BEE_SPEC_PHASE, beePhases } from "./bee-pipeline.js";
 import { BEE_SPEC_MD, loadBeeSpec, renderBeeSpec } from "./bee-spec.js";
 import { CliFailure, failure, json } from "./output.js";
 import { applyProposal, loadMemory, loadSnapshot, propose } from "./project-memory.js";
+import { addModelUsage, EMPTY_MODEL_USAGE, mergeProviderCostSource, modelUsage, type ModelTelemetry, type ModelUsage, type ProviderCostSource } from "./model-telemetry.js";
 import { ModelTranscriptStore } from "./model-transcript.js";
-import { createPortExecutor, resolveExecutorConfig } from "./port-executor.js";
+import { createPortExecutor, PortExecutorError, resolveExecutorConfig } from "./port-executor.js";
 import { PORT_PLAN_APPROVAL_PATH, PORT_PLAN_PATH, PortPlanApprovalError, approvePortPlan, assertPortPlanApproved } from "./port-plan.js";
-import { ADBT_SERVER, PortBudgetError, commitAll, phases, runPortPipeline } from "./port-pipeline.js";
+import { ADBT_SERVER, PortTokenBudgetError, commitAll, phases, runPortPipeline, type PortResult } from "./port-pipeline.js";
 import { tvReadyChecks, verifyPort } from "./port-verification.js";
-import { createScreenshotJudge } from "./platform/screenshot-vision.js";
-import { ADBT_PACKAGE, VEGA_LAUNCH_FRAME, VEGA_POSTLAUNCH_FRAME, VEGA_SCREENSHOT_REMOTE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, startDeviceRun, writeDeviceResult, type ScreenshotJudge, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
+import { ADBT_PACKAGE, VEGA_SDK_VERSION, VegaAdapter, VegaReplayAdapter, runVegaLifecycle, startDeviceRun, writeDeviceResult, type VegaCapability, type VegaReplayFixture } from "./platform/vega.js";
 import { WORKSHOP_BRIEF, copySource, discoverSource, loadWorkshopBrief, sourceFingerprint } from "./source-app.js";
-import { workshopDoctor } from "./workshop-doctor.js";
-import { loadPortResult, loadRunCost, loadVegaResult, mergePortResults, mergeVegaResults } from "./run-state.js";
+import { claudeModelAvailability, workshopDoctor } from "./workshop-doctor.js";
+import { loadPortResult, loadRunTelemetry, loadVegaResult, mergePortResults, mergeVegaResults, type RunTelemetry } from "./run-state.js";
 import { shouldUseTui, WorkshopTui } from "./tui.js";
 import { runNaiveProbe } from "./naive-probe.js";
 import { injectBuildFailure } from "./workshop-failure.js";
-import { loadExecutorInput } from "./workshop-config.js";
+import { loadExecutorInput, retryAttemptOverride, turnLimitOverride } from "./workshop-config.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -35,6 +35,8 @@ const root = resolve(process.env.WORKSHOP_OUT ?? join(repositoryRoot, "out"));
 
 async function main(): Promise<void> {
   if (!command || args.includes("--help") || command === "help") return help();
+  const obsolete = ["--max-cost", "--input-rate", "--output-rate"].find((option) => args.includes(option));
+  if (obsolete) failure("unsupported_option", `${obsolete} is no longer used.`, "Use --max-tokens for cumulative model usage. Provider-reported cost remains informational.");
   if (command === "doctor") return doctor();
   if (command === "naive") return naiveCommand();
   if (command === "plan") return planCommand();
@@ -54,7 +56,7 @@ async function main(): Promise<void> {
 async function naiveCommand(): Promise<void> {
   const sourcePath = args[1];
   if (!sourcePath) failure("missing_app", "App directory is required.", "Run naive <app> --yes after you configure workshop.config.json.");
-  if (!args.includes("--yes")) failure("confirmation_required", "The one-shot probe spends model budget.", "Show the command and cost cap, then rerun with --yes.");
+  if (!args.includes("--yes")) failure("confirmation_required", "The one-shot probe calls the selected model.", "Show the command and token limit, then rerun with --yes.");
   const runId = flag("--run-id") ?? "naive-demo";
   const out = join(root, runId);
   if (existsSync(out)) failure("run_exists", `Run ${runId} already exists.`, "Choose a different --run-id so the comparison starts clean.");
@@ -64,11 +66,14 @@ async function naiveCommand(): Promise<void> {
   const config = selectedExecutorConfig();
   const transcripts = new ModelTranscriptStore(out);
   const executor = createPortExecutor({ appDir, outDir: out, config, transcripts, recordingName: "naive-recording.json" });
-  const maxCostUsd = Number(flag("--max-cost") ?? 1);
-  if (!Number.isFinite(maxCostUsd) || maxCostUsd <= 0) throw new Error("--max-cost must be a positive number");
-  const result = await runNaiveProbe(executor, maxCostUsd);
+  const maxTokens = tokenLimit();
+  const maxTurns = turnLimitOverride(args);
+  const result = await runNaiveProbe(executor, maxTokens, maxTurns);
+  if (maxTokens !== undefined && result.usage.totalTokens > maxTokens) {
+    failure("token_limit_exceeded", `Model used ${result.usage.totalTokens} tokens, exceeding the ${maxTokens} token limit.`, "Choose a larger --max-tokens value before making another live call.", 4);
+  }
   writeFileSync(join(out, "naive-proposal.json"), JSON.stringify({ schemaVersion: 1, ...result.proposal }, null, 2));
-  const report = { schemaVersion: 1, runId, executor: executorName(config), costUsd: result.costUsd, proposedFiles: Object.keys(result.proposal.files).sort(), coverage: result.coverage, missingProof: result.missingProof };
+  const report = { schemaVersion: 1, runId, executor: executorName(config), maxTokens, maxTurns, usage: result.usage, providerReportedCostUsd: result.providerReportedCostUsd, providerReportedCostSource: result.providerReportedCostSource, requestedModel: result.requestedModel, actualModels: result.actualModels, proposedFiles: Object.keys(result.proposal.files).sort(), coverage: result.coverage, missingProof: result.missingProof };
   writeFileSync(join(out, "naive-result.json"), JSON.stringify(report, null, 2));
   json({ command: "naive", ...report, proposal: join(out, "naive-proposal.json"), transcript: transcripts.pathFor("one_shot_port") });
 }
@@ -118,47 +123,60 @@ function feasibilityReplayPath(): string | undefined {
   return flag("--feasibility-replay") ?? (replayPath ? join(dirname(resolve(replayPath)), "feasibility-recording.json") : undefined);
 }
 
-async function buildPlan(sourcePath: string, outDir: string, transcripts?: ModelTranscriptStore) {
+async function buildPlan(sourcePath: string, outDir: string, transcripts?: ModelTranscriptStore, priorTokens = 0) {
   const source = discoverSource(sourcePath);
   const brief = loadWorkshopBrief(sourcePath);
   const findings = auditSource(source);
   const executorConfig = selectedExecutorConfig();
-  const maxCostUsd = Number(flag("--max-cost") ?? 10);
-  if (!Number.isFinite(maxCostUsd) || maxCostUsd <= 0) throw new Error("--max-cost must be a positive number");
+  const maxTokens = tokenLimit();
+  const maxTurns = turnLimitOverride(args);
+  const remainingTokens = maxTokens === undefined ? undefined : maxTokens - priorTokens;
+  const cachedFeasibility = loadFeasibilityResult(join(outDir, "feasibility-report.json"));
+  let feasibility = cachedFeasibility;
+  let fallbackAdbtMode: "live" | "replay" | undefined;
+  if (!feasibility) {
+    if (remainingTokens !== undefined && remainingTokens <= 0) {
+      throw new PortTokenBudgetError(`Run has already reached the ${maxTokens} token limit`);
+    }
 
-  // The audit interrogates ADBT and a bounded model to judge whether the port is possible
-  // before any spec/port budget is spent. Live path calls the model + ADBT MCP; replay reads fixtures.
-  // It reads a disposable copy, so even a broken CLI cannot touch the attendee's source.
-  const adbt = await resolveAdbtProvider(source.source).load();
-  const feasibilityReplay = feasibilityReplayPath();
-  const liveMcp = !feasibilityReplay;
-  const feasibilityDir = mkdtempSync(join(tmpdir(), "workshop-feasibility-"));
-  copySource(source.source, feasibilityDir);
-  const feasibilityMcp = liveMcp && executorConfig.kind === "strands" ? createAdbtMcpClient({ cwd: feasibilityDir }) : undefined;
-  let feasibility: FeasibilityResult;
-  try {
-    const feasibilityExecutor = createPortExecutor({
-      appDir: feasibilityDir,
-      outDir,
-      replayPath: feasibilityReplay,
-      recordingName: "feasibility-recording.json",
-      config: executorConfig,
-      cliMcpServers: liveMcp ? { [ADBT_SERVER]: createAdbtCliMcpServer() } : undefined,
-      transcripts,
-    });
-    feasibility = await runFeasibility({
-      source: { ...source, source: feasibilityDir },
-      findings,
-      adbt,
-      executor: feasibilityExecutor,
-      liveMcp,
-      mcpClient: feasibilityMcp,
-      maxCostUsd,
-      workshopBrief: brief.content,
-    });
-  } finally {
-    await feasibilityMcp?.disconnect();
-    rmSync(feasibilityDir, { recursive: true, force: true });
+    // The audit interrogates ADBT and a bounded model to judge whether the port is possible
+    // before the port phases use their token allowance. Live calls the model + ADBT MCP; replay reads fixtures.
+    // It reads a disposable copy, so even a broken CLI cannot touch the attendee's source.
+    const adbt = await resolveAdbtProvider(source.source).load();
+    fallbackAdbtMode = adbt.mode;
+    const feasibilityReplay = feasibilityReplayPath();
+    const liveMcp = !feasibilityReplay;
+    const feasibilityDir = mkdtempSync(join(tmpdir(), "workshop-feasibility-"));
+    copySource(source.source, feasibilityDir);
+    const feasibilityMcp = liveMcp && executorConfig.kind === "strands" ? createAdbtMcpClient({ cwd: feasibilityDir }) : undefined;
+    try {
+      const feasibilityExecutor = createPortExecutor({
+        appDir: feasibilityDir,
+        outDir,
+        replayPath: feasibilityReplay,
+        recordingName: "feasibility-recording.json",
+        config: executorConfig,
+        cliMcpServers: liveMcp ? { [ADBT_SERVER]: createAdbtCliMcpServer() } : undefined,
+        transcripts,
+      });
+      feasibility = await runFeasibility({
+        source: { ...source, source: feasibilityDir },
+        findings,
+        adbt,
+        executor: feasibilityExecutor,
+        liveMcp,
+        mcpClient: feasibilityMcp,
+        maxTokens: remainingTokens,
+        maxTurns,
+        workshopBrief: brief.content,
+      });
+    } finally {
+      await feasibilityMcp?.disconnect();
+      rmSync(feasibilityDir, { recursive: true, force: true });
+    }
+    if (remainingTokens !== undefined && feasibility.usage.totalTokens > remainingTokens) {
+      throw new PortTokenBudgetError(`Model used ${feasibility.usage.totalTokens} tokens with only ${remainingTokens} tokens remaining`);
+    }
   }
 
   return {
@@ -167,15 +185,17 @@ async function buildPlan(sourcePath: string, outDir: string, transcripts?: Model
     workshopBrief: { path: WORKSHOP_BRIEF, sha256: brief.sha256, content: brief.content },
     target: { platform: "firetv-vega", sdk: VEGA_SDK_VERSION },
     seed: flag("--seed") ?? "workshop-v1",
-    maxCostUsd,
+    maxTokens,
+    maxTurns,
     executor: executorConfig,
     summary: summarize(findings),
     findings,
     feasibility,
+    feasibilityReused: Boolean(cachedFeasibility),
     phaseContext: `## Workshop Brief\n\n${brief.content}`,
     adbt: {
       package: ADBT_PACKAGE,
-      mode: feasibility.adbt?.mode ?? adbt.mode,
+      mode: feasibility.adbt?.mode ?? fallbackAdbtMode ?? "replay",
       phase: "feasibility + plan",
       workflows: feasibility.adbt?.documents.map((document) => document.name) ?? ADBT_PORT_WORKFLOWS,
     },
@@ -215,6 +235,7 @@ async function planCommand(): Promise<void> {
   }
   catch (error) {
     if (error instanceof AdbtContextError) return failure("adbt_unavailable", String(error), "Run doctor once or use the recorded ADBT replay context.", 3);
+    if (error instanceof PortTokenBudgetError) return failure("token_limit_exceeded", String(error), "Choose a larger --max-tokens value before making another live call.", 4);
     if (error instanceof CliFailure) throw error;
     failure("invalid_source", String(error), "Provide a React Native project containing package.json.");
   }
@@ -298,11 +319,11 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
   mkdirSync(out, { recursive: true });
   const statusPath = join(out, "status.json");
   const portResultPath = join(out, "port-result.json");
-  const savedPort = loadPortResult(portResultPath);
-  const previousPort = { ...savedPort, costUsd: Math.max(savedPort.costUsd, loadRunCost(statusPath)) };
-  let feasibilityCost = 0;
-  let invocationCost = 0;
-  let budgetUsd: number | undefined;
+  const previousPort = reconcilePortTelemetry(loadPortResult(portResultPath), loadRunTelemetry(statusPath));
+  let feasibilityTelemetry: ModelTelemetry | undefined;
+  let invocationTelemetry = emptyRunTelemetry();
+  let maxTokens: number | undefined;
+  let maxTurns: number | undefined;
   let tui: WorkshopTui | undefined;
   const completedThisInvocation: string[] = [];
   // Read before the first status write: a resumed run must not forget the phases it already did.
@@ -311,29 +332,42 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     assertRunSourceUnchanged(sourcePath, out);
     const selected = phases(phaseNames());
     const executorConfig = selectedExecutorConfig();
-    const initialBudget = Number(flag("--max-cost") ?? 10);
+    maxTokens = tokenLimit();
+    maxTurns = turnLimitOverride(args);
     tui = shouldUseTui(args) ? new WorkshopTui({
       runId,
       executor: executorName(executorConfig),
       evidenceMode: flag("--replay") ? "recorded" : "live",
       seed: flag("--seed") ?? "workshop-v1",
-      budgetUsd: initialBudget,
+      maxTokens,
       phases: [FEASIBILITY_PHASE, ...phases().map((phase) => phase.name)],
     }) : undefined;
     const transcripts = new ModelTranscriptStore(out, tui?.transcript);
+    if (tui) transcripts.replayExisting(tui.transcript);
     tui?.start(FEASIBILITY_PHASE);
     for (const phase of alreadyComplete) tui?.phasePassed(phase, "completed in an earlier invocation", 0);
-    const plan = await buildPlan(sourcePath, out, transcripts);
-    feasibilityCost = plan.feasibility.costUsd;
-    budgetUsd = plan.maxCostUsd;
-    tui?.phasePassed(FEASIBILITY_PHASE, plan.feasibility.summary);
-    tui?.cost(previousPort.costUsd + plan.feasibility.costUsd);
-    if (previousPort.costUsd + plan.feasibility.costUsd > plan.maxCostUsd) {
-      throw new PortBudgetError(`Run cost $${(previousPort.costUsd + plan.feasibility.costUsd).toFixed(2)} exceeded $${plan.maxCostUsd.toFixed(2)}`);
+    const plan = await buildPlan(sourcePath, out, transcripts, previousPort.usage.totalTokens);
+    feasibilityTelemetry = plan.feasibilityReused ? undefined : plan.feasibility;
+    const basePort = plan.feasibilityReused
+      ? previousPort
+      : mergePortResults(previousPort, portResultFromTelemetry(plan.feasibility));
+    if (plan.feasibilityReused) {
+      transcripts.append(FEASIBILITY_PHASE, {
+        attempt: 0,
+        executor: "harness",
+        direction: "system",
+        kind: "phase_reused",
+        payload: { report: join(out, "feasibility-report.json"), summary: plan.feasibility.summary },
+      });
+    }
+    tui?.phasePassed(FEASIBILITY_PHASE, plan.feasibilityReused ? `${plan.feasibility.summary} (reused)` : plan.feasibility.summary);
+    tui?.usage(basePort.usage, basePort.providerReportedCostUsd, basePort.providerReportedCostSource);
+    if (plan.maxTokens !== undefined && basePort.usage.totalTokens > plan.maxTokens) {
+      throw new PortTokenBudgetError(`Run used ${basePort.usage.totalTokens} tokens, exceeding the ${plan.maxTokens} token limit`);
     }
     writeFileSync(join(out, "feasibility-report.json"), JSON.stringify({ schemaVersion: 1, ...plan.feasibility }, null, 2));
     guardFeasibility(plan.feasibility);
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase: selected[0].name, phasesComplete: alreadyComplete, costUsd: previousPort.costUsd + plan.feasibility.costUsd, budgetUsd: plan.maxCostUsd, modelLogsDir: join(out, "model-logs") }, null, 2));
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase: selected[0].name, phasesComplete: alreadyComplete, ...telemetryFields(basePort, plan.maxTokens, plan.maxTurns), modelLogsDir: join(out, "model-logs") }, null, 2));
     const appDir = join(out, "app");
     // Resuming: `run --run-id <id> --phases build_test` continues in the guarded copy that
     // earlier phases already built and committed, so the source is copied only once per run id.
@@ -356,7 +390,8 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       target: plan.target,
       phases: plan.phases,
       seed: plan.seed,
-      maxCostUsd: plan.maxCostUsd,
+      maxTokens: plan.maxTokens,
+      maxTurns: plan.maxTurns,
       executor: plan.executor,
     }, null, 2));
     const replayPath = flag("--replay");
@@ -375,8 +410,8 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     const adbtClient = liveStrands ? createAdbtMcpClient({ cwd: appDir }) : undefined;
     const adbt = liveModel ? undefined : resolveAdbtProvider(appDir);
     const mcpClients = adbtClient ? { [ADBT_SERVER]: adbtClient } : undefined;
-    // --until-done removes the attempt cap; the cost cap and the no-progress rule still stop the loop.
-    const maxAttempts = args.includes("--until-done") ? Infinity : Number(flag("--max-attempts") ?? 2);
+    // No CLI override leaves each phase's declared retry limit intact.
+    const maxAttempts = retryAttemptOverride(args);
     // The build, launch, and test phases execute against a device. One session spans them, so
     // the package phase 4 produced is the one phase 5 installs. A partial run that stops before
     // them opens no session and claims no device evidence.
@@ -390,8 +425,7 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       state: "running",
       currentPhase: activePhase,
       phasesComplete: completedForStatus(),
-      costUsd: previousPort.costUsd + plan.feasibility.costUsd + invocationCost,
-      budgetUsd: plan.maxCostUsd,
+      ...telemetryFields(mergePortResults(basePort, portResultFromRunTelemetry(invocationTelemetry)), plan.maxTokens, plan.maxTurns),
       modelLogsDir: transcripts.directory,
     }, null, 2));
     const invocation = await runPortPipeline({
@@ -401,12 +435,12 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       projectContext: plan.phaseContext,
       briefSha256: plan.workshopBrief.sha256,
       seed: plan.seed,
-      maxCostUsd: plan.maxCostUsd - previousPort.costUsd - plan.feasibility.costUsd,
+      maxTokens: plan.maxTokens === undefined ? undefined : plan.maxTokens - basePort.usage.totalTokens,
+      maxTurns: plan.maxTurns,
       maxAttempts,
       phaseNames: phaseNames(),
       executor,
       device,
-      judge: screenshotJudge(out, transcripts),
       adbt,
       mcpClients,
       liveMcp: liveModel ? [ADBT_SERVER] : [],
@@ -422,19 +456,19 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
       onPhaseComplete: (phase, snapshot) => {
         tui?.phaseComplete(phase);
         completedThisInvocation.push(phase.name);
-        const checkpoint = mergePortResults(previousPort, { ...snapshot, costUsd: snapshot.costUsd + plan.feasibility.costUsd });
+        const checkpoint = mergePortResults(basePort, snapshot);
         writeFileSync(portResultPath, JSON.stringify({ schemaVersion: 1, ...checkpoint }, null, 2));
         writeRunningStatus();
       },
-      onCost: (costUsd) => {
-        invocationCost = costUsd;
-        tui?.cost(previousPort.costUsd + plan.feasibility.costUsd + costUsd);
+      onUsage: (telemetry) => {
+        invocationTelemetry = telemetry;
+        const cumulative = mergePortResults(basePort, portResultFromRunTelemetry(telemetry));
+        tui?.usage(cumulative.usage, cumulative.providerReportedCostUsd, cumulative.providerReportedCostSource);
         writeRunningStatus();
       },
       onNotice: tui?.notice,
     });
-    invocation.costUsd += plan.feasibility.costUsd;
-    const port = mergePortResults(previousPort, invocation);
+    const port = mergePortResults(basePort, invocation);
     writeFileSync(portResultPath, JSON.stringify({ schemaVersion: 1, ...port }, null, 2));
     if (device) writeCumulativeDeviceResult(device, out, loadPlatformReplay() ? "replay" : "live");
 
@@ -452,43 +486,79 @@ async function executeRun(sourcePath: string, runId: string): Promise<void> {
     const next = finalState === "awaiting_approval"
       ? `Review ${join(appDir, PORT_PLAN_PATH)}, then run approve-plan ${runId} --yes.`
       : "Inspect the generated app. Only a Vega result marked evidenceMode: live proves build or device behavior.";
-    const report = `# Workshop Run ${runId}\n\n- Target: Vega SDK ${VEGA_SDK_VERSION}\n- Product input: source app and ${WORKSHOP_BRIEF}\n- Source fingerprint: ${plan.sourceFingerprint}\n- Workshop brief hash: ${plan.workshopBrief.sha256}\n- Structured plan approval: ${planApproved ? "approved" : "required"}\n- Evidence mode: ${evidenceMode}\n- ADBT package: ${ADBT_PACKAGE}\n- ADBT access: MCP for both Strands and Claude Code live executors\n- ADBT port context: ${port.adbt?.mode ?? "missing"} (${port.adbt?.documents.join(", ") ?? "none"})\n- ADBT evidence: ${port.adbt?.evidence ?? "none"}\n- Executor: ${executionMode}\n- Seed: ${plan.seed}\n- Cost cap: $${plan.maxCostUsd}\n- Cumulative model cost: $${port.costUsd.toFixed(4)}\n- Model transcripts: ${transcripts.directory}\n- Transcript files: ${transcripts.files().join(", ") || "none"}\n- Guarded source initialized this invocation: ${resuming ? "no" : "yes"}\n- Port phases: ${port.phases.map((phase) => `${phase.name} (${phase.attempts} attempt${phase.attempts === 1 ? "" : "s"})`).join(", ")}\n- Next: ${next}\n`;
+    const report = [
+      `# Workshop Run ${runId}`,
+      "",
+      `- Target: Vega SDK ${VEGA_SDK_VERSION}`,
+      `- Product input: source app and ${WORKSHOP_BRIEF}`,
+      `- Source fingerprint: ${plan.sourceFingerprint}`,
+      `- Workshop brief hash: ${plan.workshopBrief.sha256}`,
+      `- Structured plan approval: ${planApproved ? "approved" : "required"}`,
+      `- Evidence mode: ${evidenceMode}`,
+      `- ADBT package: ${ADBT_PACKAGE}`,
+      "- ADBT access: MCP for both Strands and Claude Code live executors",
+      `- ADBT port context: ${port.adbt?.mode ?? "missing"} (${port.adbt?.documents.join(", ") ?? "none"})`,
+      `- ADBT evidence: ${port.adbt?.evidence ?? "none"}`,
+      `- Executor: ${executionMode}`,
+      `- Requested model(s): ${port.requestedModels.join(", ") || "not recorded"}`,
+      `- Actual model(s): ${port.actualModels.join(", ") || "not recorded"}`,
+      `- Seed: ${plan.seed}`,
+      `- Cumulative token limit: ${plan.maxTokens ?? "none"}`,
+      `- Per-call turn limit: ${plan.maxTurns ?? "none"}`,
+      `- Model usage: ${formatUsage(port.usage)}`,
+      ...(port.providerReportedCostUsd === undefined ? [] : [`- ${costLabel(port.providerReportedCostSource)}: $${port.providerReportedCostUsd.toFixed(4)}`]),
+      `- Model transcripts: ${transcripts.directory}`,
+      `- Transcript files: ${transcripts.files().join(", ") || "none"}`,
+      `- Guarded source initialized this invocation: ${resuming ? "no" : "yes"}`,
+      `- Port phases: ${port.phases.map((phase) => `${phase.name} (${phase.attempts} attempt${phase.attempts === 1 ? "" : "s"})`).join(", ")}`,
+      `- Next: ${next}`,
+      "",
+    ].join("\n");
     writeFileSync(join(out, "report.md"), report);
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: finalState, currentPhase: null, phasesComplete, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next }, null, 2));
-    tui?.cost(port.costUsd);
-    await tui?.complete();
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: finalState, currentPhase: null, phasesComplete, ...telemetryFields(port, plan.maxTokens, plan.maxTurns), out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next }, null, 2));
+    tui?.usage(port.usage, port.providerReportedCostUsd, port.providerReportedCostSource);
+    await tui?.complete(finalState === "awaiting_approval"
+      ? "Plan approval required. Review the plan after closing this dashboard with q."
+      : undefined);
     if (tui) {
-      humanRunComplete(runId, out, port.costUsd, phasesComplete, transcripts.directory);
+      humanRunComplete(runId, out, port, phasesComplete, transcripts.directory);
     } else {
-      json({ event: "run_complete", runId, state: finalState, out, seed: plan.seed, costUsd: port.costUsd, budgetUsd: plan.maxCostUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next });
+      json({ event: "run_complete", runId, state: finalState, out, seed: plan.seed, ...telemetryFields(port, plan.maxTokens, plan.maxTurns), phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(), next });
     }
   } catch (error) {
     tui?.fail(error instanceof Error ? error.message : String(error));
     tui?.finish();
     if (error instanceof CliFailure) throw error;
-    const budget = error instanceof PortBudgetError;
+    const failedCall = error instanceof PortExecutorError ? portResultFromTelemetry(error.telemetry) : emptyPortResult();
+    const cumulative = mergePortResults(
+      previousPort,
+      mergePortResults(
+        feasibilityTelemetry ? portResultFromTelemetry(feasibilityTelemetry) : emptyPortResult(),
+        mergePortResults(portResultFromRunTelemetry(invocationTelemetry), failedCall),
+      ),
+    );
+    const tokenLimitReached = error instanceof PortTokenBudgetError;
     const adbtFailure = error instanceof AdbtContextError;
     const approvalRequired = error instanceof PortPlanApprovalError;
     writeFileSync(statusPath, JSON.stringify({
       schemaVersion: 1,
       runId,
-      state: approvalRequired ? "awaiting_approval" : budget ? "aborted" : "failed",
-      reason: budget ? "budget" : undefined,
+      state: approvalRequired ? "awaiting_approval" : tokenLimitReached ? "aborted" : "failed",
+      reason: tokenLimitReached ? "token_limit" : undefined,
       phasesComplete: [...new Set([...alreadyComplete, ...completedThisInvocation])],
-      costUsd: previousPort.costUsd + feasibilityCost + invocationCost,
-      budgetUsd,
+      ...telemetryFields(cumulative, maxTokens, maxTurns),
       modelLogsDir: join(out, "model-logs"),
       error: String(error),
     }, null, 2));
     failure(
-      approvalRequired ? "plan_approval_required" : budget ? "budget_exceeded" : adbtFailure ? "adbt_unavailable" : "run_failed",
+      approvalRequired ? "plan_approval_required" : tokenLimitReached ? "token_limit_exceeded" : adbtFailure ? "adbt_unavailable" : "run_failed",
       String(error),
       approvalRequired
         ? `Review ${out}/app/${PORT_PLAN_PATH}, then run approve-plan ${runId} --yes.`
         : adbtFailure
           ? "Run doctor once or use the recorded ADBT replay context."
           : `Inspect ${out}/run.log, model-logs/, and portability-report.json.`,
-      approvalRequired ? 1 : budget ? 4 : adbtFailure ? 3 : 2,
+      approvalRequired ? 1 : tokenLimitReached ? 4 : adbtFailure ? 3 : 2,
     );
   }
 }
@@ -513,24 +583,13 @@ function assertRunSourceUnchanged(sourcePath: string, out: string): void {
   }
 }
 
-/** The fixture plus the frame its recorded `pull` writes, resolved beside the fixture file. */
-function loadPlatformReplay(): { fixture: VegaReplayFixture; screenshot?: Buffer } | null {
+/** Load the recorded device lifecycle used by the key-free path. */
+function loadPlatformReplay(): { fixture: VegaReplayFixture } | null {
   const replayPath = flag("--platform-replay");
   if (!replayPath) return null;
   const path = resolve(replayPath);
   const fixture = JSON.parse(readFileSync(path, "utf8")) as VegaReplayFixture;
-  return { fixture, screenshot: fixture.screenshot ? readFileSync(resolve(dirname(path), fixture.screenshot)) : undefined };
-}
-
-/**
- * The optional model review of the device frame. Needs a multimodal model, so it requires the
- * Strands executor — the Claude CLI wrapper here only passes text.
- */
-function screenshotJudge(out?: string, transcripts = out ? new ModelTranscriptStore(out) : undefined): ScreenshotJudge | undefined {
-  if (!args.includes("--evaluate-screenshot")) return undefined;
-  const config = selectedExecutorConfig();
-  if (config.kind !== "strands") failure("screenshot_review_unavailable", "--evaluate-screenshot needs a multimodal model.", "Select a multimodal Strands model in workshop.config.json, or drop --evaluate-screenshot.");
-  return createScreenshotJudge(config.model, transcripts);
+  return { fixture };
 }
 
 /** The device session the build, launch, and test phases share. */
@@ -538,7 +597,7 @@ function openDeviceSession(out: string, appDir: string, preserveArtifacts = fals
   const replay = loadPlatformReplay();
   const previous = loadVegaResult(join(out, "vega-platform-result.json"));
   return startDeviceRun({
-    adapter: replay ? new VegaReplayAdapter(replay.fixture.turns, replay.screenshot) : new VegaAdapter(undefined, join(appDir, "apps", "vega")),
+    adapter: replay ? new VegaReplayAdapter(replay.fixture.turns) : new VegaAdapter(undefined, join(appDir, "apps", "vega")),
     outDir: out,
     evidenceMode: replay ? "replay" : "live",
     packagePath: replay?.fixture.packagePath ?? previous?.packagePath,
@@ -559,14 +618,13 @@ function runLifecycle(out: string, appDir: string, liveAdapter?: VegaAdapter) {
   const vegaDir = join(appDir, "apps", "vega");
   const replay = loadPlatformReplay();
   return runVegaLifecycle({
-    adapter: replay ? new VegaReplayAdapter(replay.fixture.turns, replay.screenshot) : liveAdapter ?? new VegaAdapter(undefined, vegaDir),
+    adapter: replay ? new VegaReplayAdapter(replay.fixture.turns) : liveAdapter ?? new VegaAdapter(undefined, vegaDir),
     appDir: vegaDir,
     focusDir: appDir,
     outDir: out,
     evidenceMode: replay ? "replay" : "live",
     packagePath: replay?.fixture.packagePath,
     appId: replay?.fixture.appId,
-    judge: screenshotJudge(out),
   });
 }
 
@@ -590,7 +648,12 @@ async function beeRunCommand(): Promise<void> {
   const out = join(root, runId);
   const appDir = join(out, "app");
   const statusPath = join(out, "status.json");
+  const resultPath = join(out, "bee-result.json");
   mkdirSync(out, { recursive: true });
+  const previousPort = reconcilePortTelemetry(loadPortResult(resultPath), loadRunTelemetry(statusPath));
+  let invocationTelemetry = emptyRunTelemetry();
+  let maxTokens: number | undefined;
+  let maxTurns: number | undefined;
   try {
     if (!existsSync(appDir)) copySource(sourcePath, appDir);
     // An unapproved spec is not a thing to build from: --apply reads what --propose wrote and
@@ -600,6 +663,11 @@ async function beeRunCommand(): Promise<void> {
 
     const replayPath = flag("--replay");
     const executorConfig = selectedExecutorConfig();
+    maxTokens = tokenLimit();
+    maxTurns = turnLimitOverride(args);
+    if (maxTokens !== undefined && previousPort.usage.totalTokens >= maxTokens) {
+      throw new PortTokenBudgetError(`Run has already used ${previousPort.usage.totalTokens} tokens, reaching the ${maxTokens} token limit`);
+    }
     const transcripts = new ModelTranscriptStore(out);
     const executor = createPortExecutor({ appDir, outDir: out, replayPath, config: executorConfig, recordingName: "bee-recording.json", transcripts });
     // Live: hand the Bee client to the agent and let Strands discover its tools. Replay: the
@@ -610,14 +678,35 @@ async function beeRunCommand(): Promise<void> {
     const plan = beePhases(spec, appDir);
     const phaseNamesForRun = proposing ? [BEE_SPEC_PHASE] : plan.map((phase) => phase.name).filter((name) => name !== BEE_SPEC_PHASE);
     const device = applying ? openDeviceSession(out, appDir) : undefined;
+    let activePhase = phaseNamesForRun[0];
+    const writeBeeStatus = () => writeFileSync(statusPath, JSON.stringify({
+      schemaVersion: 1,
+      runId,
+      state: "running",
+      currentPhase: activePhase,
+      phasesComplete: completedPhases(statusPath),
+      ...telemetryFields(mergePortResults(previousPort, portResultFromRunTelemetry(invocationTelemetry)), maxTokens, maxTurns),
+      modelLogsDir: transcripts.directory,
+    }, null, 2));
 
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase: phaseNamesForRun[0], phasesComplete: completedPhases(statusPath), modelLogsDir: transcripts.directory }, null, 2));
-    const result = await runPortPipeline({
+    writeBeeStatus();
+    const invocation = await runPortPipeline({
       appDir, outDir: out, findings: [], projectContext: beeContext(recordedBee), seed: flag("--seed") ?? "workshop-v1",
-      maxCostUsd: Number(flag("--max-cost") ?? 3), plan, phaseNames: phaseNamesForRun,
-      executor, device, judge: screenshotJudge(out, transcripts), transcripts,
+      maxTokens: maxTokens === undefined ? undefined : maxTokens - previousPort.usage.totalTokens,
+      maxTurns, plan, phaseNames: phaseNamesForRun,
+      executor, device, transcripts,
       mcpClients: beeClient ? { [BEE_SERVER]: beeClient } : undefined,
-      onPhase: (currentPhase) => writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "running", currentPhase, phasesComplete: completedPhases(statusPath), modelLogsDir: transcripts.directory }, null, 2)),
+      onPhase: (currentPhase) => {
+        activePhase = currentPhase;
+        writeBeeStatus();
+      },
+      onPhaseComplete: (_phase, snapshot) => {
+        writeFileSync(resultPath, JSON.stringify({ schemaVersion: 1, ...mergePortResults(previousPort, snapshot) }, null, 2));
+      },
+      onUsage: (telemetry) => {
+        invocationTelemetry = telemetry;
+        writeBeeStatus();
+      },
       // Provenance without a transcript: what was consulted, and a hash proving it was not edited.
       // Live provenance is reconstructed from the agent's Bee tool calls; on the recorded path it
       // comes from the fixture's verified hash, so both halves leave the same evidence behind.
@@ -627,7 +716,8 @@ async function beeRunCommand(): Promise<void> {
         if (provenance) writeFileSync(join(out, "bee-context.json"), JSON.stringify(provenance, null, 2));
       },
     });
-    writeFileSync(join(out, "bee-result.json"), JSON.stringify({ schemaVersion: 1, ...result }, null, 2));
+    const result = mergePortResults(previousPort, invocation);
+    writeFileSync(resultPath, JSON.stringify({ schemaVersion: 1, ...result }, null, 2));
     if (device) writeDeviceResult(device, loadPlatformReplay() ? "replay" : "live");
 
     // The review document is rendered by the harness from the validated spec, so the prose a
@@ -643,17 +733,20 @@ async function beeRunCommand(): Promise<void> {
     }
 
     const phasesComplete = [...new Set([...completedPhases(statusPath), ...result.phases.map((phase) => phase.name)])];
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "complete", currentPhase: null, phasesComplete, costUsd: result.costUsd, out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() }, null, 2));
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "complete", currentPhase: null, phasesComplete, ...telemetryFields(result, maxTokens, maxTurns), out, modelLogsDir: transcripts.directory, modelLogs: transcripts.files() }, null, 2));
     json({
       event: proposing ? "bee_spec_ready" : "bee_apply_complete",
-      runId, state: "complete", out, costUsd: result.costUsd, phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(),
+      runId, state: "complete", out, ...telemetryFields(result, maxTokens, maxTurns), phasesComplete, modelLogsDir: transcripts.directory, modelLogs: transcripts.files(),
       review: proposing ? join(appDir, BEE_SPEC_MD) : undefined,
       next: proposing ? `Read ${join(appDir, BEE_SPEC_MD)}, then rerun with --apply --yes` : undefined,
     });
   } catch (error) {
     if (error instanceof CliFailure) throw error;
-    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: "failed", error: String(error), modelLogsDir: join(out, "model-logs") }, null, 2));
-    failure("bee_run_failed", String(error), `Inspect ${out} and the spec in ${appDir}.`, 2);
+    const failedCall = error instanceof PortExecutorError ? portResultFromTelemetry(error.telemetry) : emptyPortResult();
+    const cumulative = mergePortResults(previousPort, mergePortResults(portResultFromRunTelemetry(invocationTelemetry), failedCall));
+    const tokenLimitReached = error instanceof PortTokenBudgetError;
+    writeFileSync(statusPath, JSON.stringify({ schemaVersion: 1, runId, state: tokenLimitReached ? "aborted" : "failed", reason: tokenLimitReached ? "token_limit" : undefined, ...telemetryFields(cumulative, maxTokens, maxTurns), error: String(error), modelLogsDir: join(out, "model-logs") }, null, 2));
+    failure(tokenLimitReached ? "token_limit_exceeded" : "bee_run_failed", String(error), `Inspect ${out} and the spec in ${appDir}.`, tokenLimitReached ? 4 : 2);
   }
 }
 
@@ -749,15 +842,30 @@ async function vegaRunCommand(): Promise<void> {
   if (!vegaDir || !existsSync(join(vegaDir, "package.json"))) failure("vega_app_missing", "The guarded run has no apps/vega package.", "Run the verified port pipeline before Vega execution.");
   const liveAdapter = new VegaAdapter(undefined, vegaDir);
   const capabilities: Array<{ capability: VegaCapability; values?: string[] }> = [
-    { capability: "sdk_version" }, { capability: "device_status" }, { capability: "build" },
+    { capability: "sdk_version" }, { capability: "device_status" }, { capability: "vda_start" },
+    { capability: "device_status" }, { capability: "dependencies" }, { capability: "build" },
     { capability: "install", values: ["<build/*.vpkg>"] }, { capability: "launch", values: ["<component-id>"] },
-    { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
-    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, `<run>/${VEGA_LAUNCH_FRAME}`] },
+    { capability: "app_status", values: ["<component-id>"] },
     { capability: "logs" },
-    { capability: "capture", values: [VEGA_SCREENSHOT_REMOTE] },
-    { capability: "pull", values: [VEGA_SCREENSHOT_REMOTE, `<run>/${VEGA_POSTLAUNCH_FRAME}`] },
+    { capability: "app_status", values: ["<component-id>"] },
   ];
-  if (args.includes("--plan")) return json({ command: "vega_run_plan", runId, appDir, sdkVersion: VEGA_SDK_VERSION, adbtPackage: ADBT_PACKAGE, steps: capabilities.map((step) => ({ capability: step.capability, command: liveAdapter.command(step.capability, ...(step.values ?? [])) })), requiresConfirmation: true });
+  if (args.includes("--plan")) return json({
+    command: "vega_run_plan",
+    runId,
+    appDir,
+    sdkVersion: VEGA_SDK_VERSION,
+    adbtPackage: ADBT_PACKAGE,
+    steps: capabilities.map((step, index) => ({
+      capability: step.capability,
+      command: liveAdapter.command(step.capability, ...(step.values ?? [])),
+      conditional: index === 2
+        ? "when no VDA is attached"
+        : index === 3
+          ? "after startup, repeated until the device is attached twice or 60 seconds elapse"
+          : undefined,
+    })),
+    requiresConfirmation: true,
+  });
   if (!args.includes("--yes")) failure("confirmation_required", "Vega execution requires explicit confirmation.", "Show vega-run --plan, then rerun with --yes.");
   const platformResult = await runLifecycle(out, appDir, liveAdapter);
   const state = platformResult.blockers.length === 0 ? "complete" : "failed";
@@ -767,16 +875,97 @@ async function vegaRunCommand(): Promise<void> {
 
 function flag(name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
 function selectedExecutorConfig() {
-  return resolveExecutorConfig(loadExecutorInput(args));
+  const config = resolveExecutorConfig(loadExecutorInput(args));
+  if (!args.includes("--replay") && config.kind === "claude-cli") {
+    const availability = claudeModelAvailability(config.model);
+    if (availability?.status === "repair") {
+      failure("model_unavailable", availability.detail, availability.hint ?? "Choose an exact Claude model name before running a live model.");
+    }
+  }
+  return config;
 }
 function executorName(config: ReturnType<typeof selectedExecutorConfig>): string {
   if (flag("--replay")) return "replay";
   return config.kind === "strands" ? `strands:${config.model.provider}/${config.model.modelId}` : `claude-cli:${config.model}`;
 }
-function humanRunComplete(runId: string, out: string, costUsd: number, phasesComplete: string[], modelLogsDir: string): void {
+function tokenLimit(): number | undefined {
+  const raw = flag("--max-tokens");
+  if (raw === undefined) return undefined;
+  return positiveIntegerFlag("--max-tokens", 1);
+}
+function positiveIntegerFlag(name: string, fallback: number): number {
+  const raw = flag(name);
+  const value = raw === undefined ? fallback : Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
+  return value;
+}
+function emptyRunTelemetry(): RunTelemetry {
+  return { usage: { ...EMPTY_MODEL_USAGE }, requestedModels: [], actualModels: [] };
+}
+function emptyPortResult(): PortResult {
+  return { phases: [], ...emptyRunTelemetry() };
+}
+function portResultFromTelemetry(telemetry: ModelTelemetry): PortResult {
+  return {
+    phases: [],
+    usage: telemetry.usage,
+    providerReportedCostUsd: telemetry.providerReportedCostUsd,
+    providerReportedCostSource: telemetry.providerReportedCostSource,
+    requestedModels: telemetry.requestedModel ? [telemetry.requestedModel] : [],
+    actualModels: telemetry.actualModels,
+  };
+}
+function portResultFromRunTelemetry(telemetry: RunTelemetry): PortResult {
+  return { phases: [], ...telemetry };
+}
+function reconcilePortTelemetry(saved: PortResult, status: RunTelemetry): PortResult {
+  return {
+    ...saved,
+    usage: modelUsage({
+      inputTokens: Math.max(saved.usage.inputTokens, status.usage.inputTokens),
+      outputTokens: Math.max(saved.usage.outputTokens, status.usage.outputTokens),
+      cacheReadInputTokens: Math.max(saved.usage.cacheReadInputTokens, status.usage.cacheReadInputTokens),
+      cacheWriteInputTokens: Math.max(saved.usage.cacheWriteInputTokens, status.usage.cacheWriteInputTokens),
+      calls: Math.max(saved.usage.calls, status.usage.calls),
+      turns: Math.max(saved.usage.turns, status.usage.turns),
+    }),
+    providerReportedCostUsd: maxOptional(saved.providerReportedCostUsd, status.providerReportedCostUsd),
+    providerReportedCostSource: mergeProviderCostSource(saved.providerReportedCostSource, status.providerReportedCostSource),
+    requestedModels: [...new Set([...saved.requestedModels, ...status.requestedModels])],
+    actualModels: [...new Set([...saved.actualModels, ...status.actualModels])],
+  };
+}
+function maxOptional(left?: number, right?: number): number | undefined {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  return Math.max(left, right);
+}
+function telemetryFields(telemetry: RunTelemetry | PortResult, maxTokens?: number, maxTurns?: number) {
+  return {
+    usage: telemetry.usage,
+    maxTokens,
+    maxTurns,
+    providerReportedCostUsd: telemetry.providerReportedCostUsd,
+    providerReportedCostSource: telemetry.providerReportedCostSource,
+    requestedModels: telemetry.requestedModels,
+    actualModels: telemetry.actualModels,
+  };
+}
+function costLabel(source?: ProviderCostSource): string {
+  if (source === "recorded") return "Recorded provider cost metadata";
+  if (source === "mixed") return "Mixed recorded/provider cost metadata";
+  return "Provider-reported cost";
+}
+function formatUsage(usage: ModelUsage): string {
+  return `${usage.totalTokens} tokens (${usage.inputTokens} input, ${usage.outputTokens} output, ${usage.cacheReadInputTokens} cache read, ${usage.cacheWriteInputTokens} cache write), ${usage.turns} turns, ${usage.calls} calls`;
+}
+function humanRunComplete(runId: string, out: string, telemetry: RunTelemetry, phasesComplete: string[], modelLogsDir: string): void {
   process.stdout.write(`Run ${runId} complete.\n`);
   process.stdout.write(`Phases: ${phasesComplete.join(", ")}\n`);
-  process.stdout.write(`Cost: $${costUsd.toFixed(4)}\n`);
+  process.stdout.write(`Usage: ${formatUsage(telemetry.usage)}\n`);
+  if (telemetry.providerReportedCostUsd !== undefined) {
+    process.stdout.write(`${costLabel(telemetry.providerReportedCostSource)}: $${telemetry.providerReportedCostUsd.toFixed(4)}\n`);
+  }
   process.stdout.write(`Output: ${out}\n`);
   process.stdout.write(`Full model logs: ${modelLogsDir}\n`);
 }
@@ -805,7 +994,6 @@ Model execution:
   --executor claude-cli                 Local Claude Code (default)
   --executor strands --provider <name>  Strands: bedrock, openai, or openrouter
   --model <id> [--region <aws-region>]  Exact provider model id; region is for Bedrock
-  --input-rate N --output-rate N        Required for models absent from the pricing table
   --replay <recording.json>             Key-free recorded model turns
   --adbt-replay <context.json>          Recorded ADBT context
   --adbt-live                           Call pinned ADBT while model output is replayed
@@ -819,12 +1007,13 @@ Pipeline:
   --phases analyze,plan                 Run part of the port (default: all six)
   --run-id <id>                         Continue the same guarded app and audit trail
   --seed <value>                        Fixed creative seed (default workshop-v1)
-  --max-cost <usd>                      Cumulative run cap, including resumed phases
-  --max-attempts N | --until-done       Retry budget per phase (default 2)
+  --max-tokens <count>                  Optional cumulative token limit (no default limit)
+  --max-turns <count>                   Optional per-call turn limit (no default)
+  --max-attempts N | --until-done       Override each phase's retry limit
   --yes                                 Required confirmation for writes or device work
   --detach                              Run in the background; use status and logs
   --json                                JSON/NDJSON contract (the workshop CLI emits JSON)
-  --tui                                 Final-lesson phase dashboard; q exits after review
+  --tui                                 Interactive phase and message dashboard
 
 Product input:
   The source app and its required workshop-brief.md are the product input.
@@ -833,15 +1022,19 @@ Product input:
 
 Device evidence:
   --platform-replay <fixture.json>      Recorded lifecycle; proves control flow, not a device
-  --evaluate-screenshot                 Optional Strands multimodal review; pixel gate still runs
 
 Both live executors receive pinned ADBT as MCP. Claude is restricted to read/search plus the
-named ADBT MCP tools; only the harness writes validated patches.
+named ADBT MCP tools; only the harness writes validated patches. Claude model aliases such as
+sonnet are rejected: use an exact availableModels name. The CLI retains a $10 emergency ceiling
+per Claude subprocess, but dollars are never estimated or used as the workshop control. A cost
+is shown only when the provider reports one; replay labels fixture cost as recorded metadata.
 Every phase appends complete requests, native model events, tool traffic, results, and checks
 to out/<runId>/model-logs/<phase>.jsonl. Add --follow or use tail -f with jq.
-Add --tui for the final-lesson phase dashboard. Use up/down to select a phase, Tab to switch
-between checks/model/tools/all, f to follow the active phase, and q to close after completion.
-The dashboard is a filtered view; it never shortens the canonical logs.
+Add --tui to each final-lesson run invocation. Use Up/Down and Enter to inspect a phase's
+messages, then Escape to return to the phase list. A resumed dashboard loads earlier events.
+In the message view, use Up/Down to select an event, PageUp/PageDown to scroll content, and
+Tab to switch between checks/model/tools/all. Use f to follow the active phase and q to close
+after completion. The dashboard is a filtered view; it never shortens the canonical logs.
 Strands providers: bedrock, openai, openrouter
 `);
 }

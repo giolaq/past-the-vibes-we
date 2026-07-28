@@ -5,4 +5,4 @@ $ yarn tsx src/index.ts run \
 plan attempt 1 failed:
   - TV flow documented: VEGA_PORT.md must contain "## TV Flow"
   - Focus model documented: VEGA_PORT.md must contain "## Focus"
-{"schemaVersion":1,"event":"run_complete","runId":"retry-demo","state":"awaiting_approval","out":"$REPO/out/retry-demo","seed":"workshop-v1","costUsd":0.011800000000000001,"budgetUsd":10,"phasesComplete":["analyze","plan"],"next":"Review port-plan.json, then run approve-plan retry-demo --yes."}
+{"schemaVersion":1,"event":"run_complete","runId":"retry-demo","state":"awaiting_approval","out":"$REPO/out/retry-demo","seed":"workshop-v1","usage":{"inputTokens":2120,"outputTokens":930,"cacheReadInputTokens":0,"cacheWriteInputTokens":0,"calls":4,"turns":4,"totalTokens":3050},"maxTokens":1000000,"maxTurns":12,"providerReportedCostUsd":0.011800000000000001,"requestedModels":["fixture"],"actualModels":["fixture"],"providerReportedCostSource":"recorded","phasesComplete":["analyze","plan"],"next":"Review port-plan.json, then run approve-plan retry-demo --yes."}

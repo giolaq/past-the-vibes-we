@@ -7,6 +7,12 @@ import { fileURLToPath } from "node:url";
 
 process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
 
+const websiteFiles = [
+  ...walk("workshop/lessons").filter((path) => extname(path) === ".md"),
+  "workshop/index.html",
+  "workshop/workshop.js",
+].filter(existsSync);
+
 const files = [
   "README.md",
   "packages/workshop-harness/README.md",
@@ -15,8 +21,11 @@ const files = [
     .filter((path) => !path.includes("/fixtures/"))
     .filter((path) => path !== "workshop/STE-STYLE.md"),
   "workshop/slides.html",
+  ...websiteFiles,
   "scripts/build-site.mjs",
-].filter(existsSync);
+].filter((path, index, all) => existsSync(path) && all.indexOf(path) === index);
+
+const websiteFileSet = new Set(websiteFiles);
 
 const contractions =
   /\b(?:don't|doesn't|can't|won't|isn't|aren't|it's|that's|you'll|we'll|you've|we've|they're|there's|here's|what's|let's|didn't|wouldn't|shouldn't|couldn't)\b/i;
@@ -31,6 +40,17 @@ const blockedPhrases = [
   "talked around",
   "the whole point",
   "recovery cassette",
+];
+
+const websiteBlockedTerms = [
+  "replay path",
+  "sandbox",
+  "safe clone",
+  "outcome",
+  "verdict",
+  "judge",
+  "observer",
+  "gatekeeper",
 ];
 
 const failures: string[] = [];
@@ -49,6 +69,15 @@ for (const file of files) {
     for (const phrase of blockedPhrases) {
       if (lower.includes(phrase)) {
         failures.push(`${file}:${index + 1}: replace the phrase "${phrase}"`);
+      }
+    }
+
+    if (websiteFileSet.has(file)) {
+      for (const term of websiteBlockedTerms) {
+        const pattern = new RegExp(`\\b${term.replaceAll(" ", "\\s+")}\\b`, "i");
+        if (pattern.test(line)) {
+          failures.push(`${file}:${index + 1}: replace the website term "${term}"`);
+        }
       }
     }
   }

@@ -7,6 +7,11 @@ import { NAIVE_PHASE, runNaiveProbe } from "../src/naive-probe.js";
 import type { PortExecutor } from "../src/port-executor.js";
 import { BUILD_FAILURE_FILE, injectBuildFailure, injectedBuildFailureChecks } from "../src/workshop-failure.js";
 
+test("model calls have no elapsed-time deadline", () => {
+  const executor = readFileSync(join(import.meta.dirname, "../src/port-executor.ts"), "utf8");
+  assert.doesNotMatch(executor, /AbortSignal\.timeout|executor timed out|setTimeout\(/);
+});
+
 test("the one-shot probe saves a plausible patch but marks every claim unproven", async () => {
   let seenPhase = "";
   let seenPrompt = "";
@@ -19,14 +24,19 @@ test("the one-shot probe saves a plausible patch but marks every claim unproven"
           summary: "Port everything in one pass",
           files: { "apps/vega/manifest.toml": "schema-version = 1", "src/tv/focus-state.ts": "export {}" },
         }),
-        costUsd: 0.02,
+        usage: { inputTokens: 20, outputTokens: 10, cacheReadInputTokens: 0, cacheWriteInputTokens: 0, totalTokens: 30, calls: 1, turns: 1 },
+        providerReportedCostUsd: 0.02,
+        requestedModel: "fixture-model",
+        actualModels: ["fixture-model"],
       };
     },
   };
-  const result = await runNaiveProbe(executor);
+  const result = await runNaiveProbe(executor, 100);
   assert.equal(seenPhase, NAIVE_PHASE);
+  assert.match(seenPrompt, /Return ONLY JSON.*"summary".*"files"/s);
   assert.doesNotMatch(seenPrompt, /Required checks|ADBT|retry/i);
   assert.equal(result.coverage.find((item) => item.claim === "Vega package boundary")?.proposed, true);
+  assert.equal(result.usage.totalTokens, 30);
   assert.ok(result.coverage.every((item) => item.proven === false));
   assert.ok(result.missingProof.includes("No static check or compiler ran"));
 });

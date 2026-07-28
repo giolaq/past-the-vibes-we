@@ -75,20 +75,30 @@ Then run `doctor` without model options.
 - For Bedrock, verify AWS credentials, region, and model access.
 - For OpenAI, verify `OPENAI_API_KEY` and the model ID.
 - For OpenRouter, verify `OPENROUTER_API_KEY` and the `provider/model` ID.
-- For a custom model, supply both pricing flags.
+- For Claude Code, use an exact model name from an enforced `availableModels`
+  list. Do not use `sonnet`, `opus`, or `haiku`.
 
-Use provider prices in USD per million tokens.
-Do not estimate the prices.
+The harness does not calculate model prices.
+It reports a dollar value only when the provider supplies one.
+On replay, that value is recorded fixture metadata.
 
 Try one correction.
 If it fails, save the error and `model-logs`.
 Then use the lesson recording.
 Do not change providers repeatedly.
 
-## The cost limit is reached
+## A model call does not finish
+
+Model calls have no elapsed-time timeout.
+Open the phase JSONL log and check whether events are still arriving.
+If the log stops changing, press `Ctrl-C`.
+Run the same phase again or use its recorded fallback.
+
+## The token limit is reached
 
 Stop the run.
-Do not increase the cost limit without participant approval.
+Inspect `usage`, `maxTokens`, and the model transcripts.
+Do not increase the token limit without participant approval.
 Continue from a checkpoint.
 
 ## ADBT is not available
@@ -111,16 +121,9 @@ If ADBT still fails, remove `--adbt-live`.
 Use the recorded ADBT context.
 Open `adbt-port-context.json` to verify the evidence mode.
 
-If an ADBT skill is missing, run:
-
-```sh
-npx -y @amazon-devices/amazon-devices-buildertools-mcp@1.0.5 \
-  init-context --agent claude-code-cli --force
-```
-
-You can also set `WORKSHOP_SKILLS_DIR`.
-A missing skill does not stop the run.
-The live ADBT MCP connection is separate from skill installation.
+Default phases do not require local Vega skills.
+They receive Vega knowledge from the live ADBT MCP connection.
+Optional team skills remain available through `WORKSHOP_SKILLS_DIR`.
 
 ## Vega build or VDA fails
 
@@ -132,8 +135,9 @@ vega virtual-device status
 vega exec vda devices -l
 ```
 
-The required SDK version is `0.22.5875`.
-Start VDA in a system terminal:
+The required SDK version is `0.23.9221`.
+The launch phase normally starts VDA when the device list is empty.
+To start it manually while troubleshooting:
 
 ```sh
 vega virtual-device start --gui
@@ -141,6 +145,17 @@ vega virtual-device start --gui
 
 Keep the terminal open.
 An empty device list is a failure.
+
+If the test phase cannot read focus, check the two device tools:
+
+```sh
+vega exec vda shell inputd-cli --help
+vega exec vda shell automation-toolkit --help
+```
+
+The harness creates `/tmp/automation-toolkit.enable` and polls the JSON-RPC
+`getPageSource` method. A focused control without `test_id` is an app repair:
+add the approved focus id as its React Native `testID`.
 
 If the build fails with an attached device:
 

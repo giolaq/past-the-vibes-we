@@ -1,9 +1,11 @@
+import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
 import type { McpClient } from "@strands-agents/sdk";
-import { extractAdbtProvenance, renderAdbtPrompt, type AdbtPortContext } from "./context-providers/adbt.js";
+import { AdbtPortContextSchema, extractAdbtProvenance, renderAdbtPrompt, type AdbtPortContext } from "./context-providers/adbt.js";
 import type { AuditFinding } from "./contracts.js";
 import { parseJsonBlock } from "./port-contract.js";
-import type { PortExecutor } from "./port-executor.js";
+import { recordedUsage, type ModelTelemetry, type ProviderCostSource } from "./model-telemetry.js";
+import { PortExecutorError, type PortExecutor } from "./port-executor.js";
 import type { SourceDiscovery } from "./source-app.js";
 
 export const FEASIBILITY_PHASE = "vega_portability_audit";
@@ -25,13 +27,39 @@ export const FeasibilityOutputSchema = z.object({
 
 export type FeasibilityOutput = z.infer<typeof FeasibilityOutputSchema>;
 
-export type FeasibilityResult = FeasibilityOutput & { costUsd: number; adbt?: AdbtPortContext };
+export type FeasibilityResult = FeasibilityOutput & ModelTelemetry & { adbt?: AdbtPortContext };
+
+/** Load a prior, harness-written feasibility result for a resumed run. */
+export function loadFeasibilityResult(path: string): FeasibilityResult | undefined {
+  if (!existsSync(path)) return undefined;
+  try {
+    const value = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    if (value.schemaVersion !== 1) return undefined;
+    const output = FeasibilityOutputSchema.parse(value);
+    const adbt = AdbtPortContextSchema.parse(value.adbt);
+    if (adbt.documents.length === 0) return undefined;
+    const providerReportedCostSource = costSource(value.providerReportedCostSource);
+    return {
+      ...output,
+      usage: recordedUsage(value.usage),
+      providerReportedCostUsd: finite(value.providerReportedCostUsd),
+      providerReportedCostSource,
+      requestedModel: typeof value.requestedModel === "string" ? value.requestedModel : undefined,
+      actualModels: Array.isArray(value.actualModels)
+        ? value.actualModels.filter((model): model is string => typeof model === "string")
+        : [],
+      adbt,
+    };
+  } catch {
+    return undefined;
+  }
+}
 
 export function buildFeasibilityPrompt(source: SourceDiscovery, findings: AuditFinding[], adbt: AdbtPortContext, liveMcp = false, workshopBrief = ""): string {
   const guidance = liveMcp
     ? "Use the ADBT MCP tools to list and read the Vega React Native porting and library-compatibility guidance before deciding. Do not rely on model memory."
     : renderAdbtPrompt(adbt);
-  return `You are judging whether the CURRENT React Native app can be ported to Vega SDK 0.22.5875. Read files before judging. Do not invent Vega support you cannot ground in the ADBT guidance.
+  return `You are judging whether the CURRENT React Native app can be ported to Vega SDK 0.23.9221. Read files before judging. Do not invent Vega support you cannot ground in the ADBT guidance.
 
 Phase: ${FEASIBILITY_PHASE}
 Goal: Decide if the port is possible and classify each dependency as supported, needs-adapter, or blocking.
@@ -60,7 +88,8 @@ export async function runFeasibility(options: {
   executor: PortExecutor;
   liveMcp?: boolean;
   mcpClient?: McpClient;
-  maxCostUsd?: number;
+  maxTokens?: number;
+  maxTurns?: number;
   workshopBrief?: string;
 }): Promise<FeasibilityResult> {
   const prompt = buildFeasibilityPrompt(options.source, options.findings, options.adbt, options.liveMcp, options.workshopBrief);
@@ -68,12 +97,34 @@ export async function runFeasibility(options: {
     schema: FeasibilityOutputSchema,
     extraTools: options.mcpClient ? [options.mcpClient] : [],
     mcp: options.liveMcp ? ["adbt"] : [],
-    maxCostUsd: options.maxCostUsd,
+    maxTokens: options.maxTokens,
+    maxTurns: options.maxTurns,
   });
   const provenance = options.liveMcp ? extractAdbtProvenance(model.messages ?? []) : options.adbt;
   if (options.liveMcp && provenance.documents.length === 0) {
     throw new Error("The feasibility agent did not read an ADBT document through MCP");
   }
-  const parsed = parseJsonBlock(model.text, FeasibilityOutputSchema, "feasibility");
-  return { ...parsed, costUsd: model.costUsd, adbt: provenance };
+  let parsed: FeasibilityOutput;
+  try {
+    parsed = parseJsonBlock(model.text, FeasibilityOutputSchema, "feasibility");
+  } catch (error) {
+    throw new PortExecutorError(error instanceof Error ? error.message : String(error), model);
+  }
+  return {
+    ...parsed,
+    usage: model.usage,
+    providerReportedCostUsd: model.providerReportedCostUsd,
+    providerReportedCostSource: model.providerReportedCostSource,
+    requestedModel: model.requestedModel,
+    actualModels: model.actualModels,
+    adbt: provenance,
+  };
+}
+
+function finite(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function costSource(value: unknown): ProviderCostSource | undefined {
+  return value === "provider" || value === "recorded" || value === "mixed" ? value : undefined;
 }

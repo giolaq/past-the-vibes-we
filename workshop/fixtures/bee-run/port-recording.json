@@ -17,7 +17,9 @@
       "input_tokens": 600,
       "output_tokens": 320
     },
-    "costUsd": 0.0036
+    "providerReportedCostUsd": 0.0036,
+    "requestedModel": "fixture",
+    "actualModels": ["fixture"]
   },
   {
     "timestamp": "2026-07-18T14:30:00.000Z",
@@ -37,6 +39,8 @@
       "input_tokens": 600,
       "output_tokens": 320
     },
-    "costUsd": 0.0036
+    "providerReportedCostUsd": 0.0036,
+    "requestedModel": "fixture",
+    "actualModels": ["fixture"]
   }
 ]

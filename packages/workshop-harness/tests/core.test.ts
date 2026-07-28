@@ -112,7 +112,7 @@ test("tv-ready checks fail on a touch-first app and pass on a ported one", async
   mkdirSync(join(ported, "apps", "vega"), { recursive: true });
   mkdirSync(join(ported, "tests"));
   writeFileSync(join(ported, "src", "tv", "focus-state.ts"), "export const focus = true;");
-  writeFileSync(join(ported, "src", "App.tsx"), "import './tv/focus-state.js'; export const tv = 'hasTVPreferredFocus';");
+  writeFileSync(join(ported, "src", "App.tsx"), "import './tv/focus-state.js'; export const tv = 'hasTVPreferredFocus'; export const testID = 'featured-action';");
   writeFileSync(join(ported, "apps", "vega", "manifest.toml"), "schema-version = 1");
   writeFileSync(join(ported, "tests", "verify-tv-focus.ts"), "process.exit(0);");
   assert.deepEqual(await verifyPort(ported, staticChecks), []);

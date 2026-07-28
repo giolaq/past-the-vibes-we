@@ -13,10 +13,7 @@ evidence uses recorded data.
 This checkpoint proves adapter order, check order, evidence files, and report
 format. It does not prove that a live Vega device passed.
 
-The two PNG files use the same fixture frame. Recorded data has no process to
-wait for.
-
-For device certification, repeat the lesson with Vega SDK `0.22.5875` and an
-attached VDA target. Keep the live result, device log, and two real frames.
-Read [the live rehearsal record](../../live-rehearsal.md) for the current
-evidence limit.
+For device certification, repeat the lesson with Vega SDK `0.23.9221` and an
+attached VDA target. Keep the live result and device log. Confirm that both
+running-state samples pass. This lifecycle evidence does not prove that the
+intended interface rendered correctly.
