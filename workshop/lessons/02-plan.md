@@ -4,18 +4,18 @@ number: '02'
 nav: Plan the TV port
 time: 30 minutes
 title: Define and approve the Plan for TV porting
-lead: Convert the app analysis into a structured TV plan. Review focus, Select, and Back behavior before the harness permits source changes.
+lead: We will convert the app analysis into a structured TV plan and review focus, Select, and Back behavior before source changes.
 objective: Run the plan phase, inspect its ADBT sources, and approve the exact plan that later phases must follow.
 evidence: port-plan.json passes its schema. The human-approved plan is in port-plan-approval.json.
 ---
 
 :::welcome Plan before code changes
-The analyze phase described the current app.
-The plan phase defines the TV version of that app.
+We used the analyze phase to describe the current app.
+Now, we will use the plan phase to define the TV version of that app.
 
-The model proposes the plan.
-The harness checks the plan structure.
-A person approves the product decisions.
+The model will propose the plan.
+The harness will check the plan structure.
+You will approve the product decisions.
 :::
 
 ## Know the plan input and output
@@ -60,8 +60,8 @@ value: "ADBT", label: "ADBT gaps and sources" },
 ],
 }
 
-> look: The schema checks references and required behavior. The text checks require the human explanation and ADBT source record.
-> :::
+>look: The schema checks references and required behavior. The text checks require the human explanation and ADBT source record.
+:::
 
 The schema rejects a missing screen reference.
 It also rejects missing Select, Back, initial focus, or evidence mappings.
@@ -136,8 +136,8 @@ assertPortPlanApproved(appDir);
 }
 },
 
-> look: Every code or device phase checks the approval before the phase starts.
-> :::
+>look: Every code or device phase checks the approval before the phase starts.
+:::
 
 ## Approve the plan
 

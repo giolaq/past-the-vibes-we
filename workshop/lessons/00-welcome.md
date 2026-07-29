@@ -4,17 +4,17 @@ number: '00'
 nav: Start here
 time: 20 minutes
 title: Set up the workshop and learn the harness
-lead: Prepare the workshop workspace. The workspace contains the project packages and dependencies. A model executor connects the harness to a model.
+lead: We will prepare the workshop workspace, its project packages, and one model executor.
 objective: Explain the function of the harness. Prepare the project, one model connection, Amazon Devices Builder Tools (ADBT), the Vega software development kit (SDK), and the Vega Virtual Device (VDA).
 evidence: A verified workspace and one configured executor.
 ---
 
 :::welcome Set up the workshop and learn the harness
 Lesson 00 prepares all tools for the workshop.
-You will install the project dependencies and configure one model connection that sends real requests.
-You will prepare Amazon Devices Builder Tools, the Vega software development kit, and the Vega Virtual Device.
+We will install the project dependencies and configure one model connection that sends real requests.
+We will prepare Amazon Devices Builder Tools, the Vega software development kit, and the Vega Virtual Device.
 
-You will also learn how the harness works before you run its first phase.
+We will also learn how the harness works before we run its first phase.
 :::
 
 :::concept Understand the harness

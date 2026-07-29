@@ -309,6 +309,13 @@ h2 {
     border-radius: 8px;
     box-shadow: 0 24px 70px #00000066;
 }
+.app-only {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 .media-grid {
     display: grid;
     grid-template-columns: 0.84fr 1.16fr;
@@ -353,17 +360,7 @@ h2 {
 .flow .step span { font-size: 22px; color: var(--muted); line-height: 1.3; }
 .flow .arrow { align-self: center; font-size: 40px; color: var(--orange); font-weight: 900; }
 
-/* Big statement slides */
-.statement {
-    font-size: 150px;
-    font-weight: 900;
-    line-height: 1.0;
-    letter-spacing: -3px;
-    margin: 0;
-}
-.statement .mono { font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
-
-/* Slide chrome: lesson tag (top-left) + footer strip */
+/* Slide chrome: lesson tag (top-left) */
 .tag {
     position: absolute;
     top: 56px;
@@ -376,18 +373,6 @@ h2 {
     color: var(--faint);
 }
 .tag b { color: var(--orange); font-weight: 600; }
-.foot {
-    position: absolute;
-    bottom: 48px;
-    left: 140px;
-    right: 290px;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--mono);
-    font-size: 22px;
-    color: var(--faint);
-    letter-spacing: 1px;
-}
 
 /* D-pad diagram for the TV slide */
 .dpad { display: grid; grid-template-columns: repeat(3, 110px); grid-auto-rows: 110px; gap: 14px; justify-content: center; }
@@ -503,7 +488,6 @@ body.edit-mode .slide.active [data-edit-id]:focus {
     <!-- 1 ▸ TITLE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start;">
-        <div class="kicker reveal" style="--d:0ms">A four-hour workshop <span class="dim">·</span> React Native to Vega OS</div>
         <h1 class="reveal" style="--d:120ms">PAST THE<br><span class="accent">VIBES</span></h1>
         <div class="support reveal" style="--d:240ms">Build and test an agent harness with <strong>Strands Agents SDK</strong>.</div>
         <div class="speaker-row reveal" style="--d:380ms">
@@ -517,7 +501,6 @@ body.edit-mode .slide.active [data-edit-id]:focus {
           </div>
         </div>
       </div>
-      <div class="foot"><span>past-the-vibes-we</span><span>Use a live model. Keep independent evidence.</span></div>
     </section>
 
     <!-- 2 ▸ THE LINE -->
@@ -528,175 +511,9 @@ body.edit-mode .slide.active [data-edit-id]:focus {
         <h2 class="reveal" style="--d:140ms">An AI agent harness is the<br><span class="accent">software infrastructure around it</span>.</h2>
         <div class="support reveal" style="--d:300ms">The harness turns passive reasoning into controlled action. Its main parts are tools, an isolated execution environment, and context management.</div>
       </div>
-      <div class="foot"><span>lesson 00</span><span>This harness is a TypeScript phase pipeline.</span></div>
     </section>
 
-    <!-- 3 ▸ THE PROBLEM -->
-    <section class="slide">
-      <div class="tag"><b>Introduction</b> · the main rule</div>
-      <div class="wrap" style="gap:50px;">
-        <p class="statement reveal" style="--d:0ms"><span class="mono accent">plausible</span><br><span class="mono" style="color:var(--faint)">&ne;</span> <span class="mono blue">verified</span></p>
-        <div class="support reveal" style="--d:200ms">A model generates plausible text. Plausible text can be wrong.<br><strong>Each phase must end with an independent check.</strong></div>
-      </div>
-      <div class="foot"><span>introduction</span><span>Record this rule.</span></div>
-    </section>
-
-    <!-- 4 ▸ THE ONE SENTENCE -->
-    <section class="slide">
-      <div class="tag"><b>Introduction</b> · the security boundary</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">The model <span class="blue">proposes</span>.<br>The harness <span class="accent">controls changes</span>.</h2>
-        <div class="cols reveal" style="--d:180ms">
-          <div class="panel">
-            <h3 class="blue">Model: read-only</h3>
-            <ul>
-              <li><strong>Lists, reads, and searches</strong> the guarded app.</li>
-              <li>Returns a <strong>typed patch</strong>: <code style="font-family:var(--mono)">{summary, files}</code>.</li>
-              <li>Has no shell or write tool.</li>
-            </ul>
-          </div>
-          <div class="panel" style="border-color:var(--orange)">
-            <h3 class="accent">Harness: controls effects</h3>
-            <ul>
-              <li><strong>Writes files</strong>, runs checks, and retries.</li>
-              <li>Applies <strong>token and turn limits</strong> and commits passed work.</li>
-              <li>Records evidence, hashes, and reports.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="support reveal" style="--d:320ms"><strong>The model proposes. The harness decides.</strong> This boundary does not change.</div>
-      </div>
-      <div class="foot"><span>introduction</span><span>Keep this boundary in every phase.</span></div>
-    </section>
-
-    <!-- 5 ▸ THE PIPELINE -->
-    <section class="slide">
-      <div class="tag"><b>Introduction</b> · the complete system</div>
-      <div class="wrap" style="gap:54px;">
-        <h2 class="reveal" style="--d:0ms">One controlled loop has six phases</h2>
-        <div class="flow reveal" style="--d:160ms">
-          <div class="step"><b>ADBT MCP</b><span>the model reads Vega workflows</span></div>
-          <div class="arrow">→</div>
-          <div class="step"><b>Strands agent</b><span>read-only tools and a typed patch</span></div>
-          <div class="arrow">→</div>
-          <div class="step"><b>Harness</b><span>write → check → retry → commit</span></div>
-          <div class="arrow">→</div>
-          <div class="step"><b>Evidence</b><span>hashes, commits, checks, and reports</span></div>
-        </div>
-        <div class="codeline reveal" style="--d:320ms"><span class="b">analyze</span> → <span class="b">plan</span> → <span class="b">port</span> → <span class="o">build</span> → <span class="o">launch</span> → <span class="o">test</span>
-<span class="c">// The last three phases run a compiler, a device, and a focus contract.</span></div>
-      </div>
-      <div class="foot"><span>intro</span><span>packages/workshop-harness/src/port-pipeline.ts</span></div>
-    </section>
-
-    <!-- 6 ▸ PRACTICAL LESSON PATTERN -->
-    <section class="slide">
-      <div class="tag"><b>Introduction</b> · the practical sequence</div>
-      <div class="wrap" style="gap:38px;">
-        <h2 class="reveal" style="--d:0ms">Each lesson follows<br><span class="accent">the same practical sequence</span>.</h2>
-        <div class="lesson-layout reveal" style="--d:160ms">
-          <div class="panel">
-            <div class="codeline" style="font-size:29px; padding:24px 28px;"><span class="o">1</span> purpose     <span class="c">what the phase must do</span>
-<span class="o">2</span> harness code <span class="c">the important TypeScript</span>
-<span class="o">3</span> run         <span class="c">the command to execute</span>
-<span class="o">4</span> expect      <span class="c">the normal output</span>
-<span class="o">5</span> inspect     <span class="c">the files and transcript</span>
-<span class="o">6</span> prove       <span class="c">the independent evidence</span></div>
-          </div>
-          <img class="product-image" src="assets/pocket-cinema-android-tv.png" alt="Pocket Cinema before the Vega OS port">
-        </div>
-        <div class="support reveal" style="--d:320ms">Pocket Cinema is the product input. The workshop changes its React Native app from mobile behavior to a controlled TV flow.</div>
-      </div>
-      <div class="foot"><span>lessons 01–07</span><span>Run it. Inspect it. Prove it.</span></div>
-    </section>
-
-    <!-- 6b ▸ TRUST BOARD -->
-    <section class="slide">
-      <div class="tag"><b>Evidence</b> · claim → independent check</div>
-      <div class="wrap" style="gap:36px;">
-        <h2 class="reveal" style="--d:0ms">When the model reports completion,<br>find the <span class="accent">independent check</span>.</h2>
-        <div class="codeline reveal" style="--d:140ms"><span class="c">CLAIM</span>                      <span class="c">INDEPENDENT OBSERVER</span>
-“the port is correct”      → static + executable checks
-“it builds”                → Vega compiler + .vpkg
-“it runs”                  → two state samples + crash log
-“the remote works”         → observed focus IDs + approved plan</div>
-        <div class="support reveal" style="--d:300ms">Each lesson adds one row. Each row states the remaining limit. No single check proves all behavior.</div>
-      </div>
-      <div class="foot"><span>Keep this table visible.</span><span>plausible ≠ verified</span></div>
-    </section>
-
-    <!-- 7 ▸ LESSON 1 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 1</b> · analyze the app</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms">First, run one model call.<br>It returns a <span class="accent">plausible patch</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms">$ workshop-harness naive apps/pocket-cinema
-<span class="g">23 proposed files</span>   <span class="r">0 applied · 0 checks · 0 builds · 0 device turns</span>
-
-$ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span>
-<span class="g">✓ guarded write · check · commit · transcript</span></div>
-        <div class="support reveal" style="--d:300ms">The patch can be correct. The response does not prove it. The first phase adds a guarded write and a check.</div>
-      </div>
-      <div class="foot"><span>lesson 01 · 25 min</span><span>The model proposes. The harness writes.</span></div>
-    </section>
-
-    <!-- 8 ▸ LESSON 2 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 2</b> · plan the TV port</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Define and approve TV behavior<br><span class="accent">before code changes</span>.</h2>
-        <div class="cols reveal" style="--d:160ms">
-          <div class="panel">
-            <h3 style="color:var(--muted)">Plan inputs</h3>
-            <ul>
-              <li>The guarded app and <strong>ANALYSIS.md</strong>.</li>
-              <li>The product rules in <strong>workshop-brief.md</strong>.</li>
-              <li>Current Vega documents from <strong>ADBT MCP</strong>.</li>
-            </ul>
-          </div>
-          <div class="panel">
-            <h3 style="color:var(--muted)">Approval boundary</h3>
-            <ul>
-              <li>The schema checks screens, focus, Select, and Back.</li>
-              <li>The run ends in <strong>awaiting_approval</strong>.</li>
-              <li>Later phases require matching plan and brief hashes.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="support reveal" style="--d:320ms">Review <code>port-plan.json</code>. Then run <code>approve-plan</code>. A changed plan or brief makes the approval stale.</div>
-      </div>
-      <div class="foot"><span>lesson 02 · 30 min</span><span>ADBT supplies Vega knowledge. A person approves product behavior.</span></div>
-    </section>
-
-    <!-- 9 ▸ STRANDS -->
-    <section class="slide">
-      <div class="tag"><b>Architecture</b> · the agent runtime</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms"><span class="blue">Strands Agents SDK</span><br>runs the model and tool loop</h2>
-        <div class="cols reveal" style="--d:160ms">
-          <div class="panel">
-            <h3 class="blue">Strands supplies</h3>
-            <ul>
-              <li>The configured <strong>model and provider</strong>.</li>
-              <li><strong>Zod-typed tools</strong> and structured output.</li>
-              <li>The model loop and <strong>MCP clients</strong>.</li>
-            </ul>
-          </div>
-          <div class="panel" style="border-color:var(--orange)">
-            <h3 class="accent">The harness supplies</h3>
-            <ul>
-              <li><strong>Writes, Git, phase order, and checks.</strong></li>
-              <li>Selected project tools for each phase.</li>
-              <li>Usage records and stop conditions.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="support reveal" style="--d:300ms">The attendee selects a supported model in <code>workshop.config.json</code>. The model can propose files. The harness keeps control of effects.</div>
-      </div>
-      <div class="foot"><span>architecture</span><span>strandsagents.com</span></div>
-    </section>
-
-    <!-- 9b ▸ STRANDS SDK -->
+    <!-- 3 ▸ STRANDS SDK -->
     <section class="slide">
       <div class="tag"><b>Strands Agents SDK</b> · open-source agent toolkit</div>
       <div class="wrap" style="gap:28px;">
@@ -712,206 +529,35 @@ $ workshop-harness run apps/pocket-cinema <span class="o">--phases analyze</span
           </figure>
         </div>
       </div>
-      <div class="foot"><span>Strands runs the agent loop.</span><span>The harness controls application effects.</span></div>
     </section>
 
-    <!-- 10 ▸ ADBT -->
+    <!-- 4 ▸ POCKET CINEMA -->
     <section class="slide">
-      <div class="tag"><b>Architecture</b> · the knowledge source</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms"><span class="accent">ADBT</span> supplies current<br>Vega documents through MCP</h2>
-        <div class="cols reveal" style="--d:160ms">
-          <div class="panel">
-            <h3 style="color:var(--muted)">Knowledge through MCP</h3>
-            <ul>
-              <li>ADBT runs locally as an <strong>MCP server</strong>.</li>
-              <li>The model searches and reads <strong>Vega documents</strong>.</li>
-              <li>The harness does not contain a Vega scaffold.</li>
-            </ul>
-          </div>
-          <div class="panel">
-            <h3 style="color:var(--muted)">Recorded provenance</h3>
-            <ul>
-              <li>The run records each document name and excerpt.</li>
-              <li>The harness stores a <strong>SHA-256 hash</strong> for each read.</li>
-              <li>A phase fails when required ADBT use is missing.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="support reveal" style="--d:300ms">ADBT owns Vega knowledge. The phase prompt tells the model when to use that knowledge.</div>
-      </div>
-      <div class="foot"><span>@amazon-devices/amazon-devices-buildertools-mcp</span><span>developer.amazon.com/docs/vega</span></div>
+      <img class="app-only reveal" style="--d:0ms" src="assets/pocket-cinema-android-tv.png" alt="Pocket Cinema app">
     </section>
 
-    <!-- 11 ▸ LESSON 3 -->
+    <!-- 5 ▸ THE PIPELINE -->
     <section class="slide">
-      <div class="tag"><b>Lesson 3</b> · write the port</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">A retry must include<br><span class="accent">new failure information</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="r">✗</span> TV flow documented: VEGA_PORT.md must contain "## TV Flow"
-<span class="c">→ that exact text joins attempt 2 …</span>
-<span class="g">✓</span> ten checks pass → one commit</div>
-        <div class="support reveal" style="--d:300ms">The exact failure identifies the unmet requirement. The phase stops when checks pass, the budget ends, or the failure reaches the retry limit.</div>
-      </div>
-      <div class="foot"><span>lesson 03 · 30 min</span><span>src/port-verification.ts defines the checks.</span></div>
-    </section>
-
-    <!-- 12 ▸ LESSON 4 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 4</b> · build until it compiles</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Now the check is a <span class="accent">compiler</span></h2>
-        <div class="codeline reveal" style="--d:160ms">$ inject-build-failure workshop <span class="c"># guarded copy only</span>
-<span class="r">✗</span> src/workshop-build-break.ts(2,14): error TS2322:
-   Type 'number' is not assignable to type 'string'.
-<span class="c">→ exact diagnostic to the model → repair → complete build</span>
-<span class="g">✓</span> fresh index.hermes.bundle + installable .vpkg</div>
-        <div class="support reveal" style="--d:300ms">The phase verifies first. It calls the model only after a failed build. A successful command must also produce both required build artifacts.</div>
-      </div>
-      <div class="foot"><span>lesson 04 · 30 min</span><span>Vega SDK 0.23.9221 required for live build evidence.</span></div>
-    </section>
-
-    <!-- 13 ▸ LESSON 5 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 5</b> · run it on the device</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">A successful start command<br>does not prove <span class="accent">continued operation</span>.</h2>
-        <div class="codeline reveal" style="--d:160ms">install .vpkg → start app
-<span class="g">✓</span> running-state sample 1
-<span class="c">wait five seconds</span> → scan device log for crash signatures
-<span class="g">✓</span> running-state sample 2</div>
-        <div class="support reveal" style="--d:300ms">The harness starts or reuses the VDA. The command returns only after the dwell, crash scan, and second process check pass.</div>
-      </div>
-      <div class="foot"><span>lesson 05 · 30 min</span><span>The launch phase does not use screenshots.</span></div>
-    </section>
-
-    <!-- 14 ▸ LESSON 6 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 6</b> · test the remote</div>
-      <div class="wrap" style="gap:40px;">
-        <div style="display:grid; grid-template-columns: 1fr 420px; gap:60px; align-items:center;">
-          <div style="display:grid; gap:36px;">
-            <h2 class="reveal" style="--d:0ms">Inject a key.<br><span class="accent">Read the focused test ID.</span></h2>
-            <div class="codeline reveal" style="--d:160ms"><span class="b">inputd-cli</span> sends Down, Left, Right, Select, and Back
-<span class="b">getPageSource</span> returns the VDA user-interface hierarchy
-<span class="g">focused: true</span> + <span class="o">test_id</span> gives the observed control
-approved plan ID === observed test_id</div>
-            <div class="support reveal" style="--d:300ms">Automation Toolkit supplies each observation. The harness compares it with the approved plan without model judgment.</div>
-          </div>
-          <div class="reveal" style="--d:240ms">
-            <div class="dpad" aria-label="TV remote D-pad">
-              <span></span><button>↑</button><span></span>
-              <button>←</button><button class="ok">OK</button><button>→</button>
-              <span></span><button>↓</button><span></span>
-            </div>
-          </div>
+      <div class="tag"><b>Workshop pipeline</b> · six controlled phases</div>
+      <div class="wrap" style="gap:54px;">
+        <h2 class="reveal" style="--d:0ms">Move from the mobile app<br>to <span class="accent">verified Vega behavior</span>.</h2>
+        <div class="flow reveal" style="--d:160ms">
+          <div class="step"><b>Analyze</b><span>inspect the source app</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Plan</b><span>define TV behavior</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Port</b><span>apply approved changes</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Build</b><span>create the Vega package</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Launch</b><span>run the app on VDA</span></div>
+          <div class="arrow">→</div>
+          <div class="step"><b>Test</b><span>verify remote focus</span></div>
         </div>
       </div>
-      <div class="foot"><span>lesson 06 · 25 min</span><span>The hierarchy proves focus state, not visual focus style.</span></div>
     </section>
 
-    <!-- 15 ▸ APPROVAL HASHES -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 2</b> · approval protects later phases</div>
-      <div class="wrap" style="gap:46px;">
-        <h2 class="reveal" style="--d:0ms"><span class="accent">awaiting_approval</span><br>is the expected plan result.</h2>
-        <div class="codeline reveal" style="--d:160ms">port-plan.json              → <span class="b">plan SHA-256</span>
-workshop-brief.md           → <span class="b">brief SHA-256</span>
-approve-plan               → port-plan-approval.json
-
-port · build · launch · test → require both matching hashes</div>
-        <div class="support reveal" style="--d:300ms">Review focus, Select, Back, preserved behavior, and deferred behavior. If either input changes, approve the plan again.</div>
-      </div>
-      <div class="foot"><span>lesson 02 · human gate</span><span>Schema validity does not replace product review.</span></div>
-    </section>
-
-    <!-- 16 ▸ OPTIONAL BEE -->
-    <section class="slide">
-      <div class="tag"><b>Appendix A1</b> · 40-minute Bee challenge</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Use a Bee conversation<br>as <span class="accent">private product input</span>.</h2>
-        <div class="cols reveal" style="--d:160ms">
-          <div class="panel">
-            <h3 style="color:var(--muted)">Consent and privacy</h3>
-            <ul>
-              <li>Get <strong>explicit consent</strong>.</li>
-              <li>Keep conversation data out of Git.</li>
-              <li>Store source IDs and hashes, not transcript text.</li>
-            </ul>
-          </div>
-          <div class="panel">
-            <h3 style="color:var(--muted)">Approval and scope</h3>
-            <ul>
-              <li>Bee CLI supplies the conversation through MCP.</li>
-              <li>The model proposes a bounded specification.</li>
-              <li>A person reviews it before source changes.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="support reveal" style="--d:320ms">A conversation can contain a request. It is not approval to change the application.</div>
-      </div>
-      <div class="foot"><span>appendix A1 · challenge</span><span>github.com/bee-computer/bee-cli</span></div>
-    </section>
-
-    <!-- 16b ▸ THE SECOND PIPELINE -->
-    <section class="slide">
-      <div class="tag"><b>Appendix A1</b> · same engine, different plan</div>
-      <div class="wrap" style="gap:44px;">
-        <h2 class="reveal" style="--d:0ms">Change the phase plan.<br><span class="accent">Reuse the controlled engine.</span></h2>
-        <div class="codeline reveal" style="--d:160ms"><span class="b">bee_spec</span> → <span class="o">review</span> → <span class="b">bee_apply</span> → <span class="b">build</span> → <span class="b">launch</span>
-
-bee_spec  <span class="c">Bee MCP → validated JSON → rendered BEE_SPEC.md</span>
-review    <span class="c">person checks scope, sources, exclusions, and checks</span>
-bee_apply <span class="c">implements approved requests in the guarded app</span></div>
-        <div class="support reveal" style="--d:300ms">The approved specification files are read-only during <code>bee_apply</code>. Specification checks can use only <code>file_exists</code> and <code>contains</code>.</div>
-      </div>
-      <div class="foot"><span>appendix A1 · 40 min</span><span>The implementation cannot edit its measurement.</span></div>
-    </section>
-
-    <!-- 17 ▸ OPERATOR VIEW -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 7</b> · control the complete run</div>
-      <div class="wrap" style="gap:38px;">
-        <h2 class="reveal" style="--d:0ms">The TUI shows<br><span class="accent">the complete pipeline state</span>.</h2>
-        <div class="codeline reveal" style="--d:140ms"><span class="b">executor</span> strands   <span class="b">evidence</span> live   <span class="b">seed</span> workshop-v1
-<span class="b">tokens</span> 1,082,772 / unlimited   <span class="b">turns</span> 71   <span class="b">calls</span> 4
-<span class="g">✓ feasibility</span>  <span class="g">✓ analyze</span>  <span class="g">✓ plan</span>  <span class="g">✓ port</span>  <span class="o">● build</span>  ○ launch  ○ test
-checks: compiler failed → diagnostic retained → repair passed
-commit: 8f2c4d1 workshop(build): produce Vega package</div>
-        <div class="cols reveal" style="--d:280ms">
-          <div class="panel">
-            <h3 class="blue">Move between views</h3>
-            <ul>
-              <li><strong>Up or Down</strong> selects a phase.</li>
-              <li><strong>Enter</strong> opens its messages.</li>
-              <li><strong>Escape</strong> returns. <strong>Tab</strong> changes the filter.</li>
-            </ul>
-          </div>
-          <div class="panel" style="border-color:var(--orange)">
-            <h3 class="accent">Read usage correctly</h3>
-            <ul>
-              <li>There is no fixed dollar limit.</li>
-              <li>The token limit can be <strong>unlimited</strong>.</li>
-              <li>Provider cost appears only when reported.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="foot"><span>lesson 07 · operator view</span><span>The TUI filters evidence. It does not replace it.</span></div>
-    </section>
-
-    <!-- 18 ▸ LESSON 7 -->
-    <section class="slide">
-      <div class="tag"><b>Lesson 7</b> · TUI and team exercise</div>
-      <div class="wrap" style="gap:50px;">
-        <h2 class="reveal" style="--d:0ms">TV is the example.<br><span class="accent">The pattern applies to other domains.</span></h2>
-        <div class="codeline reveal" style="--d:160ms">plan → context → run → check → retry → commit → report</div>
-        <div class="support reveal" style="--d:300ms">Inspect feasibility and all six phases in the TUI. Then design a three-phase harness. Ask another person to find a false positive. Improve one check.</div>
-      </div>
-      <div class="foot"><span>lesson 07 · 30 min</span><span>Another team tests your check.</span></div>
-    </section>
-
-    <!-- 19 ▸ CLOSE -->
+    <!-- 6 ▸ CLOSE -->
     <section class="slide">
       <div class="wrap" style="justify-content:center; align-items:flex-start; gap:44px;">
         <div class="kicker reveal" style="--d:0ms">Fork the repository. Change the phase plan, context source, or executor.</div>
@@ -921,14 +567,13 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
         </div>
         <div class="support reveal" style="--d:400ms">Use narrow model authority, independent checks, and review gates in your domain. Giovanni Laquidara · Kourtney Meiss</div>
       </div>
-      <div class="foot"><span>Thank you.</span><span>Ask questions now or during the break.</span></div>
     </section>
 
   </div>
 </div>
 
 <div class="deck-progress" id="progress"></div>
-<div class="deck-counter" id="counter">1 / 22</div>
+<div class="deck-counter" id="counter">1 / 6</div>
 <div class="edit-hotzone" id="editHotzone" title="Edit mode (E)" aria-hidden="true"></div>
 <button class="edit-toggle" id="editToggle" type="button" title="Edit mode (E)" aria-label="Toggle edit mode" aria-pressed="false">E</button>
 <button class="edit-save" id="editSave" type="button" title="Download edited HTML (Ctrl or Command + S)" aria-label="Download edited HTML">&#8595;</button>
@@ -976,14 +621,12 @@ commit: 8f2c4d1 workshop(build): produce Vega package</div>
         "h2",
         ".support",
         ".tag",
-        ".foot > span",
         ".panel h3",
         ".panel li",
         ".flow .step b",
         ".flow .step span",
         ".codeline",
         ".chip",
-        ".statement",
         ".speaker-card span",
         "figcaption"
       ].join(",");

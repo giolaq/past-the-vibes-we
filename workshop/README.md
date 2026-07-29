@@ -95,6 +95,8 @@ Read [Strands constructs](strands-constructs.md) for the SDK details.
 7. [Control the pipeline and design your own](lessons/07-finish.md).
 
 Use [Appendix A1](lessons/A1-bee.md) only with Bee consent and access.
+Use [Appendix A2](lessons/A2-mcp-server.md) to adapt the phase engine so it
+can build and verify a small MCP server.
 
 ## Select one model path
 

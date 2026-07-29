@@ -1,103 +1,55 @@
 ---
 id: bee
 number: 'A1'
-nav: 'Challenge: Bee phase'
-time: 40 minutes
-title: 'Challenge: modify the app from a Bee conversation'
-lead: Use one consented Bee conversation as product input. Create and review a specification before a second phase can change the app.
-objective: Run the Bee specification and apply phases. Protect private conversation text and keep approval separate from implementation.
-evidence: BEE_SPEC.md contains source IDs and paraphrases. The app passes the approved checks and device phases.
+nav: 'Challenge: Bee conversation'
+time: 30 minutes
+title: 'Challenge: build something from a Bee conversation'
+lead: We will use Bee CLI or Bee MCP to turn one consented conversation into something useful.
+objective: Install Bee CLI, read one consented conversation, and use any harness implementation to create a bounded result.
+evidence: A source conversation ID, one useful result, one independent check, and no private transcript in the repository.
 ---
 
-:::welcome Add a conversation-driven phase
-The main TV port is complete.
-This challenge uses the same harness engine with a different phase plan.
+:::welcome Use a conversation as input
+The main workshop used a harness to port an app.
+In this challenge, we will use one Bee conversation as input for a new task.
 
-Bee is a wearable personal AI that captures conversations.
-The Bee CLI lets the harness search and read your Bee data through MCP.
+You can use Bee CLI directly or connect to Bee through MCP.
+You can use the workshop harness, your own harness, a script, or another agent
+framework.
 :::
 
-:::note Consent is required {warning}
-Use a live conversation only when every speaker permits this use.
-Do not use production secrets, protected customer data, or unrelated personal
-information.
-:::
+## Choose what to make
 
-## Know the challenge flow
+Select one conversation and one small result.
 
-The conversation is private context.
-It is not the approved requirement.
+| Conversation content | Possible result                        |
+| -------------------- | -------------------------------------- |
+| Product discussion   | A reviewed feature specification       |
+| Design review        | A list of decisions and open questions |
+| Planning meeting     | An action checklist with owners        |
+| User feedback        | One bounded app change                 |
+| Technical discussion | A tested example or short document     |
 
-:::flow
-Search | Find the consented conversation
-Specify | Paraphrase requests and define file checks
-Review | Check scope, sources, exclusions, and evidence
-Apply | Change the guarded app
-Verify | Run approved checks, app tests, build, and launch
-:::
+The conversation supplies context.
+It does not automatically become an approved requirement.
+Review the selected request before your harness changes files or creates an
+external action.
 
-The flow adds two phases:
-
-| Phase       | Input                                  | Output                                     |
-| ----------- | -------------------------------------- | ------------------------------------------ |
-| `bee_spec`  | Bee MCP and guarded app                | `bee-spec.json` and rendered `BEE_SPEC.md` |
-| `bee_apply` | Approved specification and guarded app | App source changes                         |
-
-The harness then reuses the normal `build` and `launch` phases.
-
-## Important harness code
-
-The Bee pipeline uses the same `runPortPipeline` engine as the TV port.
-
-:::snippet packages/workshop-harness/src/bee-pipeline.ts (simplified)
-export function beePhases(spec, appDir) {
-const port = portPhases();
-const device = ["build", "launch"].map(
-name => port.find(phase => phase.name === name),
-);
-
-return spec
-? [beeSpecPhase(), beeApplyPhase(spec, appDir), ...device]
-: [beeSpecPhase()];
-}
-
-> look: The Bee plan changes. The phase engine, build phase, and launch phase stay the same.
-> :::
-
-The apply phase protects the reviewed specification:
-
-:::snippet packages/workshop-harness/src/bee-pipeline.ts (simplified)
-{
-name: "bee_apply",
-verifyFirst: true,
-maxAttempts: 3,
-readOnly: ["bee-spec.json", "BEE_SPEC.md"],
-checks: [
-...approvedRequestChecks,
-typecheck,
-appTests,
-],
-}
-
-> look: The implementation cannot edit the requirement or its acceptance checks.
-> :::
-
-The specification can define only `file_exists` and `contains` checks.
-It cannot define a shell command.
-Every check path must stay inside the guarded app.
-
-## Prepare Bee CLI
+## Install Bee CLI
 
 Read the [Bee CLI repository](https://github.com/bee-computer/bee-cli).
-Install the current Bee mobile app.
+Install the latest Bee mobile app.
 
 Enable Developer Mode in the Bee app:
 
-1. Open Settings.
+:::steps
+
+1. Open Settings in the Bee app.
 2. Find the app version.
 3. Tap the app version five times.
+   :::
 
-Install and authenticate the CLI:
+Install Bee CLI from npm and authenticate:
 
 :::command Install and authenticate Bee CLI
 npm install -g @beeai/cli
@@ -106,166 +58,116 @@ bee login
 bee status
 :::
 
-Search for the Pocket Cinema discussion:
+The `bee status` command must confirm that you are authenticated before you
+continue.
 
-:::command Find the Pocket Cinema conversation
-bee search --query "Pocket Cinema" \
+## Find one conversation
+
+Search for a subject that you discussed:
+
+:::command Search Bee conversations
+bee search --query "<subject>" \
  --filter conversations --limit 5 --json
 :::
 
-Record the selected conversation ID in private notes.
-Do not add the search JSON to the repository.
+Select one result and read it:
 
-The harness starts `bee mcp serve` for the specification phase.
-Do not start a second MCP server.
+```sh
+bee conversations get <conversation-id> --json
+```
 
-## Configure the live model
+Record the conversation ID in your private notes.
+Do not redirect the transcript into the workshop repository.
 
-The live Bee path uses Strands.
-Set `"executor": "strands"` in `workshop.config.json`.
-Configure Bedrock, OpenAI, or OpenRouter as described in Lesson 00.
+## Choose Bee CLI or Bee MCP
 
-The Vega SDK and VDA must remain available.
-The apply command runs the normal build and launch checks.
+Both paths read the same Bee data.
 
-## Create the specification
+| Path    | How to use it                                                    |
+| ------- | ---------------------------------------------------------------- |
+| Bee CLI | Run `bee` commands from your harness and parse their JSON output |
+| Bee MCP | Let an MCP client search and read Bee through MCP tools          |
 
-`--propose` runs only `bee_spec`.
-The model searches Bee, reads the selected conversation, and returns
-`bee-spec.json`.
+### Use Bee CLI
 
-The harness validates the JSON.
-The harness renders `BEE_SPEC.md`.
-The model does not write the Markdown review document.
+Your harness can run commands such as:
 
-:::yourturn
-Run the specification phase.
-Review the paraphrases, sources, exclusions, and file checks.
-:::
+```sh
+bee search --query "<subject>" \
+ --filter conversations --limit 5 --json
+bee conversations get <conversation-id> --json
+```
 
-:::command Create the Bee specification
-yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
- --propose --run-id bee
-:::
+Keep command arguments fixed or validate them before execution.
+Do not let model text become an unrestricted shell command.
 
-:::expected
-"event":"bee_spec_ready"
-"phasesComplete":["bee_spec"]
-:::
+### Use Bee MCP
 
-## Inspect and approve the specification
+Bee CLI can connect its MCP server to a supported client:
 
-Open `out/bee/app/BEE_SPEC.md`.
+```sh
+bee mcp connect claude-code
+bee mcp connect codex
+bee mcp status
+```
+
+Run only the connector that matches your client.
+
+For your own MCP client or harness, configure it to start this local `stdio`
+server:
+
+```sh
+bee mcp serve
+```
+
+The MCP client should start and stop this process.
+Do not start a second server when the client already manages one.
+
+## Build your challenge
 
 :::steps
 
-1. Find each requested app change.
-2. Confirm that each request is a paraphrase.
-3. Find the source conversation ID.
-4. Confirm that the request has one specific file check.
-5. Read `Deliberately excluded`.
-6. Confirm that personal and unrelated information is excluded.
-7. Open `out/bee/bee-context.json`.
-8. Confirm that it contains IDs and hashes.
-9. Confirm that it contains no conversation text.
-10. Run `git -C ../../out/bee/app diff --name-only HEAD~2 HEAD`.
-11. Confirm that the result contains only specification files.
+1. Write one sentence that describes the result.
+2. Write what the task must not include.
+3. Select Bee CLI or Bee MCP.
+4. Record the source conversation ID.
+5. Give the conversation to your harness.
+6. Create one bounded result.
+7. Run one independent check.
+8. Inspect the files or output that your harness created.
+9. Confirm that the repository contains no private transcript.
+10. Explain what the conversation changed in the result.
     :::
 
-Reject the specification when a request was only an idea, a check can pass
-without the change, or a path points outside the app.
+Your harness design is your choice.
+It can use one phase or several phases.
+It can call a model or use deterministic code.
+It must keep the Bee read separate from writes and external actions.
 
-The model transcript can contain conversation text.
-Treat `out/bee/model-logs/bee_spec.jsonl` as private data.
+## Inspect the evidence
 
-## Apply the approved request
+Show these items:
 
-`--apply --yes` confirms your review and runs:
+| Evidence   | What to inspect                                          |
+| ---------- | -------------------------------------------------------- |
+| Source     | The Bee conversation ID, without transcript text         |
+| Result     | The file, app change, checklist, or other bounded output |
+| Check      | A test, schema, comparison, or human review result       |
+| Exclusions | Private or unrelated content that the result did not use |
 
-```text
-bee_apply -> build -> launch
-```
-
-The approved file checks fail before implementation.
-The failure text tells the apply model what it must change.
-The phase also requires `tsc --noEmit` and the app tests.
-
-:::yourturn
-Apply the reviewed request.
-Wait for the app checks, Vega build, and VDA launch.
-:::
-
-:::command Apply, build, and start
-yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
- --apply --yes --run-id bee
-:::
-
-:::expected
-"event":"bee_apply_complete"
-"phasesComplete":["bee_spec","bee_apply","build","launch"]
-:::
-
-## Inspect the result
-
-:::steps
-
-1. Open `out/bee/bee-result.json`.
-2. Find the `bee_apply` phase.
-3. Find each request ID in the check labels.
-4. Find the source conversation ID.
-5. Inspect the committed app source change.
-6. Confirm that `bee-spec.json` did not change.
-7. Confirm that `BEE_SPEC.md` did not change.
-8. Confirm that the type check passed.
-9. Confirm that the app tests passed.
-10. Confirm that the Vega build passed.
-11. Confirm that the launch state checks passed.
-    :::
-
-## Use the prepared conversation when necessary
-
-If you do not have Bee access or consent, use the prepared conversation.
-This path proves the phase controls.
-It does not prove a live Bee connection.
-
-Create the prepared specification:
-
-```sh
-yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --replay ../../workshop/fixtures/bee-run/port-recording.json \
-  --propose --run-id bee
-```
-
-Review `out/bee/app/BEE_SPEC.md`.
-Then, apply the prepared request:
-
-```sh
-yarn tsx src/index.ts bee-run ../../apps/pocket-cinema \
-  --replay ../../workshop/fixtures/bee-run/port-recording.json \
-  --platform-replay ../../workshop/fixtures/vega-lifecycle.json \
-  --apply --yes --run-id bee
-```
-
-`out/bee/vega-platform-result.json` has `evidenceMode: replay`.
-Do not report it as a live Bee or live device result.
+The model response alone is not completion evidence.
 
 :::proof
-claim: "A consented Bee conversation can produce a bounded app change"
-gate: "The approved request checks, app checks, build, and launch pass"
-evidence: "BEE_SPEC.md, bee-context.json, bee-result.json, and phase commits"
-limit: "A live Bee claim requires an authenticated read of a consented conversation"
-:::
-
-:::knowledge What happened?
-The Bee conversation supplied private context.
-The harness produced a review document without transcript text.
-You approved the request before the model changed the app.
-The apply phase could not change its specification or checks.
+claim: "A Bee conversation produced one bounded and useful result"
+gate: "The selected independent check passes and the repository contains no private transcript"
+evidence: "Conversation ID, result artifact, check result, and exclusions"
+limit: "A synthetic fixture does not prove a live Bee connection"
 :::
 
 :::done
-Git contains the approved `BEE_SPEC.md`.
-Each request contains a source ID.
-The excluded list contains private and unapproved content.
-`bee-result.json` reports passing apply, build, and launch phases.
+Bee CLI is installed and authenticated.
+The harness used Bee CLI or Bee MCP.
+The result identifies its source conversation ID.
+One independent check passes.
+The repository contains no private transcript.
 :::

@@ -28,20 +28,20 @@ Do not change other app modules.
 
 Use no more than three phases.
 
-| Phase | Change | Independent check |
-| --- | --- | --- |
+| Phase                   | Change                | Independent check                   |
+| ----------------------- | --------------------- | ----------------------------------- |
 | Example: migrate client | Update one API client | `./gradlew :app:compileDebugKotlin` |
-| | | |
-| | | |
+|                         |                       |                                     |
+|                         |                       |                                     |
 
 ## 3. Identify required knowledge
 
 What facts or rules does the model require?
 
 | Fact or rule | Source | Phase |
-| --- | --- | --- |
-| | | |
-| | | |
+| ------------ | ------ | ----- |
+|              |        |       |
+|              |        |       |
 
 ## 4. Define failure and retry
 
@@ -127,15 +127,15 @@ Which independent component will supply the stronger evidence?
 ## 8. Replace the TV components
 
 | TV workshop component | Your component |
-| --- | --- |
-| TV adaptation skill | |
-| Vega command adapter | |
-| Focus behavior check | |
+| --------------------- | -------------- |
+| TV adaptation skill   |                |
+| Vega command adapter  |                |
+| Focus behavior check  |                |
 
 ## 9. Prepare the 30-second report
 
-| Statement | Your answer |
-| --- | --- |
-| The harness claims | |
-| The independent evidence is | |
-| The evidence does not prove | |
+| Statement                   | Your answer |
+| --------------------------- | ----------- |
+| The harness claims          |             |
+| The independent evidence is |             |
+| The evidence does not prove |             |

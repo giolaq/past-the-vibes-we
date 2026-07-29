@@ -4,16 +4,17 @@ number: '03'
 nav: The Porting
 time: 30 minutes
 title: Run the porting and inspect the result
-lead: Apply the approved plan. The model proposes files, and the harness controls writes, checks, retries, and the phase commit.
+lead: We will apply the approved plan while the harness controls writes, checks, retries, and the phase commit.
 objective: Run the port phase. Inspect the generated Vega package, focus code, check result, model transcript, and Git commit.
 evidence: The guarded copy contains a Vega package and focus module.
 ---
 
 :::welcome Change code inside the harness boundary
 The first two phases produced documents.
-The port phase produces application code.
+Now, we will use the port phase to produce application code.
 
-The harness applies the model response and checks the result.
+The model will propose files.
+The harness will apply the model response and check the result.
 :::
 
 ## Know what the phase creates
@@ -51,8 +52,8 @@ if (failures.length === 0) {
 commitAll(appDir, `workshop(${phase.name}): ${output.summary}`);
 }
 
-> look: The model proposes complete files. The harness parses, writes, checks, and commits them.
-> :::
+>look: The model proposes complete files. The harness parses, writes, checks, and commits them.
+:::
 
 The port phase runs ten checks.
 

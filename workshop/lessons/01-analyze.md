@@ -4,14 +4,14 @@ number: '01'
 nav: Analyze the app
 time: 25 minutes
 title: Analyze the app
-lead: The analyze phase works in a copy under out/ and records the Vega documents that the model reads.
+lead: We will run the analyze phase in a copy under out/ and inspect the Vega documents that the model reads.
 objective: Run the analyze phase and inspect the output.
 evidence: An verified ANALYSIS.md file in the out/ directory.
 ---
 
 :::welcome Start with one model call
-First, run one model call without the phase controls.
-Then, run the controlled analyze phase.
+First, we will run one model call without the phase controls.
+Then, we will run the controlled analyze phase.
 
 Both commands ask a model to inspect the same app.
 Only the controlled phase uses ADBT, an independent check, and a Git commit.
@@ -91,8 +91,8 @@ label: "Portability analysis documented",
 }],
 }
 
-> look: The phase gives ADBT tools to the model. The independent check requires one section in ANALYSIS.md.
-> :::
+>look: The phase gives ADBT tools to the model. The independent check requires one section in ANALYSIS.md.
+:::
 
 The model can list, read, and search the guarded copy.
 The model has no shell tool and no file write tool.

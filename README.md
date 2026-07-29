@@ -258,6 +258,19 @@ conversation text.
 
 Read [the Bee challenge](workshop/lessons/A1-bee.md) after Lesson 07.
 
+## MCP Server Challenge
+
+The optional MCP server challenge changes the harness target.
+The harness produces a small MCP server instead of a Vega application.
+
+Attendees define one or two read-only tools, approve the tool contract, and
+use a fixed MCP client test as evidence. The challenge uses the same protected
+writes, checks, retries, commits, transcripts, and usage records as the main
+pipeline.
+
+Read [the MCP server challenge](workshop/lessons/A2-mcp-server.md) after
+Lesson 07 or the Bee challenge.
+
 ## Repository Map
 
 | Path | Contents |
