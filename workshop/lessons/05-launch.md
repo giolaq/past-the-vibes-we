@@ -4,7 +4,7 @@ number: '05'
 nav: Run it on the VDA
 time: 30 minutes
 title: Install the app and prove that runs correctly
-lead: Start or reuse a Vega Virtual Device. Install the package, start the app, wait five seconds, scan the device log, and confirm that the process is still running.
+lead: We will start or reuse a Vega Virtual Device, install the package, start the app, and check that the process stays active.
 objective: A Succesful start command of the ported app.
 evidence: The app reports running after launch and the device log contains no crash signature.
 ---
@@ -13,8 +13,9 @@ evidence: The app reports running after launch and the device log contains no cr
 A successful start command proves that the device accepted the command.
 It does not prove that the app stayed active.
 
-The launch phase checks the process immediately after start.
-It waits five seconds, reads the device log, and checks the process again.
+We will use the launch phase to check the process immediately after start.
+The phase will wait five seconds, read the device log, and check the process
+again.
 :::
 
 ## Prepare the VDA
@@ -64,8 +65,8 @@ install: ["vega", "device", "install-app", "--packagePath", packagePath],
 launch: ["vega", "device", "launch-app", "--appName", appId],
 app_status: ["vega", "device", "is-app-running", "--appName", appId],
 
-> look: The harness owns these commands. They are not model tools.
-> :::
+>look: The harness owns these commands. They are not model tools.
+:::
 
 After start, the harness records two state samples:
 
@@ -82,8 +83,8 @@ device,
 logs,
 );
 
-> look: The second sample can find an app that started and then stopped.
-> :::
+>look: The second sample can find an app that started and then stopped.
+:::
 
 The launch phase also uses `verifyFirst`.
 It calls the model only when the device checks find a repairable source

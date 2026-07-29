@@ -4,7 +4,7 @@ number: '04'
 nav: Build the ported app
 time: 30 minutes
 title: Build the Vega package and repair one compiler failure
-lead: Run a real Vega build against the guarded copy. The harness gives exact compiler diagnostics to the model only when the first build fails.
+lead: We will run a real Vega build against the guarded copy and give exact compiler diagnostics to the model only after a failed build.
 objective: Observe the verify-first build loop. Confirm that the repaired build produces a fresh Hermes bundle and an installable .vpkg package.
 evidence: A .vpkg file and a phase result that records the repaired compiler failure.
 ---
@@ -13,9 +13,9 @@ evidence: A .vpkg file and a phase result that records the repaired compiler fai
 The port checks verified files and required text.
 They did not run the Vega compiler.
 
-This lesson adds one controlled TypeScript error.
-The build phase finds the error, sends the exact diagnostic to the model, and
-runs the build again.
+In this lesson, we will add one controlled TypeScript error.
+The build phase will find the error, send the exact diagnostic to the model,
+and run the build again.
 :::
 
 :::note Prepare the Vega SDK {warning}
@@ -75,8 +75,8 @@ prompt(phase, failures),
 );
 }
 
-> look: The compiler runs before the model. A passing build uses no model call.
-> :::
+>look: The compiler runs before the model. A passing build uses no model call.
+:::
 
 The Vega adapter owns the actual commands:
 
@@ -91,8 +91,8 @@ if (!hasGeneratedBundle(appDir)) {
 blockers.push("build produced no non-empty index.hermes.bundle");
 }
 
-> look: A successful command is not enough. The harness also requires the package and JavaScript bundle.
-> :::
+>look: A successful command is not enough. The harness also requires the package and JavaScript bundle.
+:::
 
 ## Add the controlled failure
 

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "server": {
+    "name": "pocket-cinema-catalog",
+    "version": "0.1.0",
+    "transport": "stdio"
+  },
+  "dataSources": [
+    {
+      "path": "src/catalog.ts",
+      "access": "read-only"
+    }
+  ],
+  "tools": [
+    {
+      "name": "search_movies",
+      "description": "Search the local movie catalog by title.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "validExample": {
+        "arguments": {
+          "query": "Signal"
+        },
+        "expectedText": "Signal Coast"
+      },
+      "invalidExample": {
+        "arguments": {
+          "query": ""
+        }
+      },
+      "sideEffect": "none"
+    },
+    {
+      "name": "get_movie",
+      "description": "Read one movie from the local catalog by ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "validExample": {
+        "arguments": {
+          "id": "signal"
+        },
+        "expectedText": "Signal Coast"
+      },
+      "invalidExample": {
+        "arguments": {
+          "id": "missing-movie"
+        }
+      },
+      "sideEffect": "none"
+    }
+  ],
+  "exclusions": [
+    "No network access",
+    "No credentials",
+    "No catalog writes",
+    "No resources or prompts",
+    "No undeclared tools"
+  ]
+}

@@ -4,15 +4,15 @@ number: '06'
 nav: Test the remote control
 time: 25 minutes
 title: Inject remote keys and verify focus
-lead: Relaunch the app, send remote keys to the VDA, and read the focused test ID after each key. Compare each observed ID with the approved plan.
+lead: We will relaunch the app, send remote keys to the VDA, and compare the focused test ID after each key with the approved plan.
 objective: Run the complete remote-control sequence and inspect the evidence for movement, selection, list boundaries, and Back restoration.
 evidence: tv-focus-result.json contains all required focus transitions. Lesson 5 records separate lifecycle evidence.
 ---
 
 :::welcome Test behavior
-The test phase sends remote keys through software.
-After each key, it reads the focused control from the VDA user-interface
-hierarchy.
+We will use the test phase to send remote keys through software.
+After each key, the phase will read the focused control from the VDA
+user-interface hierarchy.
 :::
 
 ## Know the focus contract
@@ -68,8 +68,8 @@ detailFocusId: details.initialFocusId,
 homeFocusableIds: home.focusableIds,
 };
 
-> look: The approved plan supplies expected values. The model does not supply them during verification.
-> :::
+>look: The approved plan supplies expected values. The model does not supply them during verification.
+:::
 
 The test phase defines the device work:
 
@@ -84,8 +84,8 @@ maxAttempts: 3,
 checks: [FOCUS_TEST_CHECK, restorationCheck],
 }
 
-> look: A source repair must build, start, and pass the complete focus sequence.
-> :::
+>look: A source repair must build, start, and pass the complete focus sequence.
+:::
 
 ## Know the test sequence
 

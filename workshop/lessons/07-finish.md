@@ -4,7 +4,7 @@ number: '07'
 nav: A complete run
 time: 30 minutes
 title: Inspect every phase in the terminal user interface
-lead: Run the complete pipeline with the terminal user interface. Open each phase, read its messages, and connect the summary to the saved evidence.
+lead: We will run the complete pipeline with the terminal user interface and connect each phase summary to the saved evidence.
 objective: Use the terminal user interface to inspect phase state, model events, tools, checks, commits, usage, and device evidence.
 evidence: A reviewed six-phase run.
 ---
@@ -16,10 +16,11 @@ evidence: A reviewed six-phase run.
 
 :::welcome Read the complete pipeline
 The earlier lessons ran one phase at a time.
-This lesson runs the same six phases as one complete workflow.
+In this lesson, we will run the same six phases as one complete workflow.
 
-The terminal user interface (TUI) shows phase state and recent events.
-The JSONL transcripts remain the complete record.
+We will use the terminal user interface (TUI) to see phase state and recent
+events.
+The JSONL transcripts will remain the complete record.
 :::
 
 ## Know when the TUI appears
@@ -45,8 +46,8 @@ args.includes("--tui") &&
 !args.includes("--json") &&
 !args.includes("--detach");
 
-> look: A redirected or non-interactive command prints normal JSON instead of the TUI.
-> :::
+>look: A redirected or non-interactive command prints normal JSON instead of the TUI.
+:::
 
 The TUI also controls the two views:
 
@@ -59,8 +60,8 @@ if (key.name === "escape" && state.view === "messages") {
 state.view = "phases";
 }
 
-> look: Enter opens the selected phase. Escape returns to the phase list.
-> :::
+>look: Enter opens the selected phase. Escape returns to the phase list.
+:::
 
 ## Run analyze and plan
 
@@ -138,36 +139,6 @@ The header shows:
 | `f`                    | Follow the active phase                           |
 | `q`                    | Close a completed dashboard                       |
 
-:::steps
-
-1. Select `feasibility`.
-2. Press `Enter`.
-3. Find the dependency result.
-4. Press `Escape`.
-5. Select `analyze`.
-6. Press `Enter`.
-7. Find the ADBT document operation.
-8. Press `Escape`.
-9. Select `plan`.
-10. Press `Enter`.
-11. Find the plan checks.
-12. Press `Escape`.
-13. Select `port`.
-14. Press `Enter`.
-15. Press `Tab` until the checks filter is active.
-16. Find the port commit.
-17. Press `Escape`.
-18. Select `build`.
-19. Open its messages.
-20. Find the compiler evidence.
-21. Return to the phase list.
-22. Open `launch`.
-23. Find the two running-state checks.
-24. Open `test`.
-25. Find the focus transition result.
-26. Press `q` after the complete run passes.
-    :::
-
 ## Connect the TUI to saved evidence
 
 The TUI is a view.
@@ -197,49 +168,16 @@ Define no more than three phases.
 Give each phase one independent check.
 :::
 
-Select one task:
-
-- Upgrade one Android dependency.
-- Repair accessibility labels and focus order.
-- Replace one deprecated API.
-- Repair one intermittent test.
-
-:::steps
-
-1. Write one required result.
-2. Write three non-goals.
-3. Define no more than three ordered phases.
-4. Name the input for each phase.
-5. Give each phase one independent check.
-6. Identify the human approval point.
-7. Set an attempt limit.
-8. Set a no-progress rule.
-9. Ask another person to find one false positive.
-10. Improve the weak check.
-    :::
-
-A false positive occurs when a check accepts an incorrect result.
-
-:::proof
-claim: "The harness pattern applies outside the Vega port"
-gate: "Another person can find a false positive and improve one independent check"
-evidence: "workshop/worksheet.md"
-limit: "The worksheet is a design exercise, not a production implementation"
-:::
-
 :::knowledge What happened?
 The TUI combined phase state and transcript events in one terminal view.
 The saved files remained the evidence source.
-The team exercise applied the same control pattern to another task.
 :::
 
 :::done
 You can explain the complete run from the TUI.
-Another team can read your worksheet.
-The team can identify the pass, retry, and stop conditions.
 :::
 
 :::raw
 
-<div class="links"><a href="worksheet.md">Open the worksheet</a><a href="troubleshooting.md">Troubleshooting</a><a href="editing-guide.md">Edit the workshop</a><a href="instructor-guide.md">Instructor guide</a><button data-go-module="bee">Challenge: Bee phase</button></div>
+<div class="links"><a href="worksheet.md">Open the worksheet</a><a href="troubleshooting.md">Troubleshooting</a><a href="editing-guide.md">Edit the workshop</a><a href="instructor-guide.md">Instructor guide</a><button data-go-module="bee">Challenge: Bee conversation</button><button data-go-module="mcp-server">Challenge: build an MCP server</button></div>
 :::
